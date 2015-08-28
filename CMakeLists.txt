@@ -1,7 +1,8 @@
 cmake_minimum_required (VERSION 2.8.11)
-PROJECT (HDF5 C CXX)
+cmake_policy(SET CMP0048 NEW)
+PROJECT (HDF5 LANGUAGES C CXX VERSION 1.8.14)
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/OCMS.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/OCMS-pre.cmake)
 
 #-----------------------------------------------------------------------------
 # Instructions for use : Normal Build
@@ -876,3 +877,5 @@ endif (EXISTS "${HDF5_SOURCE_DIR}/hl" AND IS_DIRECTORY "${HDF5_SOURCE_DIR}/hl")
 configure_file (${HDF_RESOURCES_DIR}/H5pubconf.h.in ${HDF5_BINARY_DIR}/H5pubconf.h @ONLY)
 
 include (CMakeInstallation.cmake)
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/OCMS-post.cmake)

@@ -1,5 +1,6 @@
 cmake_minimum_required (VERSION 2.8.11)
-PROJECT (HDF5_SRC C CXX)
+cmake_policy(SET CMP0048 NEW)
+PROJECT (HDF5_SRC LANGUAGES C CXX VERSION 1.8.14)
 
 #-----------------------------------------------------------------------------
 # Apply Definitions to compiler in this directory and below
@@ -692,6 +693,12 @@ set_source_files_properties (${HDF5_BINARY_DIR}/H5overflow.h GENERATED)
 
 add_library (${HDF5_LIB_TARGET} ${LIB_TYPE} ${common_SRCS} ${H5_PUBLIC_HEADERS} ${H5_PRIVATE_HEADERS})
 TARGET_C_PROPERTIES (${HDF5_LIB_TARGET} " " " ")
+# work-around for LINK_LIBS because HDF5 does not pick up library paths correctly
+# if e.g. szip is external library but not system default
+if (HDF5_ENABLE_SZIP_SUPPORT)
+  message(STATUS "SZIP_FOUND=${SZIP_FOUND}, LINK_LIBS=${LINK_LIBS}, SZIP_LIBRARIES=${SZIP_LIBRARIES}, SZIP_INCLUDE_DIRS=${SZIP_INCLUDE_DIRS}")
+endif()
+# end work-around
 target_link_libraries (${HDF5_LIB_TARGET} ${LINK_LIBS})
 if (NOT WIN32)
   target_link_libraries (${HDF5_LIB_TARGET} dl)
@@ -720,7 +727,7 @@ endif (HDF5_ENABLE_DEBUG_APIS)
 #-----------------------------------------------------------------------------
 # Add file(s) to CMake Install
 #-----------------------------------------------------------------------------
-if (NOT HDF5_INSTALL_NO_DEVELOPMENT)
+#if (NOT HDF5_INSTALL_NO_DEVELOPMENT)
   install (
       FILES
           ${H5_PUBLIC_HEADERS}
@@ -729,7 +736,7 @@ if (NOT HDF5_INSTALL_NO_DEVELOPMENT)
       COMPONENT
           headers
   )
-endif (NOT HDF5_INSTALL_NO_DEVELOPMENT)
+#endif (NOT HDF5_INSTALL_NO_DEVELOPMENT)
 
 #-----------------------------------------------------------------------------
 # Add Target(s) to CMake Install for import into other projects
