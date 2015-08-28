@@ -1,6 +1,7 @@
-cmake_minimum_required (VERSION 2.8.11)
-cmake_policy(SET CMP0048 NEW)
-PROJECT (HDF5 LANGUAGES C CXX VERSION 1.8.14)
+cmake_minimum_required(VERSION 3.0)
+#cmake_policy(SET CMP0048 NEW)
+cmake_policy(SET CMP0054 OLD)
+project(HDF5 LANGUAGES C CXX VERSION 1.8.14)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/OCMS-pre.cmake)
 
@@ -424,36 +425,6 @@ if (HDF5_ENABLE_EMBEDDED_LIBINFO)
 endif (HDF5_ENABLE_EMBEDDED_LIBINFO)
 
 #-----------------------------------------------------------------------------
-# Option to allow the user to disable compiler warnings
-#-----------------------------------------------------------------------------
-option (HDF5_DISABLE_COMPILER_WARNINGS "Disable compiler warnings" OFF)
-if (HDF5_DISABLE_COMPILER_WARNINGS)
-  # MSVC uses /w to suppress warnings.  It also complains if another
-  # warning level is given, so remove it.
-  if (MSVC)
-    set (HDF5_WARNINGS_BLOCKED 1)
-    string (REGEX REPLACE "(^| )([/-])W[0-9]( |$)" " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /w")
-    string (REGEX REPLACE "(^| )([/-])W[0-9]( |$)" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /w")
-  endif (MSVC)
-  if (WIN32)
-    add_definitions (-D_CRT_SECURE_NO_WARNINGS)
-  endif (WIN32)
-  # Borland uses -w- to suppress warnings.
-  if (BORLAND)
-    set (HDF5_WARNINGS_BLOCKED 1)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w-")
-  endif (BORLAND)
-
-  # Most compilers use -w to suppress warnings.
-  if (NOT HDF5_WARNINGS_BLOCKED)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
-  endif (NOT HDF5_WARNINGS_BLOCKED)
-endif (HDF5_DISABLE_COMPILER_WARNINGS)
-
-#-----------------------------------------------------------------------------
 # CDash is configured to only allow 3000 warnings, so
 # break into groups (from the config/gnu-flags file)
 #-----------------------------------------------------------------------------
@@ -629,6 +600,36 @@ if (CMAKE_COMPILER_IS_GNUCXX)
 endif (CMAKE_COMPILER_IS_GNUCXX)
 
 #-----------------------------------------------------------------------------
+# Option to allow the user to disable compiler warnings
+#-----------------------------------------------------------------------------
+option (HDF5_DISABLE_COMPILER_WARNINGS "Disable compiler warnings" OFF)
+if (HDF5_DISABLE_COMPILER_WARNINGS)
+  # MSVC uses /w to suppress warnings.  It also complains if another
+  # warning level is given, so remove it.
+  if (MSVC)
+    set (HDF5_WARNINGS_BLOCKED 1)
+    string (REGEX REPLACE "(^| )([/-])W[0-9]( |$)" " " CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /w")
+    string (REGEX REPLACE "(^| )([/-])W[0-9]( |$)" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /w")
+  endif (MSVC)
+  if (WIN32)
+    add_definitions (-D_CRT_SECURE_NO_WARNINGS)
+  endif (WIN32)
+  # Borland uses -w- to suppress warnings.
+  if (BORLAND)
+    set (HDF5_WARNINGS_BLOCKED 1)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w-")
+  endif (BORLAND)
+
+  # Most compilers use -w to suppress warnings.
+  if (NOT HDF5_WARNINGS_BLOCKED)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w")
+  endif (NOT HDF5_WARNINGS_BLOCKED)
+endif (HDF5_DISABLE_COMPILER_WARNINGS)
+
+#-----------------------------------------------------------------------------
 # All libs/tests/examples need the main include directories
 #-----------------------------------------------------------------------------
 INCLUDE_DIRECTORIES (${HDF5_BINARY_DIR} ${HDF5_SRC_DIR} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
@@ -755,7 +756,7 @@ if (BUILD_TESTING)
   )
   enable_testing ()
   include (CTest)
-#  if (NOT HDF5_EXTERNALLY_CONFIGURED)
+  if (NOT HDF5_EXTERNALLY_CONFIGURED)
     if (EXISTS "${HDF5_SOURCE_DIR}/test" AND IS_DIRECTORY "${HDF5_SOURCE_DIR}/test")
       add_subdirectory (${HDF5_SOURCE_DIR}/tools/lib ${PROJECT_BINARY_DIR}/tools/lib)
       add_subdirectory (${HDF5_SOURCE_DIR}/test      ${PROJECT_BINARY_DIR}/test)
@@ -768,7 +769,7 @@ if (BUILD_TESTING)
         add_subdirectory (${HDF5_SOURCE_DIR}/testpar ${PROJECT_BINARY_DIR}/testpar)
       endif (EXISTS "${HDF5_SOURCE_DIR}/testpar" AND IS_DIRECTORY "${HDF5_SOURCE_DIR}/testpar")
     endif (H5_HAVE_PARALLEL)
-#  endif (NOT HDF5_EXTERNALLY_CONFIGURED)
+  endif (NOT HDF5_EXTERNALLY_CONFIGURED)
 
   option (HDF5_TEST_VFD "Execute tests with different VFDs" OFF)
   mark_as_advanced (HDF5_TEST_VFD)

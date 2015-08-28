@@ -33,7 +33,6 @@ H5_SET_LIB_OPTIONS (${HDF5_HL_F90_C_LIB_TARGET} ${HDF5_HL_F90_C_LIB_NAME} ${LIB_
 set_target_properties (${HDF5_HL_F90_C_LIB_TARGET} PROPERTIES
     FOLDER libraries/hl/fortran
     LINKER_LANGUAGE C
-    INTERFACE_INCLUDE_DIRECTORIES "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>"
 )
 
 #-----------------------------------------------------------------------------
@@ -72,7 +71,6 @@ set_global_variable (HDF5_LIBRARIES_TO_EXPORT "${HDF5_LIBRARIES_TO_EXPORT};${HDF
 H5_SET_LIB_OPTIONS (${HDF5_HL_F90_LIB_TARGET} ${HDF5_HL_F90_LIB_NAME} ${LIB_TYPE})
 set_target_properties (${HDF5_HL_F90_LIB_TARGET} PROPERTIES
     FOLDER libraries/hl/fortran
-    INTERFACE_INCLUDE_DIRECTORIES "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>"
 )
 
 #-----------------------------------------------------------------------------
@@ -122,5 +120,6 @@ if (HDF5_EXPORTED_TARGETS)
       LIBRARY DESTINATION ${HDF5_INSTALL_LIB_DIR} COMPONENT hlfortlibraries
       ARCHIVE DESTINATION ${HDF5_INSTALL_LIB_DIR} COMPONENT hlfortlibraries
       RUNTIME DESTINATION ${HDF5_INSTALL_BIN_DIR} COMPONENT hlfortlibraries
+      INCLUDES DESTINATION ${HDF5_INSTALL_INCLUDE_DIR}
   )
 endif (HDF5_EXPORTED_TARGETS)

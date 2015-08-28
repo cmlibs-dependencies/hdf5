@@ -693,12 +693,6 @@ set_source_files_properties (${HDF5_BINARY_DIR}/H5overflow.h GENERATED)
 
 add_library (${HDF5_LIB_TARGET} ${LIB_TYPE} ${common_SRCS} ${H5_PUBLIC_HEADERS} ${H5_PRIVATE_HEADERS})
 TARGET_C_PROPERTIES (${HDF5_LIB_TARGET} " " " ")
-# work-around for LINK_LIBS because HDF5 does not pick up library paths correctly
-# if e.g. szip is external library but not system default
-if (HDF5_ENABLE_SZIP_SUPPORT)
-  message(STATUS "SZIP_FOUND=${SZIP_FOUND}, LINK_LIBS=${LINK_LIBS}, SZIP_LIBRARIES=${SZIP_LIBRARIES}, SZIP_INCLUDE_DIRS=${SZIP_INCLUDE_DIRS}")
-endif()
-# end work-around
 target_link_libraries (${HDF5_LIB_TARGET} ${LINK_LIBS})
 if (NOT WIN32)
   target_link_libraries (${HDF5_LIB_TARGET} dl)
@@ -710,7 +704,8 @@ set_global_variable (HDF5_LIBRARIES_TO_EXPORT ${HDF5_LIB_TARGET})
 H5_SET_LIB_OPTIONS (${HDF5_LIB_TARGET} ${HDF5_LIB_NAME} ${LIB_TYPE})
 set_target_properties (${HDF5_LIB_TARGET} PROPERTIES
     FOLDER libraries
-    INTERFACE_INCLUDE_DIRECTORIES "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>"
+    # Using newer version!
+    #INTERFACE_INCLUDE_DIRECTORIES "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>"
 )
 
 option (HDF5_ENABLE_DEBUG_APIS "Turn on debugging in all packages" OFF)
@@ -754,5 +749,14 @@ if (HDF5_EXPORTED_TARGETS)
       LIBRARY DESTINATION ${HDF5_INSTALL_LIB_DIR} COMPONENT libraries
       ARCHIVE DESTINATION ${HDF5_INSTALL_LIB_DIR} COMPONENT libraries
       RUNTIME DESTINATION ${HDF5_INSTALL_BIN_DIR} COMPONENT libraries
+      INCLUDES DESTINATION ${HDF5_INSTALL_INCLUDE_DIR}
   )
 endif (HDF5_EXPORTED_TARGETS)
+
+# OpenCMISS additions
+if (HDF5_ENABLE_SZIP_SUPPORT)
+  target_link_libraries(${HDF5_LIB_TARGET} szip)
+endif()
+if (HDF5_ENABLE_Z_LIB_SUPPORT)
+  target_link_libraries(${HDF5_LIB_TARGET} zlib)
+endif()
