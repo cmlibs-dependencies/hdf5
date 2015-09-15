@@ -40,3 +40,7 @@ endif()
 if (BUILD_TESTS)
     set(BUILD_TESTING ON)
 endif()
+
+include(CheckStructHasMember)
+CHECK_STRUCT_HAS_MEMBER("struct tm" tm_gmtoff time.h H5_HAVE_TM_GMTOFF)
+CHECK_STRUCT_HAS_MEMBER("struct tm" __tm_gmtoff time.h H5_HAVE___TM_GMTOFF)
