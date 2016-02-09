@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1.0)
 cmake_policy(SET CMP0048 NEW)
 cmake_policy(SET CMP0054 OLD)
-project(HDF5 LANGUAGES C CXX VERSION 1.8.14)
+project(HDF5 LANGUAGES C CXX VERSION 1.8.16)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/OCMS-pre.cmake)
 
