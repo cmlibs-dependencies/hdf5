@@ -305,7 +305,7 @@ H5D__pre_write(H5D_t *dset, hbool_t direct_write, hid_t mem_type_id,
 	int      ndims = 0;
 	hsize_t  dims[H5O_LAYOUT_NDIMS];
 	hsize_t  internal_offset[H5O_LAYOUT_NDIMS];
-	int      i;
+	unsigned u;
 
         /* Get the dataset transfer property list */
         if(NULL == (plist = (H5P_genplist_t *)H5I_object(dxpl_id)))
@@ -327,16 +327,16 @@ H5D__pre_write(H5D_t *dset, hbool_t direct_write, hid_t mem_type_id,
 	if((ndims = H5S_get_simple_extent_dims(dset->shared->space, dims, NULL)) < 0)
 	    HGOTO_ERROR(H5E_DATASPACE, H5E_CANTGET, FAIL, "can't retrieve dataspace extent dims")
 
-	for(i = 0; i < ndims; i++) {
+	for(u = 0; u < ndims; u++) {
 	    /* Make sure the offset doesn't exceed the dataset's dimensions */
-            if(direct_offset[i] > dims[i])
+            if(direct_offset[u] > dims[u])
 		HGOTO_ERROR(H5E_DATASPACE, H5E_BADTYPE, FAIL, "offset exceeds dimensions of dataset")
 
             /* Make sure the offset fall right on a chunk's boundary */
-	    if(direct_offset[i] % dset->shared->layout.u.chunk.dim[i])
+	    if(direct_offset[u] % dset->shared->layout.u.chunk.dim[u])
 		HGOTO_ERROR(H5E_DATASPACE, H5E_BADTYPE, FAIL, "offset doesn't fall on chunks's boundary")
 
-	    internal_offset[i] = direct_offset[i]; 
+	    internal_offset[u] = direct_offset[u]; 
 	} /* end for */
 	   
 	/* Terminate the offset with a zero */ 
@@ -414,7 +414,7 @@ H5D__read(H5D_t *dataset, hid_t mem_type_id, const H5S_t *mem_space,
         mem_space = file_space;
     if((snelmts = H5S_GET_SELECT_NPOINTS(mem_space)) < 0)
 	HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "dst dataspace has invalid selection")
-    H5_ASSIGN_OVERFLOW(nelmts,snelmts,hssize_t,hsize_t);
+    H5_CHECKED_ASSIGN(nelmts, hsize_t, snelmts, hssize_t);
 
     /* Fill the DXPL cache values for later use */
     if(H5D__get_dxpl_cache(dxpl_id, &dxpl_cache) < 0)
@@ -427,7 +427,8 @@ H5D__read(H5D_t *dataset, hid_t mem_type_id, const H5S_t *mem_space,
 
 #ifdef H5_HAVE_PARALLEL
     /* Collective access is not permissible without a MPI based VFD */
-    if(dxpl_cache->xfer_mode == H5FD_MPIO_COLLECTIVE && !IS_H5FD_MPI(dataset->oloc.file))
+    if(dxpl_cache->xfer_mode == H5FD_MPIO_COLLECTIVE && 
+       !(H5F_HAS_FEATURE(dataset->oloc.file, H5FD_FEAT_HAS_MPI)))
         HGOTO_ERROR(H5E_DATASET, H5E_UNSUPPORTED, FAIL, "collective access for MPI-based drivers only")
 #endif /*H5_HAVE_PARALLEL*/
 
@@ -646,7 +647,7 @@ H5D__write(H5D_t *dataset, hid_t mem_type_id, const H5S_t *mem_space,
 
     /* Various MPI based checks */
 #ifdef H5_HAVE_PARALLEL
-    if(IS_H5FD_MPI(dataset->oloc.file)) {
+    if(H5F_HAS_FEATURE(dataset->oloc.file, H5FD_FEAT_HAS_MPI)) {
         /* If MPI based VFD is used, no VL datatype support yet. */
         /* This is because they use the global heap in the file and we don't */
         /* support parallel access of that yet */
@@ -683,7 +684,7 @@ H5D__write(H5D_t *dataset, hid_t mem_type_id, const H5S_t *mem_space,
 
     if((snelmts = H5S_GET_SELECT_NPOINTS(mem_space)) < 0)
 	HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "src dataspace has invalid selection")
-    H5_ASSIGN_OVERFLOW(nelmts, snelmts, hssize_t, hsize_t);
+    H5_CHECKED_ASSIGN(nelmts, hsize_t, snelmts, hssize_t);
 
     /* Make certain that the number of elements in each selection is the same */
     if(nelmts != (hsize_t)H5S_GET_SELECT_NPOINTS(file_space))
@@ -889,7 +890,7 @@ const
 
 #ifdef H5_HAVE_PARALLEL
     /* Determine if the file was opened with an MPI VFD */
-    io_info->using_mpi_vfd = IS_H5FD_MPI(dset->oloc.file);
+    io_info->using_mpi_vfd = H5F_HAS_FEATURE(dset->oloc.file, H5FD_FEAT_HAS_MPI);
 #endif /* H5_HAVE_PARALLEL */
 
     FUNC_LEAVE_NOAPI(SUCCEED)

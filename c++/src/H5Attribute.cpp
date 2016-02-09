@@ -28,6 +28,7 @@
 #include "H5AbstractDs.h"
 #include "H5FaccProp.h"
 #include "H5FcreatProp.h"
+#include "H5OcreatProp.h"
 #include "H5DcreatProp.h"
 #include "H5CommonFG.h"
 #include "H5DataType.h"
@@ -45,6 +46,7 @@ namespace H5 {
 #endif
 
 class H5_DLLCPP H5Object;  // forward declaration for UserData4Aiterate
+
 //--------------------------------------------------------------------------
 // Function:	Attribute default constructor
 ///\brief	Default constructor: Creates a stub attribute
@@ -74,7 +76,8 @@ Attribute::Attribute(const Attribute& original) : AbstractDs(), IdComponent()
 //--------------------------------------------------------------------------
 Attribute::Attribute(const hid_t existing_id) : AbstractDs(), IdComponent()
 {
-   id = existing_id;
+    id = existing_id;
+    incRefCount(); // increment number of references to this id
 }
 
 //--------------------------------------------------------------------------
@@ -270,8 +273,9 @@ DataSpace Attribute::getSpace() const
    // If the dataspace id is valid, create and return the DataSpace object
    if( dataspace_id > 0 )
    {
-      DataSpace dataspace( dataspace_id );
-      return( dataspace );
+	DataSpace dataspace;
+	f_DataSpace_setId(&dataspace, dataspace_id);
+	return(dataspace);
    }
    else
    {
@@ -392,10 +396,12 @@ H5std_string Attribute::getName() const
 //--------------------------------------------------------------------------
 H5std_string Attribute::getName(size_t len) const
 {
-   H5std_string attr_name;
-   ssize_t name_size = getName(attr_name, len);
-   return(attr_name);
-   // let caller catch exception if any
+    H5std_string attr_name;
+    ssize_t name_size = getName(attr_name, len);
+    if (name_size < 0)
+	return("");
+    else
+	return(attr_name);
 }
 
 //--------------------------------------------------------------------------
@@ -606,6 +612,7 @@ void Attribute::p_read_variable_len(const DataType& mem_type, H5std_string& strg
     HDfree(strg_C);
 }
 
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
 //--------------------------------------------------------------------------
 // Function:    Attribute::p_setId
 ///\brief       Sets the identifier of this object to a new value.
@@ -630,6 +637,7 @@ void Attribute::p_setId(const hid_t new_id)
    // reset object's id to the given id
    id = new_id;
 }
+#endif // DOXYGEN_SHOULD_SKIP_THIS
 
 //--------------------------------------------------------------------------
 // Function:	Attribute::close

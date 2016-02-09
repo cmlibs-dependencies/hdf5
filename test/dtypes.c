@@ -65,8 +65,8 @@
         FAIL_STACK_ERROR                                                       \
     if((NMEMBS) != H5I_nmembers(H5I_DATATYPE)) {                               \
         H5_FAILED();                                                           \
-        printf("    #dtype ids expected: %d; found: %d\n", NMEMBS,             \
-            H5I_nmembers(H5I_DATATYPE));                                       \
+        printf("    #dtype ids expected: %lld; found: %lld\n",                 \
+               (long long)NMEMBS, (long long)H5I_nmembers(H5I_DATATYPE));      \
         goto error;                                                            \
     }
 
@@ -688,8 +688,9 @@ test_compound_2(void)
     const hsize_t	four = 4;
     unsigned char	*buf=NULL, *orig=NULL, *bkg=NULL;
     hid_t		st=-1, dt=-1;
-    hid_t       array_dt;
-    int			i, nmembs;
+    hid_t               array_dt;
+    int64_t		nmembs;
+    int			i;
 
     TESTING("compound element reordering");
 
@@ -809,8 +810,9 @@ test_compound_3(void)
     const hsize_t	four = 4;
     unsigned char	*buf=NULL, *orig=NULL, *bkg=NULL;
     hid_t		st=-1, dt=-1;
-    hid_t       array_dt;
-    int			i, nmembs;
+    hid_t               array_dt;
+    int64_t		nmembs;
+    int			i;
 
     TESTING("compound subset conversions");
 
@@ -931,8 +933,9 @@ test_compound_4(void)
     const hsize_t	four = 4;
     unsigned char	*buf=NULL, *orig=NULL, *bkg=NULL;
     hid_t		st=-1, dt=-1;
-    hid_t       array_dt;
-    int			i, nmembs;
+    hid_t               array_dt;
+    int64_t		nmembs;
+    int			i;
 
     TESTING("compound element shrinking & reordering");
 
@@ -1160,7 +1163,8 @@ test_compound_6(void)
     const size_t	nelmts = NTESTELEM;
     unsigned char	*buf=NULL, *orig=NULL, *bkg=NULL;
     hid_t		st=-1, dt=-1;
-    int			i, nmembs;
+    int64_t		nmembs;
+    int			i;
 
     TESTING("compound element growing");
 
@@ -3004,7 +3008,7 @@ test_compound_16(void)
     if(H5Fget_obj_ids(file, H5F_OBJ_DATATYPE, (size_t)2, open_dtypes) < 0) TEST_ERROR
     if(open_dtypes[1]) {
         H5_FAILED(); AT();
-        printf("    H5Fget_obj_ids returned as second id: %d; expected: 0\n", open_dtypes[1]);
+        printf("    H5Fget_obj_ids returned as second id: %lld; expected: 0\n", (long long)open_dtypes[1]);
         goto error;
     }
 
@@ -3229,11 +3233,7 @@ test_compound_18(void)
 
     /* Open Generated File */
     /* (generated with gen_bad_compound.c) */
-#ifdef H5_VMS
-    if((file = H5Fopen(TESTFILE, H5F_ACC_RDONLY, H5P_DEFAULT)) < 0) FAIL_STACK_ERROR
-#else
     if((file = H5Fopen(testfile, H5F_ACC_RDONLY, H5P_DEFAULT)) < 0) FAIL_STACK_ERROR
-#endif
 
     /* Try to open the datatype */
     H5E_BEGIN_TRY {
@@ -3545,6 +3545,7 @@ test_transient (hid_t fapl)
     static hsize_t	ds_size[2] = {10, 20};
     hid_t		file=-1, type=-1, space=-1, dset=-1, t2=-1;
     char		filename[1024];
+    hid_t		ret_id;		/* Generic hid_t return value	*/
     herr_t		status;
 
     TESTING("transient datatypes");
@@ -3579,9 +3580,9 @@ test_transient (hid_t fapl)
 
     /* It should not be possible to create an attribute for a transient type */
     H5E_BEGIN_TRY {
-	status = H5Acreate2(type, "attr1", H5T_NATIVE_INT, space, H5P_DEFAULT, H5P_DEFAULT);
+	ret_id = H5Acreate2(type, "attr1", H5T_NATIVE_INT, space, H5P_DEFAULT, H5P_DEFAULT);
     } H5E_END_TRY;
-    if (status>=0) {
+    if (ret_id>=0) {
 	H5_FAILED();
 	HDputs ("    Attributes should not be allowed for transient types!");
 	goto error;
@@ -4809,10 +4810,10 @@ test_bitfield_funcs(void)
  *-------------------------------------------------------------------------
  */
 static herr_t
-convert_opaque(hid_t UNUSED st, hid_t UNUSED dt, H5T_cdata_t *cdata,
-	       size_t UNUSED nelmts, size_t UNUSED buf_stride,
-               size_t UNUSED bkg_stride, void UNUSED *_buf,
-	       void UNUSED *bkg, hid_t UNUSED dset_xfer_plid)
+convert_opaque(hid_t H5_ATTR_UNUSED st, hid_t H5_ATTR_UNUSED dt, H5T_cdata_t *cdata,
+	       size_t H5_ATTR_UNUSED nelmts, size_t H5_ATTR_UNUSED buf_stride,
+               size_t H5_ATTR_UNUSED bkg_stride, void H5_ATTR_UNUSED *_buf,
+	       void H5_ATTR_UNUSED *bkg, hid_t H5_ATTR_UNUSED dset_xfer_plid)
 {
     if (H5T_CONV_CONV==cdata->command) num_opaque_conversions_g++;
     return 0;
@@ -5143,6 +5144,7 @@ test_encode(void)
     size_t      enum_buf_size = 0;
     size_t      vlstr_buf_size = 0;
     unsigned char       *cmpd_buf=NULL, *enum_buf=NULL, *vlstr_buf=NULL;
+    hid_t	ret_id;
     herr_t      ret;
 
     TESTING("functions of encoding and decoding datatypes");
@@ -5243,9 +5245,9 @@ test_encode(void)
 
     /* Try decoding bogus buffer */
     H5E_BEGIN_TRY {
-	ret = H5Tdecode(cmpd_buf);
+	ret_id = H5Tdecode(cmpd_buf);
     } H5E_END_TRY;
-    if(ret!=FAIL) {
+    if(ret_id!=FAIL) {
         H5_FAILED();
         printf("Decoded bogus buffer!\n");
         goto error;
@@ -5866,8 +5868,8 @@ typedef struct {
 } except_info_t;
 
 static H5T_conv_ret_t
-conv_except(H5T_conv_except_t except_type, hid_t UNUSED src_id, hid_t UNUSED dst_id,
-    void UNUSED *src_buf, void UNUSED *dst_buf, void *_user_data)
+conv_except(H5T_conv_except_t except_type, hid_t H5_ATTR_UNUSED src_id, hid_t H5_ATTR_UNUSED dst_id,
+    void H5_ATTR_UNUSED *src_buf, void H5_ATTR_UNUSED *dst_buf, void *_user_data)
 {
     except_info_t *user_data = (except_info_t *)_user_data;
 
@@ -6527,6 +6529,135 @@ error:
     } H5E_END_TRY;
     if(tag_ret)
         H5free_memory(tag_ret);
+    return 1;
+} /* end test_named_indirect_reopen() */
+
+/*-------------------------------------------------------------------------
+ * Function:	test_named_indirect_reopen_file
+ *
+ * Purpose:	Tests that a named compound datatype that refers to a named
+ *          string datatype can be reopened indirectly through H5Dget_type,
+ *          and shows the correct H5Tcommitted() state, including after the
+ *          file has been closed and reopened.
+ *
+ * Return:	Success:	0
+ *
+ *		Failure:	number of errors
+ *
+ * Programmer:	Mark Hodson
+ *              Tuesday, March 17, 2015
+ *
+ * Modifications:
+ *
+ *-------------------------------------------------------------------------
+ */
+static int
+test_named_indirect_reopen_file(hid_t fapl)
+{
+    hid_t file=-1, space=-1, cmptype=-1, reopened_cmptype=-1, strtype=-1, reopened_strtype=-1, dset=-1;
+    static hsize_t dims[1] = {3};
+    size_t strtype_size, cmptype_size;
+    char filename[1024];
+
+    TESTING("indirectly reopening recursively committed datatypes including file reopening");
+
+    /* PREPARATION */
+
+    /* Create file, dataspace */
+    h5_fixname(FILENAME[1], fapl, filename, sizeof filename);
+    if((file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, fapl)) < 0) TEST_ERROR
+    if((space = H5Screate_simple(1, dims, dims)) < 0) TEST_ERROR
+
+    /* Create string type */
+    if((strtype = H5Tcopy(H5T_C_S1)) < 0) TEST_ERROR
+    if(H5Tset_size(strtype, H5T_VARIABLE) < 0) TEST_ERROR
+
+    /* Get size of string type */
+    if((strtype_size = H5Tget_size(strtype)) == 0) TEST_ERROR
+
+    /* Commit compound type and verify the size doesn't change */
+    if(H5Tcommit2(file, "str_type", strtype, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) < 0) TEST_ERROR
+    if(strtype_size != H5Tget_size(strtype)) TEST_ERROR
+
+    /* Create compound type */
+    if((cmptype = H5Tcreate(H5T_COMPOUND, sizeof(char *))) < 0) TEST_ERROR
+    if(H5Tinsert(cmptype, "vlstr", (size_t)0, strtype) < 0) TEST_ERROR
+
+    /* Get size of compound type */
+    if((cmptype_size = H5Tget_size(cmptype)) == 0) TEST_ERROR
+
+    /* Commit compound type and verify the size doesn't change */
+    if(H5Tcommit2(file, "cmp_type", cmptype, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) < 0) TEST_ERROR
+    if(cmptype_size != H5Tget_size(cmptype)) TEST_ERROR
+
+    /* Create dataset with compound type */
+    if((dset = H5Dcreate2(file, "cmp_dset", cmptype, space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)) < 0) TEST_ERROR
+
+    /* Close original types */
+    if(H5Tclose(strtype) < 0) TEST_ERROR
+    if(H5Tclose(cmptype) < 0) TEST_ERROR
+
+    /* CHECK DATA TYPES WHILE STILL HOLDING THE FILE OPEN */
+
+    /* Indirectly reopen compound type, verify that they report as committed, and the size doesn't change */
+    if((reopened_cmptype = H5Dget_type(dset)) < 0) TEST_ERROR
+    if(cmptype_size != H5Tget_size(reopened_cmptype)) TEST_ERROR
+    if(H5Tcommitted(reopened_cmptype) != 1) TEST_ERROR
+
+    /* Indirectly reopen string type, verify that they report as committed, and the size doesn't change */
+    if((reopened_strtype = H5Tget_member_type(reopened_cmptype, 0)) < 0) TEST_ERROR
+    if(strtype_size != H5Tget_size(reopened_strtype)) TEST_ERROR
+    if(H5Tcommitted(reopened_strtype) != 1) TEST_ERROR 
+
+    /* Close types and dataset */
+    if(H5Tclose(reopened_strtype) < 0) TEST_ERROR
+    if(H5Tclose(reopened_cmptype) < 0) TEST_ERROR
+    if(H5Dclose(dset) < 0) TEST_ERROR
+
+    /* CHECK DATA TYPES AFTER REOPENING THE SAME FILE */
+
+    /* Close file */
+     if(H5Fclose(file) < 0) TEST_ERROR
+
+    /* Reopen file */
+    if((file = H5Fopen(filename, H5F_ACC_RDWR, fapl)) < 0) TEST_ERROR
+
+    /* Reopen dataset */
+    if((dset = H5Dopen2(file, "cmp_dset", H5P_DEFAULT)) < 0) TEST_ERROR
+
+    /* Indirectly reopen compound type, verify that they report as committed, and the size doesn't change */
+    if((reopened_cmptype = H5Dget_type(dset)) < 0) TEST_ERROR
+    if(cmptype_size != H5Tget_size(reopened_cmptype)) TEST_ERROR
+    if(H5Tcommitted(reopened_cmptype) != 1) TEST_ERROR
+
+    /* Indirectly reopen string type, verify that they report as committed, and the size doesn't change */
+    if((reopened_strtype = H5Tget_member_type(reopened_cmptype, 0)) < 0) TEST_ERROR
+    if(strtype_size != H5Tget_size(reopened_strtype)) TEST_ERROR
+    /*if(H5Tcommitted(reopened_strtype) != 1) TEST_ERROR */
+
+    /* Close types and dataset */
+    if(H5Tclose(reopened_strtype) < 0) TEST_ERROR
+    if(H5Tclose(reopened_cmptype) < 0) TEST_ERROR
+    if(H5Dclose(dset) < 0) TEST_ERROR
+
+    /* DONE */
+
+    /* Close file and dataspace */
+    if(H5Sclose(space) < 0) TEST_ERROR
+    if(H5Fclose(file) < 0) TEST_ERROR
+    PASSED();
+    return 0;
+
+error:
+    H5E_BEGIN_TRY {
+	H5Tclose(cmptype);
+	H5Tclose(strtype);
+	H5Tclose(reopened_cmptype);
+        H5Tclose(reopened_strtype);
+	H5Sclose(space);
+	H5Dclose(dset);
+	H5Fclose(file);
+    } H5E_END_TRY;
     return 1;
 } /* end test_named_indirect_reopen() */
 
@@ -7284,10 +7415,9 @@ main(void)
     nerrors += test_latest();
     nerrors += test_int_float_except();
     nerrors += test_named_indirect_reopen(fapl);
-#ifndef H5_CANNOT_OPEN_TWICE
+    nerrors += test_named_indirect_reopen_file(fapl);
     nerrors += test_delete_obj_named(fapl);
     nerrors += test_delete_obj_named_fileid(fapl);
-#endif /*H5_CANNOT_OPEN_TWICE*/
     nerrors += test_set_order_compound(fapl);
     nerrors += test_str_create();
 #ifndef H5_NO_DEPRECATED_SYMBOLS
@@ -7295,7 +7425,6 @@ main(void)
 #endif /* H5_NO_DEPRECATED_SYMBOLS */
     h5_cleanup(FILENAME, fapl); /*must happen before first reset*/
     reset_hdf5();
-
     nerrors += test_conv_str_1();
     nerrors += test_conv_str_2();
     nerrors += test_conv_str_3();
@@ -7323,7 +7452,6 @@ main(void)
     nerrors += test_opaque();
     nerrors += test_set_order();
     nerrors += test_utf_ascii_conv();
-
     if(nerrors) {
         printf("***** %lu FAILURE%s! *****\n",
                nerrors, 1==nerrors?"":"S");

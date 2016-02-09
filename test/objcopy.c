@@ -2315,7 +2315,7 @@ test_copy_dataset_compound(hid_t fcpl_src, hid_t fcpl_dst, hid_t src_fapl, hid_t
 #endif /* H5_CLEAR_MEMORY */
     for(i = 0; i < DIM_SIZE_1; i++) {
         buf[i].a = i;
-        buf[i].d = 1. / (i + 1);
+        buf[i].d = 1.0F / (i + 1);
     } /* end for */
 
     /* Initialize the filenames */
@@ -2447,9 +2447,9 @@ test_copy_dataset_chunked(hid_t fcpl_src, hid_t fcpl_dst, hid_t src_fapl, hid_t 
 
     /* set initial data values */
     for(i = 0; i < DIM_SIZE_1; i++) {
-        buf1d[i] = (float)(i / 2.0);
+        buf1d[i] = (float)(i / 2.0F);
         for(j = 0; j < DIM_SIZE_2; j++)
-            buf2d[i][j] = (float)(i + (j / 100.0));
+            buf2d[i][j] = (float)(i + (j / 100.0F));
     } /* end for */
 
     /* Initialize the filenames */
@@ -2790,9 +2790,9 @@ test_copy_dataset_chunked_sparse(hid_t fcpl_src, hid_t fcpl_dst, hid_t src_fapl,
 
     /* set initial data values */
     for(i = 0; i < DIM_SIZE_1; i++) {
-        buf1d[i] = (float)(i / 10.0);
+        buf1d[i] = (float)(i / 10.0F);
         for(j = 0; j < DIM_SIZE_2; j++)
-            buf2d[i][j] = (float)(i + (j / 100.0));
+            buf2d[i][j] = (float)(i + (j / 100.0F));
     } /* end for */
 
     /* Initialize the filenames */
@@ -2985,7 +2985,7 @@ test_copy_dataset_compressed(hid_t fcpl_src, hid_t fcpl_dst, hid_t src_fapl, hid
     /* set initial data values */
     for (i=0; i<DIM_SIZE_1; i++)
         for (j=0; j<DIM_SIZE_2; j++)
-            buf[i][j] = (float)(100.0);         /* Something easy to compress */
+            buf[i][j] = 100.0F;         /* Something easy to compress */
 
     /* Initialize the filenames */
     h5_fixname(FILENAME[0], src_fapl, src_filename, sizeof src_filename);
@@ -3114,7 +3114,7 @@ test_copy_dataset_compact(hid_t fcpl_src, hid_t fcpl_dst, hid_t src_fapl, hid_t 
     /* set initial data values */
     for (i=0; i<DIM_SIZE_1; i++)
         for (j=0; j<DIM_SIZE_2; j++)
-            buf[i][j] = (float)(i+j/100.0);
+            buf[i][j] = (float)(i+j/100.0F);
 
     /* Initialize the filenames */
     h5_fixname(FILENAME[0], src_fapl, src_filename, sizeof src_filename);
@@ -7599,7 +7599,7 @@ test_copy_dataset_contig_cmpd_vl(hid_t fcpl_src, hid_t fcpl_dst, hid_t src_fapl,
         buf[i].b.p = (int *)HDmalloc(buf[i].b.len * sizeof(int));
         for(j = 0; j < buf[i].b.len; j++)
             ((int *)buf[i].b.p)[j] = (int)(i * 10 + j);
-        buf[i].c = 1. / (i + 1.);
+        buf[i].c = 1.0F / (i + 1.0F);
     } /* end for */
 
     /* Initialize the filenames */
@@ -7738,7 +7738,7 @@ test_copy_dataset_chunked_cmpd_vl(hid_t fcpl_src, hid_t fcpl_dst, hid_t src_fapl
         buf[i].b.p = (int *)HDmalloc(buf[i].b.len * sizeof(int));
         for(j = 0; j < buf[i].b.len; j++)
             ((int *)buf[i].b.p)[j] = (int)(i * 10 + j);
-        buf[i].c = 1. / (i + 1.);
+        buf[i].c = 1.0F / (i + 1.0F);
     } /* end for */
 
     /* Initialize the filenames */
@@ -7883,7 +7883,7 @@ test_copy_dataset_compact_cmpd_vl(hid_t fcpl_src, hid_t fcpl_dst, hid_t src_fapl
         buf[i].b.p = (int *)HDmalloc(buf[i].b.len * sizeof(int));
         for(j = 0; j < buf[i].b.len; j++)
             ((int *)buf[i].b.p)[j] = (int)(i * 10 + j);
-        buf[i].c = 1. / (i + 1.);
+        buf[i].c = 1.0F / (i + 1.0F);
     } /* end for */
 
     /* Initialize the filenames */
@@ -11457,7 +11457,7 @@ error:
  */
 static herr_t
 test_copy_iterate_cb(hid_t loc_id, const char *name,
-    const H5L_info_t UNUSED *link_info, void *op_data)
+    const H5L_info_t H5_ATTR_UNUSED *link_info, void *op_data)
 {
     hid_t dst_loc_id = *((hid_t *)op_data);
 
@@ -12284,9 +12284,7 @@ main(void)
         nerrors += test_copy_group_wide_loop(fcpl_src, fcpl_dst, src_fapl, dst_fapl);
         nerrors += test_copy_group_links(fcpl_src, fcpl_dst, src_fapl, dst_fapl);
         nerrors += test_copy_soft_link(fcpl_src, fcpl_dst, src_fapl, dst_fapl);
-#ifndef H5_CANNOT_OPEN_TWICE
         nerrors += test_copy_ext_link(fcpl_src, fcpl_dst, src_fapl, dst_fapl);
-#endif /* H5_CANNOT_OPEN_TWICE */
         nerrors += test_copy_exist(fcpl_src, fcpl_dst, src_fapl, dst_fapl);
         nerrors += test_copy_path(fcpl_src, fcpl_dst, src_fapl, dst_fapl);
 
