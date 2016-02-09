@@ -1,5 +1,6 @@
-cmake_minimum_required (VERSION 3.1.0)
-PROJECT (HDF5_SRC C CXX)
+cmake_minimum_required(VERSION 3.1.0)
+PROJECT (HDF5_SRC LANGUAGES C CXX VERSION 1.8.16)
+cmake_policy(SET CMP0048 NEW)
 
 #-----------------------------------------------------------------------------
 # Apply Definitions to compiler in this directory and below
@@ -704,7 +705,8 @@ set_global_variable (HDF5_LIBRARIES_TO_EXPORT ${HDF5_LIB_TARGET})
 H5_SET_LIB_OPTIONS (${HDF5_LIB_TARGET} ${HDF5_LIB_NAME} STATIC)
 set_target_properties (${HDF5_LIB_TARGET} PROPERTIES
     FOLDER libraries
-    INTERFACE_INCLUDE_DIRECTORIES "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>"
+    # Using newer version!
+    #INTERFACE_INCLUDE_DIRECTORIES "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>"
 )
 
 option (HDF5_ENABLE_DEBUG_APIS "Turn on debugging in all packages" OFF)
@@ -753,7 +755,7 @@ endif (BUILD_SHARED_LIBS)
 #-----------------------------------------------------------------------------
 # Add file(s) to CMake Install
 #-----------------------------------------------------------------------------
-if (NOT HDF5_INSTALL_NO_DEVELOPMENT)
+#if (NOT HDF5_INSTALL_NO_DEVELOPMENT)
   install (
       FILES
           ${H5_PUBLIC_HEADERS}
@@ -762,7 +764,7 @@ if (NOT HDF5_INSTALL_NO_DEVELOPMENT)
       COMPONENT
           headers
   )
-endif (NOT HDF5_INSTALL_NO_DEVELOPMENT)
+#endif (NOT HDF5_INSTALL_NO_DEVELOPMENT)
 
 #-----------------------------------------------------------------------------
 # Add Target(s) to CMake Install for import into other projects
@@ -781,5 +783,14 @@ if (HDF5_EXPORTED_TARGETS)
       ARCHIVE DESTINATION ${HDF5_INSTALL_LIB_DIR} COMPONENT libraries
       RUNTIME DESTINATION ${HDF5_INSTALL_BIN_DIR} COMPONENT libraries
       FRAMEWORK DESTINATION ${HDF5_INSTALL_FWRK_DIR} COMPONENT libraries
+      INCLUDES DESTINATION ${HDF5_INSTALL_INCLUDE_DIR}
   )
 endif (HDF5_EXPORTED_TARGETS)
+
+# OpenCMISS additions
+if (HDF5_ENABLE_SZIP_SUPPORT)
+  target_link_libraries(${HDF5_LIB_TARGET} szip)
+endif()
+if (HDF5_ENABLE_Z_LIB_SUPPORT)
+  target_link_libraries(${HDF5_LIB_TARGET} zlib)
+endif()
