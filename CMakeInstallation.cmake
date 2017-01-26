@@ -15,13 +15,13 @@ endif (WIN32)
 #-----------------------------------------------------------------------------
 # Add file(s) to CMake Install
 #-----------------------------------------------------------------------------
-if (NOT HDF5_INSTALL_NO_DEVELOPMENT)
+#if (NOT HDF5_INSTALL_NO_DEVELOPMENT)
   install (
-      FILES ${PROJECT_BINARY_DIR}/H5pubconf.h
+      FILES ${HDF5_PUB_CONF_H}
       DESTINATION ${HDF5_INSTALL_INCLUDE_DIR}
       COMPONENT headers
   )
-endif (NOT HDF5_INSTALL_NO_DEVELOPMENT)
+#endif (NOT HDF5_INSTALL_NO_DEVELOPMENT)
 
 #-----------------------------------------------------------------------------
 # Add Target(s) to CMake Install for import into other projects

@@ -833,7 +833,8 @@ endif (EXISTS "${HDF5_SOURCE_DIR}/c++" AND IS_DIRECTORY "${HDF5_SOURCE_DIR}/c++"
 #-----------------------------------------------------------------------------
 # Generate the H5pubconf.h file containing user settings needed by compilation
 #-----------------------------------------------------------------------------
-configure_file (${HDF_RESOURCES_DIR}/H5pubconf.h.in ${HDF5_BINARY_DIR}/H5pubconf.h @ONLY)
+set(HDF5_PUB_CONF_H ${HDF5_BINARY_DIR}/H5pubconf.h)
+configure_file (${HDF_RESOURCES_DIR}/H5pubconf.h.in ${HDF5_PUB_CONF_H} @ONLY)
 
 include (CMakeInstallation.cmake)
 
