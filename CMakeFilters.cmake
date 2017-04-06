@@ -69,7 +69,6 @@ if (HDF5_ENABLE_Z_LIB_SUPPORT)
   endif (BUILD_SHARED_LIBS) 
   set (LINK_LIBS ${LINK_LIBS} ${ZLIB_STATIC_LIBRARY})
   INCLUDE_DIRECTORIES (${ZLIB_INCLUDE_DIRS})
-  message (STATUS "Filter ZLIB is ON")
 endif (HDF5_ENABLE_Z_LIB_SUPPORT)
 
 #-----------------------------------------------------------------------------
