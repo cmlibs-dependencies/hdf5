@@ -5,7 +5,7 @@ if (HDF5_EXTERNALLY_CONFIGURED)
         COMPONENT configinstall
     )
     include(CMakePackageConfigHelpers)
-    WRITE_BASIC_PACKAGE_VERSION_FILE(${CMAKE_CURRENT_BINARY_DIR}/hdf5-config-version.cmake
+    WRITE_BASIC_PACKAGE_VERSION_FILE(${HDF5_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${HDF5_PACKAGE}${HDF_PACKAGE_EXT}-config-version.cmake
         COMPATIBILITY AnyNewerVersion)
     install(
         FILES ${HDF5_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${HDF5_PACKAGE}${HDF_PACKAGE_EXT}-config-version.cmake
