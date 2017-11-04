@@ -21,10 +21,10 @@ if (HDF5_EXTERNALLY_CONFIGURED)
 	    "set(${PROJECT_NAME}_IMPORT_PREFIX \${_IMPORT_PREFIX})\r\n"
     )
 	if(ZLIB_FOUND AND ZLIB_USE_EXTERNAL)
-		file(APPEND ${HDF5_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${HDF5_PACKAGE}${HDF_PACKAGE_EXT}-config-dependencies.cmake "find_dependency(ZLIB)\r\n")
+		file(APPEND ${HDF5_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${HDF5_PACKAGE}${HDF_PACKAGE_EXT}-config-dependencies.cmake "set(ZLIB_FIND_SYSTEM ${ZLIB_FIND_SYSTEM})\r\nfind_dependency(ZLIB)\r\n")
 	endif()
 	if(SZIP_FOUND AND SZIP_USE_EXTERNAL)
-		file(APPEND ${HDF5_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${HDF5_PACKAGE}${HDF_PACKAGE_EXT}-config-dependencies.cmake "find_dependency(SZIP)\r\n")
+		file(APPEND ${HDF5_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${HDF5_PACKAGE}${HDF_PACKAGE_EXT}-config-dependencies.cmake "set(SZIP_FIND_SYSTEM ${SZIP_FIND_SYSTEM})\r\nfind_dependency(SZIP)\r\n")
 	endif()
 	file(APPEND ${HDF5_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${HDF5_PACKAGE}${HDF_PACKAGE_EXT}-config-dependencies.cmake "set(_IMPORT_PREFIX \${${PROJECT_NAME}_IMPORT_PREFIX})")    
     install (
