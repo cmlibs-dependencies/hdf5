@@ -340,12 +340,21 @@ Java_hdf_hdf5lib_H5_H5Dvlen_1reclaim
     (JNIEnv *env, jclass clss, jlong type_id, jlong space_id,
           jlong xfer_plist_id, jbyteArray buf)
 {
+#ifndef H5_NO_DEPRECATED_SYMBOLS
     jboolean  vlenBufIsCopy;
     jbyte    *vlenBuf = NULL;
+#endif
     herr_t    status = FAIL;
 
     UNUSED(clss);
 
+#ifdef H5_NO_DEPRECATED_SYMBOLS
+    UNUSED(type_id);
+    UNUSED(space_id);
+    UNUSED(xfer_plist_id);
+    UNUSED(buf);
+    H5_UNIMPLEMENTED(ENVONLY, "H5Dvlen_reclaim: not implemented");
+#else
     if (NULL == buf)
         H5_NULL_ARGUMENT_ERROR(ENVONLY, "H5Dvlen_reclaim: buffer is NULL");
 
@@ -353,10 +362,13 @@ Java_hdf_hdf5lib_H5_H5Dvlen_1reclaim
 
     if ((status = H5Dvlen_reclaim((hid_t)type_id, (hid_t)space_id, (hid_t)xfer_plist_id, vlenBuf)) < 0)
         H5_LIBRARY_ERROR(ENVONLY);
+#endif
 
 done:
+#ifndef H5_NO_DEPRECATED_SYMBOLS
     if (vlenBuf)
         UNPIN_BYTE_ARRAY(ENVONLY, buf, vlenBuf, (status < 0) ? JNI_ABORT : 0);
+#endif
 
     return (jint)status;
 } /* end Java_hdf_hdf5lib_H5_H5Dvlen_1reclaim */
@@ -1172,7 +1184,7 @@ H5DreadVL_str
 
     /*
      * When repeatedly reading a dataset with a large number of strs (e.g., 1,000,000 strings),
-     * H5Dvlen_reclaim() may crash on Windows because the Java GC will not be able to collect
+     * H5Treclaim() may crash on Windows because the Java GC will not be able to collect
      * free space in time. Instead, we use "H5free_memory(strs[i])" to free individual strings
      * once done.
      */
@@ -1230,7 +1242,7 @@ H5DreadVL_asstr
 
         if (mem_space == H5S_ALL) {
             /*
-             * Retrieve a valid dataspace for H5Dvlen_reclaim().
+             * Retrieve a valid dataspace for H5Treclaim().
              */
             if ((mem_space = H5Dget_space(did)) < 0)
                 H5_LIBRARY_ERROR(ENVONLY);
@@ -1285,7 +1297,7 @@ done:
     if (h5str.s)
         h5str_free(&h5str);
     if (readBuf) {
-        H5Dvlen_reclaim(tid, mem_space, xfer_plist_id, readBuf);
+        H5Treclaim(tid, mem_space, xfer_plist_id, readBuf);
         HDfree(readBuf);
     }
     if (close_mem_space)
@@ -1504,7 +1516,7 @@ H5DwriteVL_asstr
 
         if (mem_space == H5S_ALL) {
             /*
-             * Retrieve a valid dataspace for H5Dvlen_reclaim().
+             * Retrieve a valid dataspace for H5Treclaim().
              */
             if ((mem_space = H5Dget_space(did)) < 0)
                 H5_LIBRARY_ERROR(ENVONLY);
@@ -1565,7 +1577,7 @@ done:
     if (utf8)
         UNPIN_JAVA_STRING(ENVONLY, obj, utf8);
     if (writeBuf) {
-        H5Dvlen_reclaim(tid, mem_space, xfer_plist_id, writeBuf);
+        H5Treclaim(tid, mem_space, xfer_plist_id, writeBuf);
         HDfree(writeBuf);
     }
     if (close_mem_space)
@@ -1618,7 +1630,7 @@ Java_hdf_hdf5lib_H5_H5Dread_1reg_1ref
         jlong dataset_id, jlong mem_type_id, jlong mem_space_id,
         jlong file_space_id, jlong xfer_plist_id, jobjectArray buf)
 {
-    hdset_reg_ref_t *ref_data = NULL;
+    H5R_ref_t       *ref_data = NULL;
     h5str_t          h5str;
     jstring          jstr;
     jsize            i, n;
@@ -1633,7 +1645,7 @@ Java_hdf_hdf5lib_H5_H5Dread_1reg_1ref
         H5_BAD_ARGUMENT_ERROR(ENVONLY, "H5Dread_reg_ref: buf length < 0");
     }
 
-    if (NULL == (ref_data = (hdset_reg_ref_t *) HDcalloc(1, (size_t)n * sizeof(hdset_reg_ref_t))))
+    if (NULL == (ref_data = (H5R_ref_t *) HDcalloc(1, (size_t)n * sizeof(H5R_ref_t))))
         H5_OUT_OF_MEMORY_ERROR(ENVONLY, "H5Dread_reg_ref: failed to allocate read buffer");
 
     if ((status = H5Dread((hid_t)dataset_id, (hid_t)mem_type_id, (hid_t)mem_space_id, (hid_t)file_space_id, xfer_plist_id, ref_data)) < 0)
@@ -1647,7 +1659,7 @@ Java_hdf_hdf5lib_H5_H5Dread_1reg_1ref
     for (i = 0; i < n; i++) {
         h5str.s[0] = '\0';
 
-        if (!h5str_sprintf(ENVONLY, &h5str, (hid_t)dataset_id, (hid_t)mem_type_id, &ref_data[i], 0, 0))
+        if (!h5str_sprintf(ENVONLY, &h5str, (hid_t)dataset_id, (hid_t)mem_type_id, (void*)&ref_data[i], 0, 0))
             CHECK_JNI_EXCEPTION(ENVONLY, JNI_FALSE);
 
         if (NULL == (jstr = ENVPTR->NewStringUTF(ENVONLY, h5str.s)))

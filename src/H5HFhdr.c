@@ -15,7 +15,7 @@
  *
  * Created:		H5HFhdr.c
  *			Apr 10 2006
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@ncsa.uiuc.edu>
  *
  * Purpose:		Heap header routines for fractal heaps.
  *
@@ -101,6 +101,7 @@ H5FL_DEFINE_STATIC(H5HF_hdr_t);
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 21 2006
  *
  *-------------------------------------------------------------------------
@@ -144,6 +145,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 21 2006
  *
  *-------------------------------------------------------------------------
@@ -198,6 +200,7 @@ H5HF_hdr_compute_free_space(H5HF_hdr_t *hdr, unsigned iblock_row)
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 12 2006
  *
  *-------------------------------------------------------------------------
@@ -236,6 +239,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 12 2006
  *
  *-------------------------------------------------------------------------
@@ -290,6 +294,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 21 2006
  *
  *-------------------------------------------------------------------------
@@ -327,6 +332,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 21 2006
  *
  *-------------------------------------------------------------------------
@@ -515,6 +521,7 @@ done:
  * Return:	Pointer to indirect block on success, NULL on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		May  5 2010
  *
  *-------------------------------------------------------------------------
@@ -564,6 +571,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 27 2006
  *
  *-------------------------------------------------------------------------
@@ -599,6 +607,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 27 2006
  *
  *-------------------------------------------------------------------------
@@ -637,6 +646,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Oct  1 2006
  *
  *-------------------------------------------------------------------------
@@ -664,6 +674,7 @@ H5HF_hdr_fuse_incr(H5HF_hdr_t *hdr)
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Oct  1 2006
  *
  *-------------------------------------------------------------------------
@@ -692,6 +703,7 @@ H5HF_hdr_fuse_decr(H5HF_hdr_t *hdr)
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 27 2006
  *
  *-------------------------------------------------------------------------
@@ -729,6 +741,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May  9 2006
  *
  *-------------------------------------------------------------------------
@@ -766,6 +779,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Apr 10 2006
  *
  *-------------------------------------------------------------------------
@@ -806,6 +820,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 23 2006
  *
  *-------------------------------------------------------------------------
@@ -836,6 +851,7 @@ H5HF_hdr_inc_alloc(H5HF_hdr_t *hdr, size_t alloc_size)
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 30 2006
  *
  *-------------------------------------------------------------------------
@@ -873,6 +889,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 31 2006
  *
  *-------------------------------------------------------------------------
@@ -909,6 +926,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Apr  3 2006
  *
  *-------------------------------------------------------------------------
@@ -960,6 +978,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 14 2006
  *
  *-------------------------------------------------------------------------
@@ -1138,6 +1157,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 23 2006
  *
  *-------------------------------------------------------------------------
@@ -1177,6 +1197,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 31 2006
  *
  *-------------------------------------------------------------------------
@@ -1321,6 +1342,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 17 2006
  *
  *-------------------------------------------------------------------------
@@ -1372,6 +1394,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Oct 27 2009
  *
  *-------------------------------------------------------------------------
@@ -1413,6 +1436,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Jan  5 2007
  *
  *-------------------------------------------------------------------------

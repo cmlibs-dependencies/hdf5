@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Neil Fortner
+ * Programmer:  Neil Fortner <nfortne2@hdfgroup.org>
  *              Thursday, July  15, 2010
  *
  * Purpose:     Creates a file with non-default sizes of lengths and addresses.

@@ -11,7 +11,7 @@
  * help@hdfgroup.org.                                                        *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/* Programmer:  Quincey Koziol
+/* Programmer:  Quincey Koziol <koziol@ncsa.uiuc.edu>
  *              Wednesday, July 9, 2003
  *
  * Purpose:	Global Heap object debugging functions.
@@ -77,6 +77,7 @@
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Mar 27, 1998
  *
  *-------------------------------------------------------------------------

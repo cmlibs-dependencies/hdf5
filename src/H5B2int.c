@@ -15,7 +15,7 @@
  *
  * Created:		H5B2int.c
  *			Feb 27 2006
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@ncsa.uiuc.edu>
  *
  * Purpose:		Internal routines for managing v2 B-trees.
  *
@@ -57,7 +57,7 @@
 /********************/
 /* Local Prototypes */
 /********************/
-static herr_t H5B2__update_child_flush_depends(H5B2_hdr_t *hdr,
+static herr_t H5B2__update_child_flush_depends(H5B2_hdr_t *hdr, 
     unsigned depth, const H5B2_node_ptr_t *node_ptrs, unsigned start_idx,
     unsigned end_idx, void *old_parent, void *new_parent);
 
@@ -97,6 +97,7 @@ H5FL_SEQ_EXTERN(H5B2_node_info_t);
  *              record to locate is greater than all records to search).
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb  3 2005
  *
  *-------------------------------------------------------------------------
@@ -140,6 +141,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 28 2006
  *
  *-------------------------------------------------------------------------
@@ -334,6 +336,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb  3 2005
  *
  *-------------------------------------------------------------------------
@@ -411,6 +414,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb  9 2005
  *
  *-------------------------------------------------------------------------
@@ -654,6 +658,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb  9 2005
  *
  *-------------------------------------------------------------------------
@@ -1027,6 +1032,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar  4 2005
  *
  *-------------------------------------------------------------------------
@@ -1189,6 +1195,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar  4 2005
  *
  *-------------------------------------------------------------------------
@@ -1430,6 +1437,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Dec 23 2015
  *
  *-------------------------------------------------------------------------
@@ -1489,6 +1497,7 @@ done:
  * Return:	Value from callback, non-negative on success, negative on error
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb 11 2005
  *
  *-------------------------------------------------------------------------
@@ -1603,6 +1612,7 @@ done:
  * Return:	Value from callback, non-negative on success, negative on error
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar  9 2005
  *
  *-------------------------------------------------------------------------
@@ -1747,7 +1757,7 @@ H5B2__create_flush_depend(H5AC_info_t *parent_entry, H5AC_info_t *child_entry)
     herr_t ret_value = SUCCEED;         /* Return value */
 
     FUNC_ENTER_NOAPI_NOINIT
-
+    
     /* Sanity check */
     HDassert(parent_entry);
     HDassert(child_entry);
@@ -1769,6 +1779,7 @@ done:
  * Return:      SUCCEED/FAIL
  *
  * Programmer:  Quincey Koziol
+ *		koziol@lbl.gov
  *		Dec  1 2016
  *
  *-------------------------------------------------------------------------
@@ -1783,7 +1794,7 @@ H5B2__update_flush_depend(H5B2_hdr_t *hdr, unsigned depth,
     herr_t ret_value = SUCCEED;         /* Return value */
 
     FUNC_ENTER_PACKAGE
-
+    
     /* Sanity checks */
     HDassert(hdr);
     HDassert(depth > 0);
@@ -1866,20 +1877,21 @@ done:
  * Return:      SUCCEED/FAIL
  *
  * Programmer:  Quincey Koziol
+ *		koziol@lbl.gov
  *		Dec  1 2016
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
 H5B2__update_child_flush_depends(H5B2_hdr_t *hdr, unsigned depth,
-    const H5B2_node_ptr_t *node_ptrs, unsigned start_idx, unsigned end_idx,
+    const H5B2_node_ptr_t *node_ptrs, unsigned start_idx, unsigned end_idx, 
     void *old_parent, void *new_parent)
 {
     unsigned u;                         /* Local index variable */
     herr_t ret_value = SUCCEED;         /* Return value */
 
     FUNC_ENTER_STATIC
-
+    
     /* Sanity checks */
     HDassert(hdr);
     HDassert(depth > 1);
@@ -1917,7 +1929,7 @@ H5B2__destroy_flush_depend(H5AC_info_t *parent_entry, H5AC_info_t *child_entry)
     herr_t ret_value = SUCCEED;         /* Return value */
 
     FUNC_ENTER_NOAPI_NOINIT
-
+    
     /* Sanity check */
     HDassert(parent_entry);
     HDassert(child_entry);

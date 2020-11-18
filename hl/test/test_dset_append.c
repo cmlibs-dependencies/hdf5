@@ -11,6 +11,10 @@
  * help@hdfgroup.org.                                                        *
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "h5hltest.h"
 #include "H5DOpublic.h"
 

@@ -15,7 +15,7 @@
  *
  * Created:     H5FScache.c
  *              May  2 2006
- *              Quincey Koziol
+ *              Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:     Implement file free space metadata cache methods.
  *
@@ -85,7 +85,7 @@ static void *H5FS__cache_hdr_deserialize(const void *image, size_t len,
 static herr_t H5FS__cache_hdr_image_len(const void *thing, size_t *image_len);
 static herr_t H5FS__cache_hdr_pre_serialize(H5F_t *f, void *thing, haddr_t addr,
     size_t len, haddr_t *new_addr, size_t *new_len, unsigned *flags);
-static herr_t H5FS__cache_hdr_serialize(const H5F_t *f, void *image,
+static herr_t H5FS__cache_hdr_serialize(const H5F_t *f, void *image, 
     size_t len, void *thing);
 static herr_t H5FS__cache_hdr_notify(H5AC_notify_action_t action, void *thing);
 static herr_t H5FS__cache_hdr_free_icr(void *thing);
@@ -163,6 +163,7 @@ const H5AC_class_t H5AC_FSPACE_SINFO[1] = {{
  * Return:      Non-negative on success/Negative on failure
  *
  * Programmer:  Quincey Koziol
+ *              koziol@hdfgroup.org
  *              August 14, 2013
  *
  *-------------------------------------------------------------------------
@@ -234,12 +235,13 @@ H5FS__cache_hdr_verify_chksum(const void *_image, size_t len, void H5_ATTR_UNUSE
  *		Failure:	NULL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		August 18 2013
  *
  *-------------------------------------------------------------------------
  */
 static void *
-H5FS__cache_hdr_deserialize(const void *_image, size_t H5_ATTR_NDEBUG_UNUSED len, void *_udata,
+H5FS__cache_hdr_deserialize(const void *_image, size_t H5_ATTR_NDEBUG_UNUSED len, void *_udata, 
     hbool_t H5_ATTR_UNUSED *dirty)
 {
     H5FS_t		*fspace = NULL; /* Free space header info */
@@ -301,8 +303,8 @@ H5FS__cache_hdr_deserialize(const void *_image, size_t H5_ATTR_NDEBUG_UNUSED len
     /* Expand percent */
     UINT16DECODE(image, fspace->expand_percent);
 
-    /* Size of address space free space sections are within
-     * (log2 of actual value)
+    /* Size of address space free space sections are within 
+     * (log2 of actual value) 
      */
     UINT16DECODE(image, fspace->max_sect_addr);
 
@@ -348,6 +350,7 @@ done:
  * Return:      Non-negative on success/Negative on failure
  *
  * Programmer:  Quincey Koziol
+ *              koziol@hdfgroup.org
  *              August 14, 2013
  *
  *-------------------------------------------------------------------------
@@ -375,20 +378,20 @@ H5FS__cache_hdr_image_len(const void *_thing, size_t *image_len)
 /*-------------------------------------------------------------------------
  * Function:	H5FS__cache_hdr_pre_serialize
  *
- * Purpose:	The free space manager header contains the address, size, and
+ * Purpose:	The free space manager header contains the address, size, and 
  *		allocation size of the free space manager section info.  However,
  *		since it is possible for the section info to either not be allocated
  *		at all, or be allocated in temporary (AKA imaginary) files space,
  *		it is possible for the above mentioned fields to contain giberish
  *		when the free space manager header is serialized.
  *
- *		This function exists to prevent this problem.  It does so by
+ *		This function exists to prevent this problem.  It does so by 
  *		forcing allocation of real file space for the section information.
  *
  *		Note that in the Version 2 cache, this problem was dealt with by
  *		simply flushing the section info before flushing the header.  This
- *		was possible, since the clients handled file I/O directly.  As
- *		this responsibility has moved to the cache in Version 3, this
+ *		was possible, since the clients handled file I/O directly.  As 
+ *		this responsibility has moved to the cache in Version 3, this 
  *		solution is no longer directly applicable.
  *
  * Return:	Success:	SUCCEED
@@ -399,9 +402,9 @@ H5FS__cache_hdr_image_len(const void *_thing, size_t *image_len)
  *
  *-------------------------------------------------------------------------
  */
-static herr_t
+static herr_t 
 H5FS__cache_hdr_pre_serialize(H5F_t *f, void *_thing,
-    haddr_t addr, size_t H5_ATTR_UNUSED len, haddr_t H5_ATTR_NDEBUG_UNUSED *new_addr,
+    haddr_t addr, size_t H5_ATTR_UNUSED len, haddr_t H5_ATTR_NDEBUG_UNUSED *new_addr, 
     size_t H5_ATTR_NDEBUG_UNUSED *new_len, unsigned *flags)
 {
     H5FS_t 	*fspace = (H5FS_t *)_thing;     /* Pointer to the object */
@@ -430,23 +433,23 @@ H5FS__cache_hdr_pre_serialize(H5F_t *f, void *_thing,
         /* Set the ring type for the section info in the API context */
         H5AC_set_ring(ring, &orig_ring);
 
-        /* This implies that the header "owns" the section info.
+        /* This implies that the header "owns" the section info.  
          *
-         * Unfortunately, the comments in the code are not clear as to
+         * Unfortunately, the comments in the code are not clear as to 
          * what this means, but from reviewing the code (most particularly
-         * H5FS_close(), H5FS_sinfo_lock, and H5FS_sinfo_unlock()), I
-         * gather that it means that the header is maintaining a pointer to
-         * an instance of H5FS_sinfo_t in which free space data is
+         * H5FS_close(), H5FS_sinfo_lock, and H5FS_sinfo_unlock()), I 
+         * gather that it means that the header is maintaining a pointer to 
+         * an instance of H5FS_sinfo_t in which free space data is 
          * maintained, and either:
          *
          * 1) The instance of H5FS_sinfo_t is not in the metadata cache.
          *
-         *    This will be TRUE iff H5F_addr_defined(fspace->sect_addr)
+         *    This will be TRUE iff H5F_addr_defined(fspace->sect_addr) 
          *    is FALSE, and fspace->sinfo is not NULL.  This is sometimes
          *    referred to as "floating" section info in the comments.
          *
-         *    If the section info structure contains free space data
-         *    that must be placed on disk eventually, then
+         *    If the section info structure contains free space data 
+         *    that must be placed on disk eventually, then 
          *
          *        fspace->serial_sect_count > 0
          *
@@ -455,57 +458,57 @@ H5FS__cache_hdr_pre_serialize(H5F_t *f, void *_thing,
          *        H5F_addr_defined(fspace->addr)
          *
          *    will both be TRUE.  If this contition does not hold, then
-         *    either the free space info is not persistent
-         *    (!H5F_addr_defined(fspace->addr)???) or the section info
-         *    contains no free space data that must be written to file
+         *    either the free space info is not persistent 
+         *    (!H5F_addr_defined(fspace->addr)???) or the section info 
+         *    contains no free space data that must be written to file 
          *    ( fspace->serial_sect_count == 0 ).
          *
          * 2) The instance of H5FS_sinfo_t is in the metadata cache with
          *    address in temporary file space (AKA imaginary file space).
-         *    The entry may or may not be protected, and if protected, it
-         *    may be protected either RW or RO (as indicated by
+         *    The entry may or may not be protected, and if protected, it 
+         *    may be protected either RW or RO (as indicated by 
          *    fspace->sinfo_protected and  fspace->sinfo_accmod).
          *
          * 3) The instance of H5FS_sinfo_t is in the metadata cache with
          *    address in real file space.  As in case 2) above, the entry
-         *    may or may not be protected, and if protected, it
-         *    may be protected either RW or RO (as indicated by
+         *    may or may not be protected, and if protected, it 
+         *    may be protected either RW or RO (as indicated by 
          *    fspace->sinfo_protected and  fspace->sinfo_accmod).
          *
-         * Observe that fspace->serial_sect_count > 0 must be TRUE in
-         * cases 2) and 3), as the section info should not be stored on
+         * Observe that fspace->serial_sect_count > 0 must be TRUE in 
+         * cases 2) and 3), as the section info should not be stored on 
          * disk if it doesn't exist.  Similarly, since the section info
-         * will not be stored to disk unless the header is,
+         * will not be stored to disk unless the header is, 
          * H5F_addr_defined(fspace->addr) must hold as well.
          *
          * As the objective is to touch up the free space manager header
-         * so that it contains sensical data on the size and location of
+         * so that it contains sensical data on the size and location of 
          * the section information, we have to handle each of the above
          * cases differently.
          *
-         * Case 1) If either fspace->serial_sect_count == 0 or
-         *         ! H5F_addr_defined(fspace->addr) do nothing as either
-         *         the free space manager data is not persistent, or the
+         * Case 1) If either fspace->serial_sect_count == 0 or 
+         *         ! H5F_addr_defined(fspace->addr) do nothing as either 
+         *         the free space manager data is not persistent, or the 
          *         section info is empty.
          *
          *         Otherwise, allocate space for the section info in real
-         *         file space, insert the section info at this location, and
-         *         set fspace->sect_addr, fspace->sect_size, and
+         *         file space, insert the section info at this location, and 
+         *         set fspace->sect_addr, fspace->sect_size, and 
          *         fspace->alloc_sect_size to reflect the new location
          *         of the section info.  Note that it is not necessary to
          *         force a write of the section info.
          *
          * Case 2) Allocate space for the section info in real file space,
-         *         and tell the metadata cache to relocate the entry.
-         *         Update fspace->sect_addr, fspace->sect_size, and
+         *         and tell the metadata cache to relocate the entry.  
+         *         Update fspace->sect_addr, fspace->sect_size, and 
          *         fspace->alloc_sect_size to reflect the new location.
          *
          * Case 3) Nothing to be done in this case, although it is useful
          *         to perform sanity checks.
          *
-         * Note that while we may alter the contents of the free space
-         * header in cases 1) and 2), there is no need to mark the header
-         * as dirty, as the metadata cache would not be attempting to
+         * Note that while we may alter the contents of the free space 
+         * header in cases 1) and 2), there is no need to mark the header 
+         * as dirty, as the metadata cache would not be attempting to 
          * serialize the header if it thought it was clean.
          */
         if(fspace->serial_sect_count > 0 && H5F_addr_defined(fspace->addr)) {
@@ -514,14 +517,36 @@ H5FS__cache_hdr_pre_serialize(H5F_t *f, void *_thing,
 
             if(!H5F_addr_defined(fspace->sect_addr)) { /* case 1 */
                 haddr_t tag = HADDR_UNDEF;
+                haddr_t sect_addr;
+                hsize_t saved_sect_size, new_sect_size;
 
                 /* allocate file space for the section info, and insert it
                  * into the metadata cache.
                  */
-                if(HADDR_UNDEF == (fspace->sect_addr = H5MF_alloc((H5F_t *)f, H5FD_MEM_FSPACE_SINFO, fspace->sect_size)))
+                saved_sect_size = fspace->sect_size;
+                if(HADDR_UNDEF == (sect_addr = H5MF_alloc((H5F_t *)f, H5FD_MEM_FSPACE_SINFO, fspace->sect_size)))
                     HGOTO_ERROR(H5E_FSPACE, H5E_NOSPACE, FAIL, "file allocation failed for free space sections")
 
-                fspace->alloc_sect_size = (size_t)fspace->sect_size;
+                /* fspace->sect_size may change in size after H5MF_alloc().
+                 * If increased in size, free the previous allocation and
+                 * allocate again with the bigger fspace->sect_size.
+                 */
+                if(fspace->sect_size > saved_sect_size) {
+
+                    new_sect_size = fspace->sect_size;
+
+                    if(H5MF_xfree(f, H5FD_MEM_FSPACE_SINFO, sect_addr, saved_sect_size) < 0)
+                        HGOTO_ERROR(H5E_FSPACE, H5E_CANTFREE, FAIL, "unable to free free space sections")
+
+                    if(HADDR_UNDEF == (sect_addr = H5MF_alloc((H5F_t *)f, H5FD_MEM_FSPACE_SINFO, new_sect_size)))
+                        HGOTO_ERROR(H5E_FSPACE, H5E_NOSPACE, FAIL, "file allocation failed for free space sections")
+                    fspace->sect_size = new_sect_size;
+                    fspace->alloc_sect_size = new_sect_size;
+                } else {
+                    fspace->alloc_sect_size = saved_sect_size;
+                    fspace->sect_size = saved_sect_size;
+                }
+                fspace->sect_addr = sect_addr;
 
                 /* Get the tag for this free space manager and use it to insert the entry */
                 if(H5AC_get_tag((const void *)fspace, &tag) < 0)
@@ -533,7 +558,7 @@ H5FS__cache_hdr_pre_serialize(H5F_t *f, void *_thing,
 
                 HDassert(fspace->sinfo->cache_info.size == fspace->alloc_sect_size);
 
-                /* the metadata cache is now managing the section info,
+                /* the metadata cache is now managing the section info, 
                  * so set fspace->sinfo to NULL.
                  */
                 fspace->sinfo = NULL;
@@ -582,15 +607,14 @@ H5FS__cache_hdr_pre_serialize(H5F_t *f, void *_thing,
         } /* end else */
     } /* end if */
     else if(H5F_addr_defined(fspace->sect_addr)) {
-        /* Here the metadata cache is managing the section info.
+        /* Here the metadata cache is managing the section info.  
          *
-         * Do some sanity checks, and then test to see if the section
-         * info is in real file space.  If it isn't relocate it into
-         * real file space lest the header be written to file with
+         * Do some sanity checks, and then test to see if the section 
+         * info is in real file space.  If it isn't relocate it into 
+         * real file space lest the header be written to file with 
          * a nonsense section info address.
          */
         if(!H5F_POINT_OF_NO_RETURN(f)) {
-            HDassert(fspace->serial_sect_count > 0);
             HDassert(fspace->sect_size > 0);
             HDassert(fspace->alloc_sect_size == (size_t)fspace->sect_size);
         } /* end if */
@@ -599,12 +623,12 @@ H5FS__cache_hdr_pre_serialize(H5F_t *f, void *_thing,
             unsigned sect_status = 0;
             haddr_t new_sect_addr;
 
-            /* we have work to do -- must relocate section info into
+            /* we have work to do -- must relocate section info into 
              * real file space.
              *
              * Since the section info address is in temporary space (AKA
-             * imaginary space), it follows that the entry must be in
-             * cache.  Further, since fspace->sinfo is NULL, it must be
+             * imaginary space), it follows that the entry must be in 
+             * cache.  Further, since fspace->sinfo is NULL, it must be 
              * unprotected and un-pinned.  Start by verifying this.
              */
             if(H5AC_get_entry_status(f, fspace->sect_addr, &sect_status) < 0)
@@ -630,7 +654,7 @@ H5FS__cache_hdr_pre_serialize(H5F_t *f, void *_thing,
             /* Update the internal address for the section info */
             fspace->sect_addr = new_sect_addr;
 
-            /* No need to mark the header dirty, as we are about to
+            /* No need to mark the header dirty, as we are about to 
              * serialize it.
              */
         } /* end if */
@@ -658,7 +682,7 @@ done:
  *
  * Purpose: 	Given an instance of H5FS_t and a suitably sized buffer,
  *      	serialize the contents of the instance of H5FS_t and write
- *      	its contents to the buffer.  This buffer will be used to
+ *      	its contents to the buffer.  This buffer will be used to 
  *      	write the image of the instance to file.
  *
  * Return:      Success:        SUCCEED
@@ -688,21 +712,20 @@ H5FS__cache_hdr_serialize(const H5F_t *f, void *_image, size_t H5_ATTR_NDEBUG_UN
     HDassert(fspace->cache_info.type == H5AC_FSPACE_HDR);
     HDassert(fspace->hdr_size == len);
 
-    /* The section information does not always exits, and if it does,
-     * it is not always in the cache.  To make matters more interesting,
+    /* The section information does not always exits, and if it does, 
+     * it is not always in the cache.  To make matters more interesting, 
      * even if it is in the cache, it may not be in real file space.
      *
-     * The pre-serialize function should have moved the section info
+     * The pre-serialize function should have moved the section info 
      * into real file space if necessary before this function was called.
      * The following asserts are a cursory check on this.
      */
     HDassert((! H5F_addr_defined(fspace->sect_addr)) || (! H5F_IS_TMP_ADDR(f, fspace->sect_addr)));
 
     if(!H5F_POINT_OF_NO_RETURN(f))
-        HDassert((! H5F_addr_defined(fspace->sect_addr)) ||
-                 ((fspace->serial_sect_count > 0) &&
-                  (fspace->sect_size > 0) &&
-                  (fspace->alloc_sect_size == (size_t)fspace->sect_size)));
+        HDassert((! H5F_addr_defined(fspace->sect_addr)) || 
+                 ((fspace->sect_size > 0) && 
+                 (fspace->alloc_sect_size == (size_t)fspace->sect_size)));
 
     /* Magic number */
     H5MM_memcpy(image, H5FS_HDR_MAGIC, (size_t)H5_SIZEOF_MAGIC);
@@ -735,8 +758,8 @@ H5FS__cache_hdr_serialize(const H5F_t *f, void *_image, size_t H5_ATTR_NDEBUG_UN
     /* Expand percent */
     UINT16ENCODE(image, fspace->expand_percent);
 
-    /* Size of address space free space sections are within (log2 of
-     * actual value)
+    /* Size of address space free space sections are within (log2 of 
+     * actual value) 
      */
     UINT16ENCODE(image, fspace->max_sect_addr);
 
@@ -773,6 +796,7 @@ H5FS__cache_hdr_serialize(const H5F_t *f, void *_image, size_t H5_ATTR_NDEBUG_UN
  * Return:      SUCCEED/FAIL
  *
  * Programmer:  Quincey Koziol
+ *              koziol@lbl.gov
  *              January 3, 2017
  *
  *-------------------------------------------------------------------------
@@ -784,7 +808,7 @@ H5FS__cache_hdr_notify(H5AC_notify_action_t action, void *_thing)
     herr_t ret_value = SUCCEED;         /* Return value */
 
     FUNC_ENTER_NOAPI_NOINIT
-
+    
     /* Sanity check */
     HDassert(fspace);
 
@@ -836,6 +860,7 @@ done:
  *              Failure:        FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May  2 2006
  *
  *-------------------------------------------------------------------------
@@ -868,7 +893,7 @@ done:
 /*-------------------------------------------------------------------------
  * Function:	H5FS__cache_sinfo_get_initial_load_size()
  *
- * Purpose:	Compute the size of the on disk image of the free space
+ * Purpose:	Compute the size of the on disk image of the free space 
  *		manager section info, and place this value in *image_len.
  *
  * Return:	Success:	SUCCEED
@@ -879,7 +904,7 @@ done:
  *
  *-------------------------------------------------------------------------
  */
-static herr_t
+static herr_t 
 H5FS__cache_sinfo_get_initial_load_size(void  *_udata, size_t *image_len)
 {
     const H5FS_t *fspace;        			/* free space manager */
@@ -963,6 +988,7 @@ H5FS__cache_sinfo_deserialize(const void *_image, size_t H5_ATTR_NDEBUG_UNUSED l
     haddr_t                 fs_addr;        /* Free space header address */
     size_t                  old_sect_size;  /* Old section size */
     const uint8_t          *image = (const uint8_t *)_image;    /* Pointer into raw data buffer */
+    const uint8_t          *chksum_image;   /* Points to chksum location */
     uint32_t                stored_chksum;  /* Stored metadata checksum  */
     void *                  ret_value = NULL;   /* Return value */
 
@@ -1059,10 +1085,14 @@ H5FS__cache_sinfo_deserialize(const void *_image, size_t H5_ATTR_NDEBUG_UNUSED l
                     if(H5FS_sect_add(udata->f, fspace, new_sect, H5FS_ADD_DESERIALIZING, udata) < 0)
                         HGOTO_ERROR(H5E_FSPACE, H5E_CANTINSERT, NULL, "can't add section to free space manager")
             } /* end for */
+
+            if(fspace->tot_sect_count == old_tot_sect_count)
+                break;
+
         } while(image < (((const uint8_t *)_image + old_sect_size) - H5FS_SIZEOF_CHKSUM));
 
         /* Sanity check */
-        HDassert((size_t)(image - (const uint8_t *)_image) == (old_sect_size - H5FS_SIZEOF_CHKSUM));
+        HDassert((size_t)(image - (const uint8_t *)_image) <= (old_sect_size - H5FS_SIZEOF_CHKSUM));
         HDassert(old_sect_size == fspace->sect_size);
         HDassert(old_tot_sect_count == fspace->tot_sect_count);
         HDassert(old_serial_sect_count == fspace->serial_sect_count);
@@ -1072,11 +1102,14 @@ H5FS__cache_sinfo_deserialize(const void *_image, size_t H5_ATTR_NDEBUG_UNUSED l
 
     /* checksum verification already done in verify_chksum cb */
 
+    /* There may be empty space between entries and chksum */
+    chksum_image = (const uint8_t *)(_image) + old_sect_size - H5FS_SIZEOF_CHKSUM;
     /* Metadata checksum */
-    UINT32DECODE(image, stored_chksum);
+    UINT32DECODE(chksum_image, stored_chksum);
 
     /* Sanity check */
-    HDassert((size_t)(image - (const uint8_t *)_image) == old_sect_size);
+    HDassert((image == chksum_image) || 
+             ((size_t)((image - (const uint8_t *)_image) + (chksum_image - image))  == old_sect_size));
 
     /* Set return value */
     ret_value = sinfo;
@@ -1099,6 +1132,7 @@ done:
  * Return:      Non-negative on success/Negative on failure
  *
  * Programmer:  Quincey Koziol
+ *              koziol@hdfgroup.org
  *              August 14, 2013
  *
  *-------------------------------------------------------------------------
@@ -1129,9 +1163,9 @@ H5FS__cache_sinfo_image_len(const void *_thing, size_t *image_len)
 /*-------------------------------------------------------------------------
  * Function:	H5FS__cache_sinfo_pre_serialize
  *
- * Purpose:	The objective of this function is to test to see if file space
- *		for the section info is located in temporary (AKA imaginary) file
- *		space.  If it is, relocate file space for the section info to
+ * Purpose:	The objective of this function is to test to see if file space 
+ *		for the section info is located in temporary (AKA imaginary) file 
+ *		space.  If it is, relocate file space for the section info to 
  *		regular file space.
  *
  * Return:	Success:	SUCCEED
@@ -1142,9 +1176,9 @@ H5FS__cache_sinfo_image_len(const void *_thing, size_t *image_len)
  *
  *-------------------------------------------------------------------------
  */
-static herr_t
+static herr_t 
 H5FS__cache_sinfo_pre_serialize(H5F_t *f, void *_thing, haddr_t addr,
-    size_t H5_ATTR_NDEBUG_UNUSED len, haddr_t *new_addr, size_t H5_ATTR_NDEBUG_UNUSED *new_len,
+    size_t H5_ATTR_NDEBUG_UNUSED len, haddr_t *new_addr, size_t H5_ATTR_NDEBUG_UNUSED *new_len, 
     unsigned *flags)
 {
     H5FS_sinfo_t 	*sinfo = (H5FS_sinfo_t *)_thing;        /* Pointer to the object */
@@ -1169,10 +1203,6 @@ H5FS__cache_sinfo_pre_serialize(H5F_t *f, void *_thing, haddr_t addr,
     HDassert(new_addr);
     HDassert(new_len);
     HDassert(flags);
-
-    /* we shouldn't be called if the section info is empty, unless we hit the point of no return. */
-    if(!H5F_POINT_OF_NO_RETURN(f))
-        HDassert(fspace->serial_sect_count > 0);
 
     sinfo_addr = addr; /* this will change if we relocate the section data */
 
@@ -1219,8 +1249,8 @@ done:
  * Function:	H5FS__cache_sinfo_serialize
  *
  * Purpose:	Given an instance of H5FS_sinfo_t and a suitably sized buffer,
- *		serialize the contents of the instance of H5FS_sinfo_t and write
- *		its contents to the buffer.  This buffer will be used to write
+ *		serialize the contents of the instance of H5FS_sinfo_t and write 
+ *		its contents to the buffer.  This buffer will be used to write 
  *		the image of the instance to file.
  *
  * Return:	Success:	SUCCEED
@@ -1231,13 +1261,14 @@ done:
  *
  *-------------------------------------------------------------------------
  */
-static herr_t
+static herr_t 
 H5FS__cache_sinfo_serialize(const H5F_t *f, void *_image, size_t len,
     void *_thing)
 {
     H5FS_sinfo_t        *sinfo = (H5FS_sinfo_t *)_thing;        /* Pointer to the object */
     H5FS_iter_ud_t      udata;              /* User data for callbacks */
     uint8_t             *image = (uint8_t *)_image;     /* Pointer into raw data buffer */
+    uint8_t             *chksum_image = NULL;           /* Points to chksum location */
     uint32_t            metadata_chksum;    /* Computed metadata checksum value */
     unsigned            bin;                /* Current bin we are on */
     herr_t              ret_value = SUCCEED; /* Return value */
@@ -1281,13 +1312,16 @@ H5FS__cache_sinfo_serialize(const H5F_t *f, void *_image, size_t len,
 
 
     /* Compute checksum */
-    metadata_chksum = H5_checksum_metadata(_image, (size_t)(image - (uint8_t *)_image), 0);
 
+    /* There may be empty space between entries and chksum */
+    chksum_image = (uint8_t *)(_image) + len - H5FS_SIZEOF_CHKSUM;
+    metadata_chksum = H5_checksum_metadata(_image, (size_t)(chksum_image - (uint8_t *)_image), 0);
     /* Metadata checksum */
-    UINT32ENCODE(image, metadata_chksum);
+    UINT32ENCODE(chksum_image, metadata_chksum);
 
     /* Sanity check */
-    HDassert((size_t)(image - (uint8_t *)_image) == sinfo->fspace->sect_size);
+    HDassert((chksum_image == image) ||
+             ((size_t)((image - (uint8_t *)_image) + (chksum_image - image)) == sinfo->fspace->sect_size));
     HDassert(sinfo->fspace->sect_size <= sinfo->fspace->alloc_sect_size);
 
 done:
@@ -1314,7 +1348,7 @@ H5FS__cache_sinfo_notify(H5AC_notify_action_t action, void *_thing)
     herr_t ret_value = SUCCEED;         /* Return value */
 
     FUNC_ENTER_PACKAGE
-
+    
     /* Sanity check */
     HDassert(sinfo);
 
@@ -1362,7 +1396,7 @@ done:
 /*-------------------------------------------------------------------------
  * Function:	H5FS__cache_sinfo_free_icr
  *
- * Purpose:	Free the memory used for the in core representation of the
+ * Purpose:	Free the memory used for the in core representation of the 
  *		free space manager section info.
  *
  * Note:	The metadata cache sets the object's cache_info.magic to
@@ -1377,7 +1411,7 @@ done:
  *
  *-------------------------------------------------------------------------
  */
-static herr_t
+static herr_t 
 H5FS__cache_sinfo_free_icr(void *_thing)
 {
     H5FS_sinfo_t        *sinfo = (H5FS_sinfo_t *)_thing;    /* Pointer to the object */

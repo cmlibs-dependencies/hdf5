@@ -11,7 +11,7 @@
  * help@hdfgroup.org.                                                        *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/* Programmer:  Robb Matzke
+/* Programmer:  Robb Matzke <matzke@llnl.gov>
  *              Wednesday, September 30, 1998
  *
  * Purpose:    The fill message indicates a bit pattern to use for
@@ -157,6 +157,7 @@ const H5O_msg_class_t H5O_MSG_FILL_NEW[1] = {{
 const unsigned H5O_fill_ver_bounds[] = {
     H5O_FILL_VERSION_1,     /* H5F_LIBVER_EARLIEST */
     H5O_FILL_VERSION_3,     /* H5F_LIBVER_V18 */
+    H5O_FILL_VERSION_3,     /* H5F_LIBVER_V110 */
     H5O_FILL_VERSION_LATEST /* H5F_LIBVER_LATEST */
 };
 
@@ -344,12 +345,12 @@ H5O_fill_old_decode(H5F_t *f, H5O_t *open_oh,
         if((exists = H5O_msg_exists_oh(open_oh, H5O_DTYPE_ID)) < 0)
             HGOTO_ERROR(H5E_SYM, H5E_NOTFOUND, NULL, "unable to read object header")
         if(exists) {
-            if((dt = H5O_msg_read_oh(f, open_oh, H5O_DTYPE_ID, NULL)) < 0)
+            if(NULL == (dt = (H5T_t *)H5O_msg_read_oh(f, open_oh, H5O_DTYPE_ID, NULL)))
                 HGOTO_ERROR(H5E_SYM, H5E_CANTGET, NULL, "can't read DTYPE message")
             /* Verify size */
-            if(fill->size != H5T_GET_SIZE(dt))
+            if(fill->size != (ssize_t)H5T_GET_SIZE(dt))
                 HGOTO_ERROR(H5E_SYM, H5E_CANTGET, NULL, "inconsistent fill value size")
-        }
+        } /* end if */
 
         if(NULL == (fill->buf = H5MM_malloc((size_t)fill->size)))
             HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, NULL, "memory allocation failed for fill value")
@@ -740,7 +741,7 @@ H5O_fill_reset_dyn(H5O_fill_t *fill)
                 HGOTO_ERROR(H5E_OHDR, H5E_CANTCREATE, FAIL, "can't create scalar dataspace")
 
             /* Reclaim any variable length components of the fill value */
-            if(H5D_vlen_reclaim(fill_type_id, fill_space, fill->buf) < 0) {
+            if(H5T_reclaim(fill_type_id, fill_space, fill->buf) < 0) {
                 H5S_close(fill_space);
                 HGOTO_ERROR(H5E_OHDR, H5E_BADITER, FAIL, "unable to reclaim variable-length fill value data")
             } /* end if */
@@ -754,8 +755,8 @@ H5O_fill_reset_dyn(H5O_fill_t *fill)
     } /* end if */
     fill->size = 0;
     if(fill->type) {
-    (void)H5T_close_real(fill->type);
-    fill->type = NULL;
+        (void)H5T_close_real(fill->type);
+        fill->type = NULL;
     } /* end if */
 
 done:
@@ -1008,7 +1009,7 @@ H5O_fill_convert(H5O_fill_t *fill, H5T_t *dset_type, hbool_t *fill_changed)
      * Can we convert between source and destination data types?
      */
     if(NULL == (tpath = H5T_path_find(fill->type, dset_type)))
-    HGOTO_ERROR(H5E_OHDR, H5E_CANTINIT, FAIL, "unable to convert between src and dst datatypes")
+        HGOTO_ERROR(H5E_OHDR, H5E_CANTINIT, FAIL, "unable to convert between src and dst datatypes")
 
     /* Don't bother doing anything if there will be no actual conversion */
     if(!H5T_path_noop(tpath)) {

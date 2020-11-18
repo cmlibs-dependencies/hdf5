@@ -476,13 +476,13 @@ static void test_reference_group()
         // Check getting file name given the group dereferenced via constructor
         H5std_string fname = refgroup.getFileName();
         verify_val(fname, FILE1, "H5Group::getFileName",__LINE__,__FILE__);
-
+    
         // Check getting file name given the group dereferenced by ::reference
         fname = group.getFileName();
         verify_val(fname, FILE1, "H5Group::getFileName",__LINE__,__FILE__);
 
         // Check object type using Group::getObjinfo()
-        H5O_info_t oinfo;
+        H5O_info2_t oinfo;
         HDmemset(&oinfo, 0, sizeof(oinfo));
         group.getObjinfo(".", H5_INDEX_NAME, H5_ITER_INC, (hsize_t)0, oinfo);
         verify_val(oinfo.type, H5O_TYPE_DATASET, "Group::getObjinfo",__LINE__,__FILE__);

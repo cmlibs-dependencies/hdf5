@@ -12,9 +12,9 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Robb Matzke
+ * Programmer:  Robb Matzke <matzke@llnl.gov>
  *              Wednesday, April  8, 1998
- * Modified:	Albert Cheng
+ * Modified:	Albert Cheng <acheng@hdfgroup.org>
  * 		September 11, 2010
  */
 /*
@@ -69,7 +69,7 @@
 #   define GB8LL	0	/*cannot do the test*/
 #endif
 
-/* Define Small, Large, Extra Large, Huge File which
+/* Define Small, Large, Extra Large, Huge File which 
  * corrspond to less than 2GB, 2GB, 4GB, and tens of GB file size.
  * NO_FILE stands for "no file" to be tested.
  */
@@ -633,7 +633,7 @@ error:
     return 1;
 } /* end test_sec2() */
 
-static int
+static int 
 test_stdio(hid_t fapl)
 {
     char	filename[1024];
@@ -803,10 +803,10 @@ main (int ac, char **av)
 
     /* Choose random # seed */
     seed = (unsigned long)HDtime(NULL);
-#if 0
+#ifdef QAK
     /* seed = (unsigned long)1155438845; */
     HDfprintf(stderr, "Random # seed was: %lu\n", seed);
-#endif
+#endif /* QAK */
     HDsrandom((unsigned)seed);
 
     /* run VFD-specific test */

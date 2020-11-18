@@ -15,7 +15,7 @@
  *
  * Created:		H5Odbg.c
  *			Nov 17 2006
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		Object header debugging routines.
  *
@@ -76,20 +76,21 @@
 #ifdef H5O_DEBUG
 
 /*-------------------------------------------------------------------------
- * Function:	H5O_assert
+ * Function:    H5O__assert
  *
- * Purpose:	Sanity check the information for an object header data
+ * Purpose:     Sanity check the information for an object header data
  *              structure.
  *
- * Return:	Non-negative on success/Negative on failure
+ * Return:      SUCCEED (Doesn't fail, just crashes)
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Oct 17 2006
  *
  *-------------------------------------------------------------------------
  */
 herr_t
-H5O_assert(const H5O_t *oh)
+H5O__assert(const H5O_t *oh)
 {
     H5O_mesg_t *curr_msg;               /* Pointer to current message to examine */
     H5O_mesg_t *tmp_msg;                /* Pointer to temporary message to examine */
@@ -100,7 +101,7 @@ H5O_assert(const H5O_t *oh)
     size_t hdr_size;                    /* Size of header's chunks */
     unsigned u, v;                      /* Local index variables */
 
-    FUNC_ENTER_NOAPI_NOINIT_NOERR
+    FUNC_ENTER_PACKAGE_NOERR
 
     /* Initialize the tracking variables */
     hdr_size = 0;
@@ -152,7 +153,7 @@ H5O_assert(const H5O_t *oh)
 
     /* Loop over all messages in object header */
     for(u = 0, curr_msg = &oh->mesg[0]; u < oh->nmesgs; u++, curr_msg++) {
-        uint8_t H5_ATTR_NDEBUG_UNUSED *curr_hdr;      /* Start of current message header */
+        uint8_t *curr_hdr;      /* Start of current message header */
         size_t  curr_tot_size;  /* Total size of current message (including header) */
 
         curr_hdr = curr_msg->raw - H5O_SIZEOF_MSGHDR_OH(oh);
@@ -163,7 +164,7 @@ H5O_assert(const H5O_t *oh)
             free_space += curr_tot_size;
         else if(H5O_CONT_ID == curr_msg->type->id) {
             H5O_cont_t *cont = (H5O_cont_t *)curr_msg->native;
-            hbool_t H5_ATTR_NDEBUG_UNUSED found_chunk = FALSE;        /* Found a chunk that matches */
+            hbool_t found_chunk = FALSE;        /* Found a chunk that matches */
 
             HDassert(cont);
 
@@ -222,7 +223,7 @@ H5O_assert(const H5O_t *oh)
     HDassert(hdr_size == (free_space + meta_space + mesg_space));
 
     FUNC_LEAVE_NOAPI(SUCCEED)
-} /* end H5O_assert() */
+} /* end H5O__assert() */
 #endif /* H5O_DEBUG */
 
 
@@ -235,6 +236,7 @@ H5O_assert(const H5O_t *oh)
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb 13 2003
  *
  *-------------------------------------------------------------------------
@@ -268,26 +270,27 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5O_debug_real
+ * Function:    H5O__debug_real
  *
- * Purpose:	Prints debugging info about an object header.
+ * Purpose:     Prints debugging info about an object header.
  *
- * Return:	Non-negative on success/Negative on failure
+ * Return:      SUCCEED/FAIL
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Aug  6 1997
  *
  *-------------------------------------------------------------------------
  */
 herr_t
-H5O_debug_real(H5F_t *f, H5O_t *oh, haddr_t addr, FILE *stream, int indent, int fwidth)
+H5O__debug_real(H5F_t *f, H5O_t *oh, haddr_t addr, FILE *stream, int indent, int fwidth)
 {
     size_t	mesg_total = 0, chunk_total = 0, gap_total = 0;
     unsigned	*sequence = NULL;
     unsigned	i;              /* Local index variable */
     herr_t	ret_value = SUCCEED;
 
-    FUNC_ENTER_NOAPI(FAIL)
+    FUNC_ENTER_PACKAGE
 
     /* check args */
     HDassert(f);
@@ -530,7 +533,7 @@ done:
         sequence = (unsigned *)H5MM_xfree(sequence);
 
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5O_debug_real() */
+} /* end H5O__debug_real() */
 
 
 /*-------------------------------------------------------------------------
@@ -541,6 +544,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Aug  6 1997
  *
  *-------------------------------------------------------------------------
@@ -570,7 +574,7 @@ H5O_debug(H5F_t *f, haddr_t addr, FILE *stream, int indent, int fwidth)
         HGOTO_ERROR(H5E_OHDR, H5E_CANTPROTECT, FAIL, "unable to load object header")
 
     /* debug */
-    if(H5O_debug_real(f, oh, addr, stream, indent, fwidth) < 0)
+    if(H5O__debug_real(f, oh, addr, stream, indent, fwidth) < 0)
         HGOTO_ERROR(H5E_OHDR, H5E_SYSTEM, FAIL, "debug dump call failed")
 
 done:

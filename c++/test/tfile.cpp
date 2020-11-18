@@ -412,6 +412,64 @@ static void test_file_size()
 
 
 /*-------------------------------------------------------------------------
+ * Function:    test_file_num
+ *
+ * Purpose      Test file number.
+ *
+ * Return       None
+ *
+ * Programmer   Quincey Koziol
+ *              April, 2019
+ *-------------------------------------------------------------------------
+ */
+static void test_file_num()
+{
+    // Output message about test being performed
+    SUBTEST("File Number");
+
+    hid_t        fapl_id;
+    fapl_id = h5_fileaccess(); // in h5test.c, returns a file access template
+
+    try {
+        // Use the file access template id to create a file access prop.
+        // list object to pass in H5File::H5File
+        FileAccPropList fapl(fapl_id);
+
+        // Create two files
+        H5File file1(FILE1, H5F_ACC_TRUNC, FileCreatPropList::DEFAULT, fapl);
+        H5File file2(FILE2, H5F_ACC_TRUNC, FileCreatPropList::DEFAULT, fapl);
+
+        // Open the first file again
+        H5File file3(FILE1, H5F_ACC_RDWR);
+
+        // Get file numbers
+        unsigned long file_num1 = file1.getFileNum();
+        unsigned long file_num2 = file2.getFileNum();
+        unsigned long file_num3 = file3.getFileNum();
+
+        // Check file numbers
+        if (file_num1 == file_num2)
+            issue_fail_msg("test_file_num()", __LINE__, __FILE__, "getFileNum() returned wrong value");
+        if (file_num1 != file_num3)
+            issue_fail_msg("test_file_num()", __LINE__, __FILE__, "getFileNum() returned wrong value");
+
+        PASSED();
+    }   // end of try block
+
+    catch (Exception& E)
+    {
+        issue_fail_msg("test_file_num()", __LINE__, __FILE__, E.getCDetailMsg());
+    }
+
+    // use C test utility routine to close property list.
+    herr_t ret = H5Pclose(fapl_id);
+    if (ret < 0)
+        issue_fail_msg("test_file_num()", __LINE__, __FILE__, "H5Pclose failed");
+
+}   // test_file_num()
+
+
+/*-------------------------------------------------------------------------
  * Function:    test_file_name
  *
  * Purpose      Test getting file's name.
@@ -575,7 +633,7 @@ static void test_file_attribute()
         verify_val(num_objs, 0, "H5File::getObjCount(H5F_OBJ_DATATYPE)", __LINE__, __FILE__);
         num_objs = file5.getObjCount(H5F_OBJ_FILE);
         verify_val(num_objs, 1, "H5File::getObjCount(H5F_OBJ_FILE)", __LINE__, __FILE__);
-
+        
         // Get the file name using the attributes
         H5std_string fname = fattr1.getFileName();
         verify_val(fname, FILE5, "H5File::getFileName()", __LINE__, __FILE__);
@@ -658,10 +716,10 @@ static void test_libver_bounds_real(
     verify_val(obj_version, oh_vers_create, "H5File::childObjVersion", __LINE__, __FILE__);
 
     // Verify object header version another way
-    H5O_info_t oinfo;
-    HDmemset(&oinfo, 0, sizeof(oinfo));
-    file.getObjinfo(oinfo, H5O_INFO_HDR);
-    verify_val(oinfo.hdr.version, oh_vers_create, "H5File::getObjinfo", __LINE__, __FILE__);
+    H5O_native_info_t ninfo;
+    HDmemset(&ninfo, 0, sizeof(ninfo));
+    file.getNativeObjinfo(ninfo, H5O_NATIVE_INFO_HDR);
+    verify_val(ninfo.hdr.version, oh_vers_create, "H5File::getNativeObjinfo", __LINE__, __FILE__);
 
     /*
      * Reopen the file and make sure the root group still has the correct
@@ -686,9 +744,9 @@ static void test_libver_bounds_real(
     verify_val(obj_version, oh_vers_mod, "Group::objVersion", __LINE__, __FILE__);
 
     // Verify object header version another way
-    HDmemset(&oinfo, 0, sizeof(oinfo));
-    group.getObjinfo(oinfo, H5O_INFO_HDR);
-    verify_val(oinfo.hdr.version, oh_vers_mod, "Group::getObjinfo", __LINE__, __FILE__);
+    HDmemset(&ninfo, 0, sizeof(ninfo));
+    group.getNativeObjinfo(ninfo, H5O_NATIVE_INFO_HDR);
+    verify_val(ninfo.hdr.version, oh_vers_mod, "Group::getNativeObjinfo", __LINE__, __FILE__);
 
     group.close(); // close "/G1"
 
@@ -926,7 +984,7 @@ static void test_file_info()
     /*  ret=H5Pget_shared_mesg_nindexes(fcpl2,&nindexes);
     CHECK(ret, FAIL, "H5Pget_shared_mesg_nindexes");
     VERIFY(nindexes, MISC11_NINDEXES, "H5Pget_shared_mesg_nindexes");
- */
+ */ 
 
         // Get and verify the file space info from the creation property list */
         fcpl2.getFileSpaceStrategy(out_strategy, out_persist, out_threshold);
@@ -966,6 +1024,7 @@ void test_file()
     test_file_create();      // Test file creation (also creation templates)
     test_file_open();        // Test file opening
     test_file_size();        // Test file size
+    test_file_num();         // Test file number
     test_file_name();        // Test getting file's name
     test_file_attribute();   // Test file attribute feature
     test_libver_bounds();    // Test format version

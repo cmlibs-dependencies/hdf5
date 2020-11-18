@@ -28,6 +28,7 @@
 #include "H5CXprivate.h"        /* API Contexts                             */
 #include "H5Iprivate.h"         /* IDs                                      */
 #include "H5VMprivate.h"        /* Vectors and arrays                       */
+#include "H5VLprivate.h"        /* Virtual Object Layer                     */
 
 
 /* Local macros */
@@ -142,7 +143,7 @@ init_cparam(H5FA_create_t *cparam, farray_test_param_t *tparam)
  * Purpose:     Create file and retrieve pointer to internal file object
  *
  * Return:      SUCCEED/FAIL
- *
+ *   
  *-------------------------------------------------------------------------
  */
 static herr_t
@@ -153,7 +154,7 @@ create_file(hid_t fapl_id, hid_t *fid, H5F_t **f)
         FAIL_STACK_ERROR;
 
     /* Get a pointer to the internal file object */
-    if (NULL == (*f = (H5F_t *)H5I_object(*fid)))
+    if (NULL == (*f = (H5F_t *)H5VL_object(*fid)))
         FAIL_STACK_ERROR;
 
     /* Ignore metadata tags in the file's cache */
@@ -261,7 +262,7 @@ set_fa_state(const H5FA_create_t *cparam, farray_state_t *state)
  *-------------------------------------------------------------------------
  */
 static int
-reopen_file(hid_t *fid, H5F_t **f, hid_t fapl_id,
+reopen_file(hid_t *fid, H5F_t **f, hid_t fapl_id, 
     H5FA_t **fa, haddr_t fa_addr, const farray_test_param_t *tparam)
 {
     /* Check for closing & re-opening the array */
@@ -288,7 +289,7 @@ reopen_file(hid_t *fid, H5F_t **f, hid_t fapl_id,
             FAIL_STACK_ERROR
 
         /* Get a pointer to the internal file object */
-        if (NULL == (*f = (H5F_t *)H5I_object(*fid)))
+        if (NULL == (*f = (H5F_t *)H5VL_object(*fid)))
             FAIL_STACK_ERROR;
 
         /* Ignore metadata tags in the file's cache */
@@ -499,7 +500,7 @@ test_create(hid_t fapl, H5FA_create_t *cparam, farray_test_param_t H5_ATTR_UNUSE
         TEST_ERROR
     } /* end if */
 
-    PASSED();
+    PASSED()
 }
 #else /* NDEBUG */
     SKIPPED();
@@ -515,7 +516,7 @@ test_create(hid_t fapl, H5FA_create_t *cparam, farray_test_param_t H5_ATTR_UNUSE
     if(create_array(f, cparam, &fa, &fa_addr) < 0)
         TEST_ERROR
 
-    PASSED();
+    PASSED()
 
     /* Verify the creation parameters */
     TESTING("verify array creation parameters");
@@ -529,7 +530,7 @@ test_create(hid_t fapl, H5FA_create_t *cparam, farray_test_param_t H5_ATTR_UNUSE
         TEST_ERROR
 
     /* All tests passed */
-    PASSED();
+    PASSED()
 
     return 0;
 
@@ -596,7 +597,7 @@ test_reopen(hid_t fapl, H5FA_create_t *cparam, farray_test_param_t *tparam)
         TEST_ERROR
 
     /* All tests passed */
-    PASSED();
+    PASSED()
 
     return 0;
 
@@ -667,7 +668,7 @@ test_open_twice(hid_t fapl_id, H5FA_create_t *cparam, farray_test_param_t *tpara
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if (NULL == (f2 = (H5F_t *)H5I_object(fid2)))
+    if (NULL == (f2 = (H5F_t *)H5VL_object(fid2)))
         FAIL_STACK_ERROR;
 
     /* Open the fixed array through the second file handle */
@@ -695,7 +696,7 @@ test_open_twice(hid_t fapl_id, H5FA_create_t *cparam, farray_test_param_t *tpara
         TEST_ERROR
 
     /* All tests passed */
-    PASSED();
+    PASSED()
 
     return 0;
 
@@ -806,7 +807,7 @@ test_open_twice_diff(hid_t fapl_id, H5FA_create_t *cparam, farray_test_param_t *
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if (NULL == (f2 = (H5F_t *)H5I_object(fid2)))
+    if (NULL == (f2 = (H5F_t *)H5VL_object(fid2)))
         FAIL_STACK_ERROR;
 
     /* Open the fixed array through the second file handle */
@@ -828,7 +829,7 @@ test_open_twice_diff(hid_t fapl_id, H5FA_create_t *cparam, farray_test_param_t *
         TEST_ERROR
 
     /* All tests passed */
-    PASSED();
+    PASSED()
 
     return 0;
 
@@ -946,7 +947,7 @@ test_delete_open(hid_t fapl, H5FA_create_t *cparam, farray_test_param_t *tparam)
         TEST_ERROR
 
     /* All tests passed */
-    PASSED();
+    PASSED()
 
     return 0;
 
@@ -1486,7 +1487,7 @@ test_set_elmts(hid_t fapl, H5FA_create_t *cparam, farray_test_param_t *tparam,
         TEST_ERROR
 
     /* All tests passed */
-    PASSED();
+    PASSED()
 
     return 0;
 
@@ -1613,7 +1614,7 @@ test_skip_elmts(hid_t fapl, H5FA_create_t *cparam, farray_test_param_t *tparam,
         TEST_ERROR
 
     /* All tests passed */
-    PASSED();
+    PASSED()
 
     return 0;
 

@@ -173,6 +173,14 @@ set (H5EA_HDRS
 IDE_GENERATED_PROPERTIES ("H5EA" "${H5EA_HDRS}" "${H5EA_SOURCES}" )
 
 
+set (H5ES_SOURCES
+)
+set (H5ES_HDRS
+    ${HDF5_SRC_DIR}/H5ESpublic.h
+)
+IDE_GENERATED_PROPERTIES ("H5ES" "${H5ES_HDRS}" "${H5ES_SOURCES}" )
+
+
 set (H5F_SOURCES
     ${HDF5_SRC_DIR}/H5F.c
     ${HDF5_SRC_DIR}/H5Faccum.c
@@ -223,7 +231,6 @@ set (H5FD_SOURCES
     ${HDF5_SRC_DIR}/H5FDhdfs.c
     ${HDF5_SRC_DIR}/H5FDint.c
     ${HDF5_SRC_DIR}/H5FDlog.c
-    ${HDF5_SRC_DIR}/H5FDmirror.c
     ${HDF5_SRC_DIR}/H5FDmpi.c
     ${HDF5_SRC_DIR}/H5FDmpio.c
     ${HDF5_SRC_DIR}/H5FDmulti.c
@@ -231,7 +238,6 @@ set (H5FD_SOURCES
     ${HDF5_SRC_DIR}/H5FDs3comms.c
     ${HDF5_SRC_DIR}/H5FDsec2.c
     ${HDF5_SRC_DIR}/H5FDspace.c
-    ${HDF5_SRC_DIR}/H5FDsplitter.c
     ${HDF5_SRC_DIR}/H5FDstdio.c
     ${HDF5_SRC_DIR}/H5FDtest.c
     ${HDF5_SRC_DIR}/H5FDwindows.c
@@ -243,7 +249,6 @@ set (H5FD_HDRS
     ${HDF5_SRC_DIR}/H5FDfamily.h
     ${HDF5_SRC_DIR}/H5FDhdfs.h
     ${HDF5_SRC_DIR}/H5FDlog.h
-    ${HDF5_SRC_DIR}/H5FDmirror.h
     ${HDF5_SRC_DIR}/H5FDmpi.h
     ${HDF5_SRC_DIR}/H5FDmpio.h
     ${HDF5_SRC_DIR}/H5FDmulti.h
@@ -251,7 +256,6 @@ set (H5FD_HDRS
     ${HDF5_SRC_DIR}/H5FDros3.h
     ${HDF5_SRC_DIR}/H5FDs3comms.h
     ${HDF5_SRC_DIR}/H5FDsec2.h
-    ${HDF5_SRC_DIR}/H5FDsplitter.h
     ${HDF5_SRC_DIR}/H5FDstdio.h
     ${HDF5_SRC_DIR}/H5FDwindows.h
 )
@@ -382,12 +386,22 @@ IDE_GENERATED_PROPERTIES ("H5I" "${H5I_HDRS}" "${H5I_SOURCES}" )
 
 set (H5L_SOURCES
     ${HDF5_SRC_DIR}/H5L.c
+    ${HDF5_SRC_DIR}/H5Ldeprec.c
     ${HDF5_SRC_DIR}/H5Lexternal.c
 )
 set (H5L_HDRS
     ${HDF5_SRC_DIR}/H5Lpublic.h
 )
 IDE_GENERATED_PROPERTIES ("H5L" "${H5L_HDRS}" "${H5L_SOURCES}" )
+
+
+set (H5M_SOURCES
+    ${HDF5_SRC_DIR}/H5M.c
+)
+set (H5M_HDRS
+    ${HDF5_SRC_DIR}/H5Mpublic.h
+)
+IDE_GENERATED_PROPERTIES ("H5M" "${H5M_HDRS}" "${H5M_SOURCES}")
 
 
 set (H5MF_SOURCES
@@ -433,6 +447,7 @@ set (H5O_SOURCES
     ${HDF5_SRC_DIR}/H5Ochunk.c
     ${HDF5_SRC_DIR}/H5Ocont.c
     ${HDF5_SRC_DIR}/H5Ocopy.c
+    ${HDF5_SRC_DIR}/H5Ocopy_ref.c
     ${HDF5_SRC_DIR}/H5Odbg.c
     ${HDF5_SRC_DIR}/H5Odeprec.c
     ${HDF5_SRC_DIR}/H5Odrvinfo.c
@@ -480,6 +495,8 @@ set (H5P_SOURCES
     ${HDF5_SRC_DIR}/H5Pint.c
     ${HDF5_SRC_DIR}/H5Plapl.c
     ${HDF5_SRC_DIR}/H5Plcpl.c
+    ${HDF5_SRC_DIR}/H5Pmapl.c
+    ${HDF5_SRC_DIR}/H5Pmcpl.c
     ${HDF5_SRC_DIR}/H5Pocpl.c
     ${HDF5_SRC_DIR}/H5Pocpypl.c
     ${HDF5_SRC_DIR}/H5Pstrcpl.c
@@ -536,6 +553,7 @@ set (H5S_SOURCES
     ${HDF5_SRC_DIR}/H5S.c
     ${HDF5_SRC_DIR}/H5Sall.c
     ${HDF5_SRC_DIR}/H5Sdbg.c
+    ${HDF5_SRC_DIR}/H5Sdeprec.c
     ${HDF5_SRC_DIR}/H5Shyper.c
     ${HDF5_SRC_DIR}/H5Smpio.c
     ${HDF5_SRC_DIR}/H5Snone.c
@@ -600,6 +618,7 @@ set (H5T_SOURCES
     ${HDF5_SRC_DIR}/H5Torder.c
     ${HDF5_SRC_DIR}/H5Tpad.c
     ${HDF5_SRC_DIR}/H5Tprecis.c
+    ${HDF5_SRC_DIR}/H5Tref.c
     ${HDF5_SRC_DIR}/H5Tstrpad.c
     ${HDF5_SRC_DIR}/H5Tvisit.c
     ${HDF5_SRC_DIR}/H5Tvlen.c
@@ -626,6 +645,32 @@ set (H5UC_HDRS
 )
 IDE_GENERATED_PROPERTIES ("H5UC" "${H5UC_HDRS}" "${H5UC_SOURCES}" )
 
+
+set (H5VL_SOURCES
+    ${HDF5_SRC_DIR}/H5VL.c
+    ${HDF5_SRC_DIR}/H5VLcallback.c
+    ${HDF5_SRC_DIR}/H5VLint.c
+    ${HDF5_SRC_DIR}/H5VLnative.c
+    ${HDF5_SRC_DIR}/H5VLnative_attr.c
+    ${HDF5_SRC_DIR}/H5VLnative_blob.c
+    ${HDF5_SRC_DIR}/H5VLnative_dataset.c
+    ${HDF5_SRC_DIR}/H5VLnative_datatype.c
+    ${HDF5_SRC_DIR}/H5VLnative_file.c
+    ${HDF5_SRC_DIR}/H5VLnative_group.c
+    ${HDF5_SRC_DIR}/H5VLnative_link.c
+    ${HDF5_SRC_DIR}/H5VLnative_introspect.c
+    ${HDF5_SRC_DIR}/H5VLnative_object.c
+    ${HDF5_SRC_DIR}/H5VLnative_token.c
+    ${HDF5_SRC_DIR}/H5VLpassthru.c
+)
+set (H5VL_HDRS
+    ${HDF5_SRC_DIR}/H5VLconnector.h
+    ${HDF5_SRC_DIR}/H5VLconnector_passthru.h
+    ${HDF5_SRC_DIR}/H5VLnative.h
+    ${HDF5_SRC_DIR}/H5VLpassthru.h
+    ${HDF5_SRC_DIR}/H5VLpublic.h
+)
+IDE_GENERATED_PROPERTIES ("H5VL" "${H5VL_HDRS}" "${H5VL_SOURCES}" )
 
 set (H5VM_SOURCES
     ${HDF5_SRC_DIR}/H5VM.c
@@ -689,6 +734,7 @@ set (common_SRCS
     ${H5HP_SOURCES}
     ${H5I_SOURCES}
     ${H5L_SOURCES}
+    ${H5M_SOURCES}
     ${H5MF_SOURCES}
     ${H5MM_SOURCES}
     ${H5MP_SOURCES}
@@ -705,6 +751,7 @@ set (common_SRCS
     ${H5ST_SOURCES}
     ${H5T_SOURCES}
     ${H5TS_SOURCES}
+    ${H5VL_SOURCES}
     ${H5VM_SOURCES}
     ${H5WB_SOURCES}
     ${H5Z_SOURCES}
@@ -720,6 +767,7 @@ set (H5_PUBLIC_HEADERS
     ${H5D_HDRS}
     ${H5E_HDRS}
     ${H5EA_HDRS}
+    ${H5ES_HDRS}
     ${H5F_HDRS}
     ${H5FA_HDRS}
     ${H5FD_HDRS}
@@ -730,6 +778,7 @@ set (H5_PUBLIC_HEADERS
     ${H5HL_HDRS}
     ${H5I_HDRS}
     ${H5L_HDRS}
+    ${H5M_HDRS}
     ${H5MF_HDRS}
     ${H5MM_HDRS}
     ${H5MP_HDRS}
@@ -741,6 +790,7 @@ set (H5_PUBLIC_HEADERS
     ${H5S_HDRS}
     ${H5SM_HDRS}
     ${H5T_HDRS}
+    ${H5VL_HDRS}
     ${H5Z_HDRS}
 )
 
@@ -785,7 +835,6 @@ set (H5_PRIVATE_HEADERS
     ${HDF5_SRC_DIR}/H5FApkg.h
     ${HDF5_SRC_DIR}/H5FAprivate.h
 
-    ${HDF5_SRC_DIR}/H5FDmirror_priv.h
     ${HDF5_SRC_DIR}/H5FDpkg.h
     ${HDF5_SRC_DIR}/H5FDprivate.h
 
@@ -815,6 +864,9 @@ set (H5_PRIVATE_HEADERS
 
     ${HDF5_SRC_DIR}/H5Lpkg.h
     ${HDF5_SRC_DIR}/H5Lprivate.h
+
+    ${HDF5_SRC_DIR}/H5Mpkg.h
+    ${HDF5_SRC_DIR}/H5Mprivate.h
 
     ${HDF5_SRC_DIR}/H5MFprivate.h
 
@@ -858,6 +910,10 @@ set (H5_PRIVATE_HEADERS
 
     ${HDF5_SRC_DIR}/H5UCprivate.h
 
+    ${HDF5_SRC_DIR}/H5VLnative_private.h
+    ${HDF5_SRC_DIR}/H5VLpkg.h
+    ${HDF5_SRC_DIR}/H5VLprivate.h
+
     ${HDF5_SRC_DIR}/H5VMprivate.h
 
     ${HDF5_SRC_DIR}/H5WBprivate.h
@@ -883,7 +939,7 @@ set (H5_PUBLIC_GENERATED_HEADERS
     ${HDF5_SRC_DIR}/H5overflow.h
 )
 
-option (HDF5_GENERATE_HEADERS "Rebuild Generated Files" OFF)
+option (HDF5_GENERATE_HEADERS "Rebuild Generated Files" ON)
 if (HDF5_GENERATE_HEADERS)
   set_source_files_properties(${H5_GENERATED_HEADERS} PROPERTIES GENERATED TRUE)
   find_package (Perl)
@@ -1079,9 +1135,8 @@ if (NOT ONLY_SHARED_LIBS)
   add_library (${HDF5_LIB_TARGET} STATIC ${common_SRCS} ${gen_SRCS} ${H5_PUBLIC_HEADERS} ${H5_PRIVATE_HEADERS} ${H5_GENERATED_HEADERS})
   target_include_directories (${HDF5_LIB_TARGET}
       PRIVATE "${HDF5_SRC_DIR};${HDF5_BINARY_DIR};$<$<BOOL:${HDF5_ENABLE_PARALLEL}>:${MPI_C_INCLUDE_DIRS}>"
-      INTERFACE "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>;$<BUILD_INTERFACE:${HDF5_BINARY_DIR}>"
+      INTERFACE "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>"
   )
-  target_compile_options(${HDF5_LIB_TARGET} PRIVATE "${HDF5_CMAKE_C_FLAGS}")
   target_compile_definitions(${HDF5_LIB_TARGET}
       PUBLIC
           ${HDF_EXTRA_C_FLAGS}
@@ -1116,9 +1171,8 @@ if (BUILD_SHARED_LIBS)
   target_include_directories (${HDF5_LIBSH_TARGET}
       PRIVATE "${HDF5_SRC_DIR};${HDF5_BINARY_DIR};$<$<BOOL:${HDF5_ENABLE_PARALLEL}>:${MPI_C_INCLUDE_DIRS}>"
       PUBLIC "$<$<BOOL:${HDF5_ENABLE_HDFS}>:${HDFS_INCLUDE_DIR}>"
-      INTERFACE "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>;$<BUILD_INTERFACE:${HDF5_BINARY_DIR}>"
+      INTERFACE "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>"
   )
-  target_compile_options(${HDF5_LIBSH_TARGET} PRIVATE "${HDF5_CMAKE_C_FLAGS}")
   target_compile_definitions(${HDF5_LIBSH_TARGET}
       PUBLIC
           "H5_BUILT_AS_DYNAMIC_LIB"

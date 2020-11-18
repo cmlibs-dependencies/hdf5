@@ -11,6 +11,8 @@
  * help@hdfgroup.org.                                                        *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#include <stdlib.h>
+#include <string.h>
 #include "h5hltest.h"
 #include "H5PTpublic.h"
 #include "H5TBpublic.h"

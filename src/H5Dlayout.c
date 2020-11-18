@@ -50,6 +50,7 @@
 const unsigned H5O_layout_ver_bounds[] = {
     H5O_LAYOUT_VERSION_1,       /* H5F_LIBVER_EARLIEST */
     H5O_LAYOUT_VERSION_3,       /* H5F_LIBVER_V18 */  /* H5O_LAYOUT_VERSION_DEFAULT */
+    H5O_LAYOUT_VERSION_4,       /* H5F_LIBVER_V110 */
     H5O_LAYOUT_VERSION_LATEST   /* H5F_LIBVER_LATEST */
 };
 
@@ -64,7 +65,7 @@ const unsigned H5O_layout_ver_bounds[] = {
 
 
 
-
+
 /*-------------------------------------------------------------------------
  * Function:    H5D__layout_set_io_ops
  *
@@ -151,7 +152,7 @@ done:
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5D__layout_set_io_ops() */
 
-
+
 /*-------------------------------------------------------------------------
  * Function:    H5D__layout_meta_size
  *
@@ -282,7 +283,7 @@ done:
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5D__layout_meta_size() */
 
-
+
 /*-------------------------------------------------------------------------
  * Function:    H5D__layout_set_version
  *
@@ -320,7 +321,7 @@ done:
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5D__layout_set_version() */
 
-
+
 /*-------------------------------------------------------------------------
  * Function:    H5D__layout_set_latest_indexing
  *
@@ -360,7 +361,7 @@ H5D__layout_set_latest_indexing(H5O_layout_t *layout, const H5S_t *space,
         if(ndims > 0) {
             hsize_t max_dims[H5O_LAYOUT_NDIMS]; /* Maximum dimension sizes */
             hsize_t cur_dims[H5O_LAYOUT_NDIMS]; /* Current dimension sizes */
-            unsigned unlim_count = 0;           /* Count of unlimited max. dimensions */
+            unsigned unlim_count = 0;              /* Count of unlimited max. dimensions */
             hbool_t single = TRUE;              /* Fulfill single chunk indexing */
             unsigned u;                         /* Local index variable */
 
@@ -444,7 +445,7 @@ done:
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5D__layout_set_latest_indexing() */
 
-
+
 /*-------------------------------------------------------------------------
  * Function:    H5D__layout_oh_create
  *
@@ -557,12 +558,10 @@ H5D__layout_oh_create(H5F_t *file, H5O_t *oh, H5D_t *dset, hid_t dapl_id)
     } /* end if */
 
     /* Create layout message */
-    /* (Don't make layout message constant unless allocation time is early and
-     *  non-filtered and has >0 elements, since space may not be allocated -QAK) */
+    /* (Don't make layout message constant unless allocation time is early and non-filtered, since space may not be allocated) */
     /* (Note: this is relying on H5D__alloc_storage not calling H5O_msg_write during dataset creation) */
     if(fill_prop->alloc_time == H5D_ALLOC_TIME_EARLY && H5D_COMPACT != layout->type
-            && !dset->shared->dcpl_cache.pline.nused
-            && (0 != H5S_GET_EXTENT_NPOINTS(dset->shared->space)))
+            && !dset->shared->dcpl_cache.pline.nused)
         layout_mesg_flags = H5O_MSG_FLAG_CONSTANT;
     else
         layout_mesg_flags =  0;
@@ -587,17 +586,17 @@ done:
     FUNC_LEAVE_NOAPI_TAG(ret_value)
 } /* end H5D__layout_oh_create() */
 
-
+
 /*-------------------------------------------------------------------------
  * Function:    H5D__layout_oh_read
  *
- * Purpose:     Read layout/pline/efl information for dataset
+ * Purpose:    Read layout/pline/efl information for dataset
  *
- * Return:      Success:    SUCCEED
- *              Failure:    FAIL
+ * Return:    Success:    SUCCEED
+ *        Failure:    FAIL
  *
- * Programmer:  Quincey Koziol
- *              Monday, July 27, 2009
+ * Programmer:    Quincey Koziol
+ *        Monday, July 27, 2009
  *
  *-------------------------------------------------------------------------
  */
@@ -681,17 +680,17 @@ done:
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5D__layout_oh_read() */
 
-
+
 /*-------------------------------------------------------------------------
  * Function:    H5D__layout_oh_write
  *
- * Purpose:     Write layout information for dataset
+ * Purpose:    Write layout information for dataset
  *
- * Return:      Success:    SUCCEED
- *              Failure:    FAIL
+ * Return:    Success:    SUCCEED
+ *        Failure:    FAIL
  *
- * Programmer:  Quincey Koziol
- *              Monday, July 27, 2009
+ * Programmer:    Quincey Koziol
+ *        Monday, July 27, 2009
  *
  *-------------------------------------------------------------------------
  */

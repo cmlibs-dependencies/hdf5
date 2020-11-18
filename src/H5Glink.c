@@ -15,7 +15,7 @@
  *
  * Created:		H5Glink.c
  *			Nov 13 2006
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		Functions for handling links in groups.
  *
@@ -40,6 +40,8 @@
 #include "H5Lprivate.h"		/* Links                                */
 #include "H5MMprivate.h"	/* Memory management			*/
 #include "H5Ppublic.h"		/* Property Lists                       */
+
+#include "H5VLnative_private.h" /* Native VOL connector                     */
 
 
 /****************/
@@ -96,6 +98,7 @@ static int H5G_link_cmp_corder_dec(const void *lnk1, const void *lnk2);
  *              (i.e. same as strcmp())
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sep  5 2005
  *
  *-------------------------------------------------------------------------
@@ -122,6 +125,7 @@ H5G_link_cmp_name_inc(const void *lnk1, const void *lnk2)
  *              (i.e. opposite strcmp())
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sep 25 2006
  *
  *-------------------------------------------------------------------------
@@ -147,6 +151,7 @@ H5G_link_cmp_name_dec(const void *lnk1, const void *lnk2)
  *              as equal, their order in the sorted array is undefined.
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov  6 2006
  *
  *-------------------------------------------------------------------------
@@ -181,6 +186,7 @@ H5G_link_cmp_corder_inc(const void *lnk1, const void *lnk2)
  *              as equal, their order in the sorted array is undefined.
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov  6 2006
  *
  *-------------------------------------------------------------------------
@@ -211,6 +217,7 @@ H5G_link_cmp_corder_dec(const void *lnk1, const void *lnk2)
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 16 2006
  *
  *-------------------------------------------------------------------------
@@ -285,13 +292,14 @@ done:
  *-------------------------------------------------------------------------
  */
 herr_t
-H5G_link_to_info(const H5O_link_t *lnk, H5L_info_t *info)
+H5G_link_to_info(const H5O_loc_t *link_loc, const H5O_link_t *lnk, H5L_info2_t *info)
 {
     herr_t ret_value = SUCCEED;         /* Return value */
 
     FUNC_ENTER_NOAPI(FAIL)
 
     /* Sanity check */
+    HDassert(link_loc);
     HDassert(lnk);
 
     /* Get information from the link */
@@ -303,7 +311,9 @@ H5G_link_to_info(const H5O_link_t *lnk, H5L_info_t *info)
 
         switch(lnk->type) {
             case H5L_TYPE_HARD:
-                info->u.address = lnk->u.hard.addr;
+                /* Serialize the address into a VOL token */
+                if(H5VL_native_addr_to_token(link_loc->file, H5I_FILE, lnk->u.hard.addr, &info->u.token) < 0)
+                    HGOTO_ERROR(H5E_LINK, H5E_CANTSERIALIZE, FAIL, "can't serialize address into object token")
                 break;
 
             case H5L_TYPE_SOFT:
@@ -551,6 +561,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov 13 2006
  *
  *-------------------------------------------------------------------------

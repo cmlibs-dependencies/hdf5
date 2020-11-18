@@ -21,7 +21,6 @@ cmake_minimum_required (VERSION 3.12)
 #     ctest -S HDF5config.cmake,OPTION=VALUE -C Release -VV -O test.log
 # where valid options for OPTION are:
 #     BUILD_GENERATOR - The cmake build generator:
-#            MinGW     * MinGW Makefiles
 #            Unix      * Unix Makefiles
 #            VS2019    * Visual Studio 16 2019
 #            VS201964  * Visual Studio 16 2019
@@ -37,15 +36,15 @@ cmake_minimum_required (VERSION 3.12)
 #     CTEST_SOURCE_NAME  -  source folder
 ##############################################################################
 
-set (CTEST_SOURCE_VERSION "1.10.7")
+set (CTEST_SOURCE_VERSION "1.12.0")
 set (CTEST_SOURCE_VERSEXT "")
 
 ##############################################################################
 # handle input parameters to script.
 #BUILD_GENERATOR - which CMake generator to use, required
-#INSTALLDIR - HDF5-1.10.x root folder
+#INSTALLDIR - HDF5-1.12.x root folder
 #CTEST_CONFIGURATION_TYPE - Release, Debug, RelWithDebInfo
-#CTEST_SOURCE_NAME - name of source folder; HDF5-1.10.x
+#CTEST_SOURCE_NAME - name of source folder; HDF5-1.12.x
 #MODEL - CDash group name
 #HPC - run alternate configurations for HPC machines; sbatch, bsub, raybsub, qsub
 #MPI - enable MPI
@@ -168,11 +167,7 @@ if (NOT DEFINED HPC)
   ##  Set the following to unique id your computer  ##
     set (CTEST_SITE "WIN7${BUILD_GENERATOR}.XXXX")
   else ()
-    if (MINGW)
-      set (CTEST_CMAKE_GENERATOR "MinGW Makefiles")
-    else ()
-      set (CTEST_CMAKE_GENERATOR "Unix Makefiles")
-    endif ()
+    set (CTEST_CMAKE_GENERATOR "Unix Makefiles")
   ##  Set the following to unique id your computer  ##
     if (APPLE)
      set (CTEST_SITE "MAC.XXXX")
@@ -205,7 +200,7 @@ endif ()
 #####       Following controls source update                  #####
 #set (LOCAL_UPDATE "TRUE")
 set (REPOSITORY_URL "https://git@bitbucket.hdfgroup.org/scm/hdffv/hdf5.git")
-set (REPOSITORY_BRANCH "hdf5_1_10")
+set (REPOSITORY_BRANCH "hdf5_1_12")
 
 #uncomment to use a compressed source file: *.tar on linux or mac *.zip on windows
 #set(CTEST_USE_TAR_SOURCE "${CTEST_SOURCE_VERSION}")

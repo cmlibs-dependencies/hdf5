@@ -22,15 +22,6 @@ extern "C" {
 
 /*
  * Class:     hdf_hdf5lib_H5
- * Method:    H5Pget_version
- * Signature: (J[I)I
- */
-JNIEXPORT jint JNICALL
-Java_hdf_hdf5lib_H5_H5Pget_1version
-(JNIEnv *, jclass, jlong, jintArray);
-
-/*
- * Class:     hdf_hdf5lib_H5
  * Method:    H5Pset_userblock
  * Signature: (JJ)I
  */

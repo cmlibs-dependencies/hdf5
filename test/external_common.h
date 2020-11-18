@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Raymond Lu
+ * Programmer:  Raymond Lu <songyulu@hdfgroup.org>
  *              April, 2019
  *
  * Purpose:     Private function for external.c and external_env.c

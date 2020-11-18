@@ -15,7 +15,7 @@
  *
  * Created:             H5Ocont.c
  *                      Aug  6 1997
- *                      Robb Matzke
+ *                      Robb Matzke <matzke@llnl.gov>
  *
  * Purpose:             The object header continuation message.  This
  *                      message is only generated and read from within
@@ -83,6 +83,7 @@ H5FL_DEFINE(H5O_cont_t);
  *              Failure:        NULL
  *
  * Programmer:  Robb Matzke
+ *              matzke@llnl.gov
  *              Aug  6 1997
  *
  *-------------------------------------------------------------------------
@@ -126,6 +127,7 @@ done:
  * Return:      Non-negative on success/Negative on failure
  *
  * Programmer:  Robb Matzke
+ *              matzke@llnl.gov
  *              Aug  7 1997
  *
  *-------------------------------------------------------------------------
@@ -164,6 +166,7 @@ H5O__cont_encode(H5F_t *f, hbool_t H5_ATTR_UNUSED disable_shared, uint8_t *p, co
  *              Failure:        zero
  *
  * Programmer:  Quincey Koziol
+ *              koziol@ncsa.uiuc.edu
  *              Sep  6 2005
  *
  *-------------------------------------------------------------------------
@@ -250,6 +253,7 @@ done:
  * Return:      Non-negative on success/Negative on failure
  *
  * Programmer:  Robb Matzke
+ *              matzke@llnl.gov
  *              Aug  6 1997
  *
  *-------------------------------------------------------------------------

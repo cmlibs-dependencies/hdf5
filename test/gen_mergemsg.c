@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Quincey Koziol
+ * Programmer:  Quincey Koziol <koziol@ncsa.uiuc.edu>
  *              Friday, June 30, 2006
  *
  *  This program creates an object with fragmented object header messages

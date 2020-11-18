@@ -15,7 +15,7 @@
  *
  * Created:		H5FDspace.c
  *			Jan  3 2008
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		Space allocation routines for the file driver code.
  *

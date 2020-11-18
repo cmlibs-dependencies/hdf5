@@ -31,7 +31,7 @@ namespace H5 {
                 H5Object is H5File is not an HDF5 object, and renaming H5Object
                 to H5Location will risk breaking user applications.
                 -BMR
-        Apr 2, 2014: Added wrapper getObjName for H5Iget_name
+        Apr 2, 2014: Added wrapper getObjName for H5Iget_name 
         Sep 21, 2016: Rearranging classes (HDFFV-9920) moved H5A wrappers back
                 into H5Object.  This way, C functions that takes attribute id
                 can be in H5Location and those that cannot take attribute id
@@ -44,10 +44,10 @@ typedef void (*attr_operator_t)(H5Object& loc,
                                  const H5std_string attr_name,
                                  void *operator_data);
 
-// Define the operator function pointer for H5Ovisit2().
+// Define the operator function pointer for H5Ovisit3().
 typedef int (*visit_operator_t)(H5Object& obj,
                                  const H5std_string attr_name,
-                                 const H5O_info_t *oinfo,
+                                 const H5O_info2_t *oinfo,
                                  void *operator_data);
 
 // User data for attribute iteration

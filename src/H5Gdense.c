@@ -15,7 +15,7 @@
  *
  * Created:		H5Gdense.c
  *			Sep  9 2006
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		Routines for operating on "dense" link storage for a
  *                      group in a file.
@@ -250,6 +250,7 @@ typedef struct {
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep  9 2006
  *
  *-------------------------------------------------------------------------
@@ -293,11 +294,17 @@ H5G__dense_create(H5F_t *f, H5O_linfo_t *linfo, const H5O_pline_t *pline)
     /* Retrieve the heap's address in the file */
     if(H5HF_get_heap_addr(fheap, &(linfo->fheap_addr)) < 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTGET, FAIL, "can't get fractal heap address")
+#ifdef QAK
+HDfprintf(stderr, "%s: linfo->fheap_addr = %a\n", FUNC, linfo->fheap_addr);
+#endif /* QAK */
 
     /* Retrieve the heap's ID length in the file */
     if(H5HF_get_id_len(fheap, &fheap_id_len) < 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTGETSIZE, FAIL, "can't get fractal heap ID length")
     HDassert(fheap_id_len == H5G_DENSE_FHEAP_ID_LEN);
+#ifdef QAK
+HDfprintf(stderr, "%s: fheap_id_len = %Zu\n", FUNC, fheap_id_len);
+#endif /* QAK */
 
     /* Create the name index v2 B-tree */
     HDmemset(&bt2_cparam, 0, sizeof(bt2_cparam));
@@ -314,6 +321,9 @@ H5G__dense_create(H5F_t *f, H5O_linfo_t *linfo, const H5O_pline_t *pline)
     /* Retrieve the v2 B-tree's address in the file */
     if(H5B2_get_addr(bt2_name, &(linfo->name_bt2_addr)) < 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTGET, FAIL, "can't get v2 B-tree address for name index")
+#ifdef QAK
+HDfprintf(stderr, "%s: linfo->name_bt2_addr = %a\n", FUNC, linfo->name_bt2_addr);
+#endif /* QAK */
 
     /* Check if we should create a creation order index v2 B-tree */
     if(linfo->index_corder) {
@@ -332,6 +342,9 @@ H5G__dense_create(H5F_t *f, H5O_linfo_t *linfo, const H5O_pline_t *pline)
         /* Retrieve the v2 B-tree's address in the file */
         if(H5B2_get_addr(bt2_corder, &(linfo->corder_bt2_addr)) < 0)
             HGOTO_ERROR(H5E_SYM, H5E_CANTGET, FAIL, "can't get v2 B-tree address for creation order index")
+#ifdef QAK
+HDfprintf(stderr, "%s: linfo->corder_bt2_addr = %a\n", FUNC, linfo->corder_bt2_addr);
+#endif /* QAK */
     } /* end if */
 
 done:
@@ -355,6 +368,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 11 2006
  *
  *-------------------------------------------------------------------------
@@ -380,10 +394,17 @@ H5G__dense_insert(H5F_t *f, const H5O_linfo_t *linfo, const H5O_link_t *lnk)
     HDassert(f);
     HDassert(linfo);
     HDassert(lnk);
+#ifdef QAK
+HDfprintf(stderr, "%s: linfo->fheap_addr = %a\n", FUNC, linfo->fheap_addr);
+HDfprintf(stderr, "%s: linfo->name_bt2_addr = %a\n", FUNC, linfo->name_bt2_addr);
+#endif /* QAK */
 
     /* Find out the size of buffer needed for serialized link */
     if((link_size = H5O_msg_raw_size(f, H5O_LINK_ID, FALSE, lnk)) == 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTGETSIZE, FAIL, "can't get link size")
+#ifdef QAK
+HDfprintf(stderr, "%s: HDstrlen(lnk->name) = %Zu, link_size = %Zu\n", FUNC, HDstrlen(lnk->name), link_size);
+#endif /* QAK */
 
     /* Wrap the local buffer for serialized link */
     if(NULL == (wb = H5WB_wrap(link_buf, sizeof(link_buf))))
@@ -451,25 +472,26 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__dense_lookup_cb
+ * Function:	H5G_dense_lookup_cb
  *
  * Purpose:	Callback when a link is located in an index
  *
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 11 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__dense_lookup_cb(const void *_lnk, void *_user_lnk)
+H5G_dense_lookup_cb(const void *_lnk, void *_user_lnk)
 {
     const H5O_link_t *lnk = (const H5O_link_t *)_lnk; /* Record from B-tree */
     H5O_link_t *user_lnk = (H5O_link_t *)_user_lnk;       /* User data from v2 B-tree link lookup */
     herr_t ret_value = SUCCEED;         /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /*
      * Check arguments.
@@ -483,7 +505,7 @@ H5G__dense_lookup_cb(const void *_lnk, void *_user_lnk)
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_lookup_cb() */
+} /* end H5G_dense_lookup_cb() */
 
 
 /*-------------------------------------------------------------------------
@@ -494,6 +516,7 @@ done:
  * Return:	Non-negative (TRUE/FALSE) on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 11 2006
  *
  *-------------------------------------------------------------------------
@@ -530,7 +553,7 @@ H5G__dense_lookup(H5F_t *f, const H5O_linfo_t *linfo, const char *name,
     udata.fheap = fheap;
     udata.name = name;
     udata.name_hash = H5_checksum_lookup3(name, HDstrlen(name), 0);
-    udata.found_op = H5G__dense_lookup_cb;       /* v2 B-tree comparison callback */
+    udata.found_op = H5G_dense_lookup_cb;       /* v2 B-tree comparison callback */
     udata.found_op_data = lnk;
 
     /* Find & copy the named link in the 'name' index */
@@ -549,7 +572,7 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__dense_lookup_by_idx_fh_cb
+ * Function:	H5G_dense_lookup_by_idx_fh_cb
  *
  * Purpose:	Callback for fractal heap operator, to make copy of link when
  *              when lookup up a link by index
@@ -557,18 +580,19 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov  7 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__dense_lookup_by_idx_fh_cb(const void *obj, size_t obj_len, void *_udata)
+H5G_dense_lookup_by_idx_fh_cb(const void *obj, size_t obj_len, void *_udata)
 {
     H5G_fh_ud_lbi_t *udata = (H5G_fh_ud_lbi_t *)_udata;       /* User data for fractal heap 'op' callback */
     H5O_link_t *tmp_lnk = NULL;         /* Temporary pointer to link */
     herr_t ret_value = SUCCEED;         /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* Decode link information & keep a copy */
     if(NULL == (tmp_lnk = (H5O_link_t *)H5O_msg_decode(udata->f, NULL, H5O_LINK_ID, obj_len, (const unsigned char *)obj)))
@@ -584,30 +608,31 @@ done:
         H5O_msg_free(H5O_LINK_ID, tmp_lnk);
 
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_lookup_by_idx_fh_cb() */
+} /* end H5G_dense_lookup_by_idx_fh_cb() */
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__dense_lookup_by_idx_bt2_cb
+ * Function:	H5G_dense_lookup_by_idx_bt2_cb
  *
  * Purpose:	v2 B-tree callback for dense link storage lookup by index
  *
  * Return:	H5_ITER_ERROR/H5_ITER_CONT/H5_ITER_STOP
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov  7 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__dense_lookup_by_idx_bt2_cb(const void *_record, void *_bt2_udata)
+H5G_dense_lookup_by_idx_bt2_cb(const void *_record, void *_bt2_udata)
 {
     const H5G_dense_bt2_name_rec_t *record = (const H5G_dense_bt2_name_rec_t *)_record;
     H5G_bt2_ud_lbi_t *bt2_udata = (H5G_bt2_ud_lbi_t *)_bt2_udata;         /* User data for callback */
     H5G_fh_ud_lbi_t fh_udata;          /* User data for fractal heap 'op' callback */
     int ret_value = H5_ITER_CONT;     /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* Prepare user data for callback */
     /* down */
@@ -615,12 +640,12 @@ H5G__dense_lookup_by_idx_bt2_cb(const void *_record, void *_bt2_udata)
     fh_udata.lnk = bt2_udata->lnk;
 
     /* Call fractal heap 'op' routine, to copy the link information */
-    if(H5HF_op(bt2_udata->fheap, record->id, H5G__dense_lookup_by_idx_fh_cb, &fh_udata) < 0)
+    if(H5HF_op(bt2_udata->fheap, record->id, H5G_dense_lookup_by_idx_fh_cb, &fh_udata) < 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTOPERATE, H5_ITER_ERROR, "link found callback failed")
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_lookup_by_idx_bt2_cb() */
+} /* end H5G_dense_lookup_by_idx_bt2_cb() */
 
 
 /*-------------------------------------------------------------------------
@@ -632,6 +657,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov  7 2006
  *
  *-------------------------------------------------------------------------
@@ -701,7 +727,7 @@ H5G__dense_lookup_by_idx(H5F_t *f, const H5O_linfo_t *linfo,
         udata.lnk = lnk;
 
         /* Find & copy the link in the appropriate index */
-        if(H5B2_index(bt2, order, n, H5G__dense_lookup_by_idx_bt2_cb, &udata) < 0)
+        if(H5B2_index(bt2, order, n, H5G_dense_lookup_by_idx_bt2_cb, &udata) < 0)
             HGOTO_ERROR(H5E_SYM, H5E_CANTINSERT, FAIL, "unable to locate link in index")
     } /* end if */
     else {      /* Otherwise, we need to build a table of the links and sort it */
@@ -732,7 +758,7 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__dense_build_table_cb
+ * Function:	H5G_dense_build_table_cb
  *
  * Purpose:	Callback routine for building table of links from dense
  *              link storage.
@@ -741,17 +767,18 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sept 25 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__dense_build_table_cb(const H5O_link_t *lnk, void *_udata)
+H5G_dense_build_table_cb(const H5O_link_t *lnk, void *_udata)
 {
     H5G_dense_bt_ud_t *udata = (H5G_dense_bt_ud_t *)_udata;     /* 'User data' passed in */
     herr_t ret_value = H5_ITER_CONT;   /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* check arguments */
     HDassert(lnk);
@@ -767,7 +794,7 @@ H5G__dense_build_table_cb(const H5O_link_t *lnk, void *_udata)
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_build_table_cb() */
+} /* end H5G_dense_build_table_cb() */
 
 
 /*-------------------------------------------------------------------------
@@ -816,7 +843,7 @@ H5G__dense_build_table(H5F_t *f, const H5O_linfo_t *linfo, H5_index_t idx_type,
         udata.curr_lnk = 0;
 
         /* Iterate over the links in the group, building a table of the link messages */
-        if(H5G__dense_iterate(f, linfo, H5_INDEX_NAME, H5_ITER_NATIVE, (hsize_t)0, NULL, H5G__dense_build_table_cb, &udata) < 0)
+        if(H5G__dense_iterate(f, linfo, H5_INDEX_NAME, H5_ITER_NATIVE, (hsize_t)0, NULL, H5G_dense_build_table_cb, &udata) < 0)
             HGOTO_ERROR(H5E_SYM, H5E_CANTNEXT, FAIL, "error iterating over links")
 
         /* Sort link table in correct iteration order */
@@ -832,7 +859,7 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__dense_iterate_fh_cb
+ * Function:	H5G_dense_iterate_fh_cb
  *
  * Purpose:	Callback for fractal heap operator, to make user's callback
  *              when iterating over links
@@ -840,17 +867,18 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 11 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__dense_iterate_fh_cb(const void *obj, size_t obj_len, void *_udata)
+H5G_dense_iterate_fh_cb(const void *obj, size_t obj_len, void *_udata)
 {
     H5G_fh_ud_it_t *udata = (H5G_fh_ud_it_t *)_udata;       /* User data for fractal heap 'op' callback */
     herr_t ret_value = SUCCEED;   /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* Decode link information & keep a copy */
     /* (we make a copy instead of calling the user/library callback directly in
@@ -864,29 +892,30 @@ H5G__dense_iterate_fh_cb(const void *obj, size_t obj_len, void *_udata)
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_iterate_fh_cb() */
+} /* end H5G_dense_iterate_fh_cb() */
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__dense_iterate_bt2_cb
+ * Function:	H5G_dense_iterate_bt2_cb
  *
  * Purpose:	v2 B-tree callback for dense link storage iterator
  *
  * Return:	H5_ITER_ERROR/H5_ITER_CONT/H5_ITER_STOP
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 11 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__dense_iterate_bt2_cb(const void *_record, void *_bt2_udata)
+H5G_dense_iterate_bt2_cb(const void *_record, void *_bt2_udata)
 {
     const H5G_dense_bt2_name_rec_t *record = (const H5G_dense_bt2_name_rec_t *)_record;
     H5G_bt2_ud_it_t *bt2_udata = (H5G_bt2_ud_it_t *)_bt2_udata;         /* User data for callback */
     herr_t ret_value = H5_ITER_CONT;         /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* Check for skipping links */
     if(bt2_udata->skip > 0)
@@ -899,7 +928,7 @@ H5G__dense_iterate_bt2_cb(const void *_record, void *_bt2_udata)
         fh_udata.f = bt2_udata->f;
 
         /* Call fractal heap 'op' routine, to copy the link information */
-        if(H5HF_op(bt2_udata->fheap, record->id, H5G__dense_iterate_fh_cb, &fh_udata) < 0)
+        if(H5HF_op(bt2_udata->fheap, record->id, H5G_dense_iterate_fh_cb, &fh_udata) < 0)
             HGOTO_ERROR(H5E_SYM, H5E_CANTOPERATE, H5_ITER_ERROR, "heap op callback failed")
 
         /* Make the callback */
@@ -919,7 +948,7 @@ H5G__dense_iterate_bt2_cb(const void *_record, void *_bt2_udata)
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_iterate_bt2_cb() */
+} /* end H5G_dense_iterate_bt2_cb() */
 
 
 /*-------------------------------------------------------------------------
@@ -930,14 +959,14 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 11 2006
  *
  *-------------------------------------------------------------------------
  */
 herr_t
 H5G__dense_iterate(H5F_t *f, const H5O_linfo_t *linfo, H5_index_t idx_type,
-    H5_iter_order_t order, hsize_t skip, hsize_t *last_lnk, H5G_lib_iterate_t op,
-    void *op_data)
+    H5_iter_order_t order, hsize_t skip, hsize_t *last_lnk, H5G_lib_iterate_t op, void *op_data)
 {
     H5HF_t *fheap = NULL;               /* Fractal heap handle */
     H5G_link_table_t ltable = {0, NULL};      /* Table of links */
@@ -1007,7 +1036,7 @@ H5G__dense_iterate(H5F_t *f, const H5O_linfo_t *linfo, H5_index_t idx_type,
 
         /* Iterate over the records in the v2 B-tree's "native" order */
         /* (by hash of name) */
-        if((ret_value = H5B2_iterate(bt2, H5G__dense_iterate_bt2_cb, &udata)) < 0)
+        if((ret_value = H5B2_iterate(bt2, H5G_dense_iterate_bt2_cb, &udata)) < 0)
             HERROR(H5E_SYM, H5E_BADITER, "link iteration failed");
 
         /* Update the last link examined, if requested */
@@ -1038,7 +1067,7 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__dense_get_name_by_idx_fh_cb
+ * Function:	H5G_dense_get_name_by_idx_fh_cb
  *
  * Purpose:	Callback for fractal heap operator, to retrieve name according
  *              to an index
@@ -1046,18 +1075,19 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 19 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__dense_get_name_by_idx_fh_cb(const void *obj, size_t obj_len, void *_udata)
+H5G_dense_get_name_by_idx_fh_cb(const void *obj, size_t obj_len, void *_udata)
 {
     H5G_fh_ud_gnbi_t *udata = (H5G_fh_ud_gnbi_t *)_udata;       /* User data for fractal heap 'op' callback */
     H5O_link_t *lnk;            /* Pointer to link created from heap object */
     herr_t ret_value = SUCCEED; /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* Decode link information */
     if(NULL == (lnk = (H5O_link_t *)H5O_msg_decode(udata->f, NULL, H5O_LINK_ID, obj_len, (const unsigned char *)obj)))
@@ -1078,30 +1108,31 @@ H5G__dense_get_name_by_idx_fh_cb(const void *obj, size_t obj_len, void *_udata)
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_get_name_by_idx_fh_cb() */
+} /* end H5G_dense_get_name_by_idx_fh_cb() */
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__dense_get_name_by_idx_bt2_cb
+ * Function:	H5G_dense_get_name_by_idx_bt2_cb
  *
  * Purpose:	v2 B-tree callback for dense link storage 'get name by idx' call
  *
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 19 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__dense_get_name_by_idx_bt2_cb(const void *_record, void *_bt2_udata)
+H5G_dense_get_name_by_idx_bt2_cb(const void *_record, void *_bt2_udata)
 {
     const H5G_dense_bt2_name_rec_t *record = (const H5G_dense_bt2_name_rec_t *)_record;
     H5G_bt2_ud_gnbi_t *bt2_udata = (H5G_bt2_ud_gnbi_t *)_bt2_udata;         /* User data for callback */
     H5G_fh_ud_gnbi_t fh_udata;         /* User data for fractal heap 'op' callback */
     herr_t ret_value = SUCCEED;         /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* Prepare user data for callback */
     /* down */
@@ -1110,7 +1141,7 @@ H5G__dense_get_name_by_idx_bt2_cb(const void *_record, void *_bt2_udata)
     fh_udata.name_size = bt2_udata->name_size;
 
     /* Call fractal heap 'op' routine, to perform user callback */
-    if(H5HF_op(bt2_udata->fheap, record->id, H5G__dense_get_name_by_idx_fh_cb, &fh_udata) < 0)
+    if(H5HF_op(bt2_udata->fheap, record->id, H5G_dense_get_name_by_idx_fh_cb, &fh_udata) < 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTOPERATE, FAIL, "link found callback failed")
 
     /* Set the name's full length to return */
@@ -1118,7 +1149,7 @@ H5G__dense_get_name_by_idx_bt2_cb(const void *_record, void *_bt2_udata)
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_get_name_by_idx_bt2_cb() */
+} /* end H5G_dense_get_name_by_idx_bt2_cb() */
 
 
 /*-------------------------------------------------------------------------
@@ -1130,6 +1161,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 19 2006
  *
  *-------------------------------------------------------------------------
@@ -1199,7 +1231,7 @@ H5G__dense_get_name_by_idx(H5F_t *f, H5O_linfo_t *linfo, H5_index_t idx_type,
         udata.name_size = size;
 
         /* Retrieve the name according to the v2 B-tree's index order */
-        if(H5B2_index(bt2, order, n, H5G__dense_get_name_by_idx_bt2_cb, &udata) < 0)
+        if(H5B2_index(bt2, order, n, H5G_dense_get_name_by_idx_bt2_cb, &udata) < 0)
             HGOTO_ERROR(H5E_SYM, H5E_CANTLIST, FAIL, "can't locate object in v2 B-tree")
 
         /* Set return value */
@@ -1239,26 +1271,27 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__dense_remove_fh_cb
+ * Function:	H5G_dense_remove_fh_cb
  *
  * Purpose:	Callback for fractal heap operator when removing links
  *
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 12 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__dense_remove_fh_cb(const void *obj, size_t obj_len, void *_udata)
+H5G_dense_remove_fh_cb(const void *obj, size_t obj_len, void *_udata)
 {
     H5G_fh_ud_rm_t *udata = (H5G_fh_ud_rm_t *)_udata;       /* User data for fractal heap 'op' callback */
     H5O_link_t *lnk = NULL;             /* Pointer to link created from heap object */
     H5B2_t *bt2 = NULL;                 /* v2 B-tree handle for index */
     herr_t ret_value = SUCCEED;         /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* Decode link information */
     if(NULL == (lnk = (H5O_link_t *)H5O_msg_decode(udata->f, NULL, H5O_LINK_ID, obj_len, (const unsigned char *)obj)))
@@ -1299,30 +1332,31 @@ done:
         H5O_msg_free(H5O_LINK_ID, lnk);
 
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_remove_fh_cb() */
+} /* end H5G_dense_remove_fh_cb() */
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__dense_remove_bt2_cb
+ * Function:	H5G_dense_remove_bt2_cb
  *
  * Purpose:	v2 B-tree callback for dense link storage record removal
  *
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 12 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__dense_remove_bt2_cb(const void *_record, void *_bt2_udata)
+H5G_dense_remove_bt2_cb(const void *_record, void *_bt2_udata)
 {
     const H5G_dense_bt2_name_rec_t *record = (const H5G_dense_bt2_name_rec_t *)_record;
     H5G_bt2_ud_rm_t *bt2_udata = (H5G_bt2_ud_rm_t *)_bt2_udata;         /* User data for callback */
     H5G_fh_ud_rm_t fh_udata;          /* User data for fractal heap 'op' callback */
     herr_t ret_value = SUCCEED;         /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* Set up the user data for fractal heap 'op' callback */
     fh_udata.f = bt2_udata->common.f;
@@ -1331,7 +1365,7 @@ H5G__dense_remove_bt2_cb(const void *_record, void *_bt2_udata)
     fh_udata.replace_names = bt2_udata->replace_names;
 
     /* Call fractal heap 'op' routine, to perform user callback */
-    if(H5HF_op(bt2_udata->common.fheap, record->id, H5G__dense_remove_fh_cb, &fh_udata) < 0)
+    if(H5HF_op(bt2_udata->common.fheap, record->id, H5G_dense_remove_fh_cb, &fh_udata) < 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTOPERATE, FAIL, "link removal callback failed")
 
     /* Remove record from fractal heap, if requested */
@@ -1341,7 +1375,7 @@ H5G__dense_remove_bt2_cb(const void *_record, void *_bt2_udata)
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_remove_bt2_cb() */
+} /* end H5G_dense_remove_bt2_cb() */
 
 
 /*-------------------------------------------------------------------------
@@ -1352,6 +1386,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 12 2006
  *
  *-------------------------------------------------------------------------
@@ -1395,7 +1430,7 @@ H5G__dense_remove(H5F_t *f, const H5O_linfo_t *linfo, H5RS_str_t *grp_full_path_
     udata.replace_names = TRUE;
 
     /* Remove the record from the name index v2 B-tree */
-    if(H5B2_remove(bt2, &udata, H5G__dense_remove_bt2_cb, &udata) < 0)
+    if(H5B2_remove(bt2, &udata, H5G_dense_remove_bt2_cb, &udata) < 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTREMOVE, FAIL, "unable to remove link from name index v2 B-tree")
 
 done:
@@ -1410,24 +1445,25 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__dense_remove_by_idx_fh_cb
+ * Function:	H5G_dense_remove_by_idx_fh_cb
  *
  * Purpose:	Callback for fractal heap operator when removing links by index
  *
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov 15 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__dense_remove_by_idx_fh_cb(const void *obj, size_t obj_len, void *_udata)
+H5G_dense_remove_by_idx_fh_cb(const void *obj, size_t obj_len, void *_udata)
 {
     H5G_fh_ud_rmbi_t *udata = (H5G_fh_ud_rmbi_t *)_udata;       /* User data for fractal heap 'op' callback */
     herr_t ret_value = SUCCEED; /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* Decode link information */
     if(NULL == (udata->lnk = (H5O_link_t *)H5O_msg_decode(udata->f, NULL, H5O_LINK_ID, obj_len, (const unsigned char *)obj)))
@@ -1437,23 +1473,24 @@ H5G__dense_remove_by_idx_fh_cb(const void *obj, size_t obj_len, void *_udata)
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_remove_by_idx_fh_cb() */
+} /* end H5G_dense_remove_by_idx_fh_cb() */
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__dense_remove_by_idx_bt2_cb
+ * Function:	H5G_dense_remove_by_idx_bt2_cb
  *
  * Purpose:	v2 B-tree callback for dense link storage record removal by index
  *
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov 15 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__dense_remove_by_idx_bt2_cb(const void *_record, void *_bt2_udata)
+H5G_dense_remove_by_idx_bt2_cb(const void *_record, void *_bt2_udata)
 {
     H5G_bt2_ud_rmbi_t *bt2_udata = (H5G_bt2_ud_rmbi_t *)_bt2_udata;         /* User data for callback */
     H5G_fh_ud_rmbi_t fh_udata;          /* User data for fractal heap 'op' callback */
@@ -1461,7 +1498,7 @@ H5G__dense_remove_by_idx_bt2_cb(const void *_record, void *_bt2_udata)
     const uint8_t *heap_id;             /* Heap ID for link */
     herr_t ret_value = SUCCEED;         /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* Determine the index being used */
     if(bt2_udata->idx_type == H5_INDEX_NAME) {
@@ -1484,7 +1521,7 @@ H5G__dense_remove_by_idx_bt2_cb(const void *_record, void *_bt2_udata)
     fh_udata.lnk = NULL;
 
     /* Call fractal heap 'op' routine, to perform user callback */
-    if(H5HF_op(bt2_udata->fheap, heap_id, H5G__dense_remove_by_idx_fh_cb, &fh_udata) < 0)
+    if(H5HF_op(bt2_udata->fheap, heap_id, H5G_dense_remove_by_idx_fh_cb, &fh_udata) < 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTOPERATE, FAIL, "link removal callback failed")
     HDassert(fh_udata.lnk);
 
@@ -1542,7 +1579,7 @@ done:
         HDONE_ERROR(H5E_SYM, H5E_CLOSEERROR, FAIL, "can't close v2 B-tree for 'other' index")
 
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_remove_by_idx_bt2_cb() */
+} /* end H5G_dense_remove_by_idx_bt2_cb() */
 
 
 /*-------------------------------------------------------------------------
@@ -1554,6 +1591,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov 14 2006
  *
  *-------------------------------------------------------------------------
@@ -1624,7 +1662,7 @@ H5G__dense_remove_by_idx(H5F_t *f, const H5O_linfo_t *linfo, H5RS_str_t *grp_ful
         udata.grp_full_path_r = grp_full_path_r;
 
         /* Remove the record from the name index v2 B-tree */
-        if(H5B2_remove_by_idx(bt2, order, n, H5G__dense_remove_by_idx_bt2_cb, &udata) < 0)
+        if(H5B2_remove_by_idx(bt2, order, n, H5G_dense_remove_by_idx_bt2_cb, &udata) < 0)
             HGOTO_ERROR(H5E_SYM, H5E_CANTREMOVE, FAIL, "unable to remove link from indexed v2 B-tree")
     } /* end if */
     else {      /* Otherwise, we need to build a table of the links and sort it */
@@ -1662,6 +1700,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 12 2006
  *
  *-------------------------------------------------------------------------
@@ -1704,7 +1743,7 @@ H5G__dense_delete(H5F_t *f, H5O_linfo_t *linfo, hbool_t adj_link)
         udata.replace_names = FALSE;
 
         /* Delete the name index, adjusting the ref. count on links removed */
-        if(H5B2_delete(f, linfo->name_bt2_addr, NULL, H5G__dense_remove_bt2_cb, &udata) < 0)
+        if(H5B2_delete(f, linfo->name_bt2_addr, NULL, H5G_dense_remove_bt2_cb, &udata) < 0)
             HGOTO_ERROR(H5E_SYM, H5E_CANTDELETE, FAIL, "unable to delete v2 B-tree for name index")
 
         /* Close the fractal heap */
@@ -1737,80 +1776,4 @@ H5G__dense_delete(H5F_t *f, H5O_linfo_t *linfo, hbool_t adj_link)
 done:
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5G__dense_delete() */
-
-#ifndef H5_NO_DEPRECATED_SYMBOLS
-
-/*-------------------------------------------------------------------------
- * Function:	H5G__dense_get_type_by_idx
- *
- * Purpose:     Returns the type of objects in the group by giving index.
- *
- * Note:	This routine assumes a lookup on the link name index in
- *		increasing order and isn't currently set up to be as
- *		flexible as other routines in this code module, because
- *		the H5Gget_objtype_by_idx that it's supporting is
- *		deprecated.
- *
- * Return:	Success:        Non-negative, object type
- *		Failure:	Negative
- *
- * Programmer:	Quincey Koziol
- *		Sep 19 2006
- *
- *-------------------------------------------------------------------------
- */
-H5G_obj_t
-H5G__dense_get_type_by_idx(H5F_t *f, H5O_linfo_t *linfo, hsize_t idx)
-{
-    H5G_link_table_t ltable = {0, NULL};        /* Table of links */
-    H5G_obj_t ret_value = H5G_UNKNOWN;          /* Return value */
-
-    FUNC_ENTER_PACKAGE
-
-    /*
-     * Check arguments.
-     */
-    HDassert(f);
-    HDassert(linfo);
-
-    /* Build the table of links for this group */
-    if(H5G__dense_build_table(f, linfo, H5_INDEX_NAME, H5_ITER_INC, &ltable) < 0)
-        HGOTO_ERROR(H5E_SYM, H5E_CANTGET, H5G_UNKNOWN, "error building table of links")
-
-    /* Check for going out of bounds */
-    if(idx >= ltable.nlinks)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, H5G_UNKNOWN, "index out of bound")
-
-    /* Determine type of object */
-    if(ltable.lnks[idx].type == H5L_TYPE_SOFT)
-        ret_value = H5G_LINK;
-    else if(ltable.lnks[idx].type >= H5L_TYPE_UD_MIN)
-        ret_value = H5G_UDLINK;
-    else if(ltable.lnks[idx].type == H5L_TYPE_HARD) {
-        H5O_loc_t tmp_oloc;             /* Temporary object location */
-        H5O_type_t obj_type;            /* Type of object at location */
-
-        /* Build temporary object location */
-        tmp_oloc.file = f;
-        tmp_oloc.addr = ltable.lnks[idx].u.hard.addr;
-
-        /* Get the type of the object */
-        if(H5O_obj_type(&tmp_oloc, &obj_type) < 0)
-            HGOTO_ERROR(H5E_SYM, H5E_CANTGET, H5G_UNKNOWN, "can't get object type")
-
-        /* Map to group object type */
-        if(H5G_UNKNOWN == (ret_value = H5G_map_obj_type(obj_type)))
-            HGOTO_ERROR(H5E_SYM, H5E_BADTYPE, H5G_UNKNOWN, "can't determine object type")
-    } else {
-        HGOTO_ERROR(H5E_SYM, H5E_BADTYPE, H5G_UNKNOWN, "unknown link type")
-    } /* end else */
-
-done:
-    /* Release link table */
-    if(ltable.lnks && H5G__link_release_table(&ltable) < 0)
-        HDONE_ERROR(H5E_SYM, H5E_CANTFREE, H5G_UNKNOWN, "unable to release link table")
-
-    FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__dense_get_type_by_idx() */
-#endif /* H5_NO_DEPRECATED_SYMBOLS */
 

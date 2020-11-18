@@ -53,11 +53,11 @@ unsigned outBuffOffset;
 FILE*    overflow_file = NULL;
 
 /* local functions */
-static void init_table(table_t **tbl);
+static void init_table(hid_t fid, table_t **tbl);
 #ifdef H5DUMP_DEBUG
-static void dump_table(char* tablename, table_t *table);
+static void dump_table(hid_t fid, char* tablename, table_t *table);
 #endif  /* H5DUMP_DEBUG */
-static void add_obj(table_t *table, haddr_t objno, const char *objname, hbool_t recorded);
+static void add_obj(table_t *table, const H5O_token_t *obj_token, const char *objname, hbool_t recorded);
 
 /*-------------------------------------------------------------------------
  * Function: parallel_print
@@ -388,6 +388,8 @@ get_option(int argc, const char **argv, const char *opts, const struct long_opti
  * Programmer: Jacob Smith
  *             2017-11-10
  *
+ * Changes: None.
+ *
  *****************************************************************************
  */
 herr_t
@@ -597,10 +599,11 @@ print_version(const char *progname)
  *-------------------------------------------------------------------------
  */
 static void
-init_table(table_t **tbl)
+init_table(hid_t fid, table_t **tbl)
 {
     table_t *table = (table_t *)HDmalloc(sizeof(table_t));
 
+    table->fid = fid;
     table->size = 20;
     table->nobjs = 0;
     table->objs = (obj_t *)HDmalloc(table->size * sizeof(obj_t));
@@ -642,15 +645,21 @@ free_table(table_t *table)
  *-------------------------------------------------------------------------
  */
 static void
-dump_table(char* tablename, table_t *table)
+dump_table(hid_t fid, char* tablename, table_t *table)
 {
     unsigned u;
+    char *obj_addr_str = NULL;
 
     PRINTSTREAM(rawoutstream,"%s: # of entries = %d\n", tablename,table->nobjs);
-    for (u = 0; u < table->nobjs; u++)
-        PRINTSTREAM(rawoutstream,"%a %s %d %d\n", table->objs[u].objno,
+    for (u = 0; u < table->nobjs; u++) {
+        H5VLconnector_token_to_str(fid, table->objs[u].obj_token, &obj_addr_str);
+
+        PRINTSTREAM(rawoutstream,"%s %s %d %d\n", obj_addr_str,
            table->objs[u].objname,
            table->objs[u].displayed, table->objs[u].recorded);
+
+        H5VLfree_token_str(fid, obj_addr_str);
+    }
 }
 
 
@@ -665,9 +674,9 @@ dump_table(char* tablename, table_t *table)
 void
 dump_tables(find_objs_t *info)
 {
-    dump_table("group_table", info->group_table);
-    dump_table("dset_table", info->dset_table);
-    dump_table("type_table", info->type_table);
+    dump_table(info->fid, "group_table", info->group_table);
+    dump_table(info->fid, "dset_table", info->dset_table);
+    dump_table(info->fid, "type_table", info->type_table);
 }
 #endif  /* H5DUMP_DEBUG */
 
@@ -683,13 +692,17 @@ dump_tables(find_objs_t *info)
  *-------------------------------------------------------------------------
  */
 H5_ATTR_PURE obj_t *
-search_obj(table_t *table, haddr_t objno)
+search_obj(table_t *table, const H5O_token_t *obj_token)
 {
     unsigned u;
+    int token_cmp;
 
-    for(u = 0; u < table->nobjs; u++)
-        if(table->objs[u].objno == objno)
+    for(u = 0; u < table->nobjs; u++) {
+        if(H5Otoken_cmp(table->fid, &table->objs[u].obj_token, obj_token, &token_cmp) < 0)
+            return NULL;
+        if(!token_cmp)
             return &(table->objs[u]);
+    }
 
     return NULL;
 }
@@ -706,7 +719,7 @@ search_obj(table_t *table, haddr_t objno)
  *-------------------------------------------------------------------------
  */
 static herr_t
-find_objs_cb(const char *name, const H5O_info_t *oinfo, const char *already_seen, void *op_data)
+find_objs_cb(const char *name, const H5O_info2_t *oinfo, const char *already_seen, void *op_data)
 {
     find_objs_t *info = (find_objs_t*)op_data;
     herr_t ret_value = 0;
@@ -714,7 +727,7 @@ find_objs_cb(const char *name, const H5O_info_t *oinfo, const char *already_seen
     switch(oinfo->type) {
         case H5O_TYPE_GROUP:
             if(NULL == already_seen)
-                add_obj(info->group_table, oinfo->addr, name, TRUE);
+                add_obj(info->group_table, &oinfo->token, name, TRUE);
             break;
 
         case H5O_TYPE_DATASET:
@@ -722,18 +735,18 @@ find_objs_cb(const char *name, const H5O_info_t *oinfo, const char *already_seen
                 hid_t dset = H5I_INVALID_HID;
 
                 /* Add the dataset to the list of objects */
-                add_obj(info->dset_table, oinfo->addr, name, TRUE);
+                add_obj(info->dset_table, &oinfo->token, name, TRUE);
 
                 /* Check for a dataset that uses a named datatype */
                 if((dset = H5Dopen2(info->fid, name, H5P_DEFAULT)) >= 0) {
                     hid_t type = H5Dget_type(dset);
 
                     if(H5Tcommitted(type) > 0) {
-                        H5O_info_t type_oinfo;
+                        H5O_info2_t type_oinfo;
 
-                        H5Oget_info2(type, &type_oinfo, H5O_INFO_BASIC);
-                        if(search_obj(info->type_table, type_oinfo.addr) == NULL)
-                            add_obj(info->type_table, type_oinfo.addr, name, FALSE);
+                        H5Oget_info3(type, &type_oinfo, H5O_INFO_BASIC);
+                        if(search_obj(info->type_table, &type_oinfo.token) == NULL)
+                            add_obj(info->type_table, &type_oinfo.token, name, FALSE);
                     } /* end if */
 
                     H5Tclose(type);
@@ -748,8 +761,8 @@ find_objs_cb(const char *name, const H5O_info_t *oinfo, const char *already_seen
             if(NULL == already_seen) {
                 obj_t *found_obj;
 
-                if((found_obj = search_obj(info->type_table, oinfo->addr)) == NULL)
-                    add_obj(info->type_table, oinfo->addr, name, TRUE);
+                if((found_obj = search_obj(info->type_table, &oinfo->token)) == NULL)
+                    add_obj(info->type_table, &oinfo->token, name, TRUE);
                 else {
                     /* Use latest version of name */
                     HDfree(found_obj->objname);
@@ -761,6 +774,7 @@ find_objs_cb(const char *name, const H5O_info_t *oinfo, const char *already_seen
             } /* end if */
             break;
 
+        case H5O_TYPE_MAP:
         case H5O_TYPE_UNKNOWN:
         case H5O_TYPE_NTYPES:
         default:
@@ -788,9 +802,9 @@ init_objs(hid_t fid, find_objs_t *info, table_t **group_table,
     herr_t ret_value = SUCCEED;
 
     /* Initialize the tables */
-    init_table(group_table);
-    init_table(dset_table);
-    init_table(type_table);
+    init_table(fid, group_table);
+    init_table(fid, dset_table);
+    init_table(fid, type_table);
 
     /* Init the find_objs_t */
     info->fid = fid;
@@ -826,7 +840,7 @@ done:
  *-------------------------------------------------------------------------
  */
 static void
-add_obj(table_t *table, haddr_t objno, const char *objname, hbool_t record)
+add_obj(table_t *table, const H5O_token_t *obj_token, const char *objname, hbool_t record)
 {
     size_t u;
 
@@ -840,7 +854,7 @@ add_obj(table_t *table, haddr_t objno, const char *objname, hbool_t record)
     u = table->nobjs++;
 
     /* Set information about object */
-    table->objs[u].objno = objno;
+    HDmemcpy(&table->objs[u].obj_token, obj_token, sizeof(H5O_token_t));
     table->objs[u].objname = HDstrdup(objname);
     table->objs[u].recorded = record;
     table->objs[u].displayed = 0;
@@ -890,7 +904,7 @@ int
 H5tools_get_symlink_info(hid_t file_id, const char * linkpath, h5tool_link_info_t *link_info, hbool_t get_obj_type)
 {
     htri_t l_ret;
-    H5O_info_t trg_oinfo;
+    H5O_info2_t trg_oinfo;
     hid_t fapl = H5P_DEFAULT;
     hid_t lapl = H5P_DEFAULT;
     int   ret_value = -1; /* init to fail */
@@ -912,7 +926,7 @@ H5tools_get_symlink_info(hid_t file_id, const char * linkpath, h5tool_link_info_
     } /* end if */
 
     /* get info from link */
-    if(H5Lget_info(file_id, linkpath, &(link_info->linfo), H5P_DEFAULT) < 0) {
+    if(H5Lget_info2(file_id, linkpath, &(link_info->linfo), H5P_DEFAULT) < 0) {
         if(link_info->opt.msg_mode == 1)
             parallel_print("Warning: unable to get link info from <%s>\n",linkpath);
         H5TOOLS_GOTO_DONE(FAIL);
@@ -968,7 +982,7 @@ H5tools_get_symlink_info(hid_t file_id, const char * linkpath, h5tool_link_info_
         }
 
         /* get target object info */
-        if(H5Oget_info_by_name2(file_id, linkpath, &trg_oinfo, H5O_INFO_BASIC, lapl) < 0) {
+        if(H5Oget_info_by_name3(file_id, linkpath, &trg_oinfo, H5O_INFO_BASIC, lapl) < 0) {
             if(link_info->opt.msg_mode == 1)
                 parallel_print("Warning: unable to get object information for <%s>\n", linkpath);
             H5TOOLS_GOTO_DONE(FAIL);
@@ -982,8 +996,8 @@ H5tools_get_symlink_info(hid_t file_id, const char * linkpath, h5tool_link_info_
         }  /* end if */
 
         /* set target obj type to return */
+        HDmemcpy(&link_info->obj_token, &trg_oinfo.token, sizeof(H5O_token_t));
         link_info->trg_type = trg_oinfo.type;
-        link_info->objno = trg_oinfo.addr;
         link_info->fileno = trg_oinfo.fileno;
     } /* end if */
     else
@@ -1065,52 +1079,6 @@ done:
     return ret_value;
 }
 
-#ifdef H5_HAVE_ROS3_VFD
-/*----------------------------------------------------------------------------
- *
- * Function: h5tools_parse_ros3_fapl_tuple
- *
- * Purpose:  A convenience function that parses a string containing a tuple
- *           of S3 VFD credential information and then passes the result to
- *           `h5tools_populate_ros3_fapl()` in order to setup a valid
- *           configuration for the S3 VFD.
- *
- * Return:   SUCCEED/FAIL
- *
- *----------------------------------------------------------------------------
- */
-herr_t
-h5tools_parse_ros3_fapl_tuple(const char *tuple_str, int delim,
-    H5FD_ros3_fapl_t *fapl_config_out)
-{
-    const char  *ccred[3];
-    unsigned     nelems     = 0;
-    char        *s3cred_src = NULL;
-    char       **s3cred     = NULL;
-    herr_t       ret_value  = SUCCEED;
-
-    /* Attempt to parse S3 credentials tuple */
-    if (parse_tuple(tuple_str, delim, &s3cred_src, &nelems, &s3cred) < 0)
-        H5TOOLS_GOTO_ERROR(FAIL, "failed to parse S3 VFD info tuple");
-
-    /* Sanity-check tuple count */
-    if (nelems != 3)
-        H5TOOLS_GOTO_ERROR(FAIL, "invalid S3 VFD credentials");
-
-    ccred[0] = (const char *)s3cred[0];
-    ccred[1] = (const char *)s3cred[1];
-    ccred[2] = (const char *)s3cred[2];
-
-    if (h5tools_populate_ros3_fapl(fapl_config_out, ccred) < 0)
-        H5TOOLS_GOTO_ERROR(FAIL, "failed to populate S3 VFD FAPL config");
-
-done:
-    HDfree(s3cred);
-    HDfree(s3cred_src);
-
-    return ret_value;
-}
-
 
 /*----------------------------------------------------------------------------
  *
@@ -1140,7 +1108,7 @@ done:
  *
  * Return:
  *
- *     FAIL if...
+ *     0 (failure) if...
  *         * Read-Only S3 VFD is not enabled.
  *         * NULL fapl pointer: (NULL, {...} )
  *         * Warning: In all cases below, fapl will be set as "default"
@@ -1157,7 +1125,7 @@ done:
  *                 * (&fa, {"...", "",    "...")
  *             * Any string would overflow allowed space in fapl definition.
  *     or
- *     SUCCEED
+ *     1 (success)
  *         * Sets components in fapl_t pointer, copying strings as appropriate.
  *         * "Default" fapl (valid version, authenticate->False, empty strings)
  *             * `values` pointer is NULL
@@ -1174,115 +1142,197 @@ done:
  *
  *----------------------------------------------------------------------------
  */
-herr_t
-h5tools_populate_ros3_fapl(H5FD_ros3_fapl_t *fa, const char **values)
+#ifdef H5_HAVE_ROS3_VFD
+int
+h5tools_populate_ros3_fapl(H5FD_ros3_fapl_t  *fa,
+                           const char       **values)
 {
-    herr_t ret_value     = SUCCEED;
+    int show_progress = 0; /* set to 1 for debugging */
+    int ret_value     = 1; /* 1 for success, 0 for failure           */
+                           /* e.g.? if (!populate()) { then failed } */
 
-    if (fa == NULL)
-        H5TOOLS_GOTO_ERROR(FAIL, "fa cannot be NULL");
+    if (show_progress) {
+        HDprintf("called h5tools_populate_ros3_fapl\n");
+    }
 
+    if (fa == NULL) {
+        if (show_progress) {
+            HDprintf("  ERROR: null pointer to fapl_t\n");
+        }
+        ret_value = 0;
+        goto done;
+    }
+
+    if (show_progress) {
+        HDprintf("  preset fapl with default values\n");
+    }
     fa->version       = H5FD_CURR_ROS3_FAPL_T_VERSION;
     fa->authenticate  = FALSE;
     *(fa->aws_region) = '\0';
     *(fa->secret_id)  = '\0';
     *(fa->secret_key) = '\0';
 
-    /* Sanity checks */
+    /* sanity-check supplied values
+     */
     if (values != NULL) {
-        if (values[0] == NULL || values[1] == NULL || values[2] == NULL)
-            H5TOOLS_GOTO_ERROR(FAIL, "values data cannot be NULL");
+        if (values[0] == NULL) {
+            if (show_progress) {
+                HDprintf("  ERROR: aws_region value cannot be NULL\n");
+            }
+            ret_value = 0;
+            goto done;
+        }
+        if (values[1] == NULL) {
+            if (show_progress) {
+                HDprintf("  ERROR: secret_id value cannot be NULL\n");
+            }
+            ret_value = 0;
+            goto done;
+        }
+        if (values[2] == NULL) {
+            if (show_progress) {
+                HDprintf("  ERROR: secret_key value cannot be NULL\n");
+            }
+            ret_value = 0;
+            goto done;
+        }
 
         /* if region and ID are supplied (key optional), write to fapl...
          * fail if value would overflow
          */
-        if (*values[0] != '\0' && *values[1] != '\0') {
-            if (HDstrlen(values[0]) > H5FD_ROS3_MAX_REGION_LEN)
-                H5TOOLS_GOTO_ERROR(FAIL, "can't exceed max region length");
-            HDmemcpy(fa->aws_region, values[0], (HDstrlen(values[0]) + 1));
+        if (*values[0] != '\0' &&
+            *values[1] != '\0')
+        {
+            if (HDstrlen(values[0]) > H5FD_ROS3_MAX_REGION_LEN) {
+                if (show_progress) {
+                    HDprintf("  ERROR: aws_region value too long\n");
+                }
+                ret_value = 0;
+                goto done;
+            }
+            HDmemcpy(fa->aws_region,                     values[0],
+                     (HDstrlen(values[0]) + 1));
+            if (show_progress) {
+                HDprintf("  aws_region set\n");
+            }
 
-            if (HDstrlen(values[1]) > H5FD_ROS3_MAX_SECRET_ID_LEN)
-                H5TOOLS_GOTO_ERROR(FAIL, "can't exceed max secret ID length");
-            HDmemcpy(fa->secret_id, values[1], (HDstrlen(values[1]) + 1));
 
-            if (HDstrlen(values[2]) > H5FD_ROS3_MAX_SECRET_KEY_LEN)
-                H5TOOLS_GOTO_ERROR(FAIL, "can't exceed max secret key length");
-            HDmemcpy(fa->secret_key, values[2], (HDstrlen(values[2]) + 1));
+            if (HDstrlen(values[1]) > H5FD_ROS3_MAX_SECRET_ID_LEN) {
+                if (show_progress) {
+                    HDprintf("  ERROR: secret_id value too long\n");
+                }
+                ret_value = 0;
+                goto done;
+            }
+            HDmemcpy(fa->secret_id,
+                     values[1],
+                     (HDstrlen(values[1]) + 1));
+            if (show_progress) {
+                HDprintf("  secret_id set\n");
+            }
+
+            if (HDstrlen(values[2]) > H5FD_ROS3_MAX_SECRET_KEY_LEN) {
+                if (show_progress) {
+                    HDprintf("  ERROR: secret_key value too long\n");
+                }
+                ret_value = 0;
+                goto done;
+            }
+            HDmemcpy(fa->secret_key,
+                     values[2],
+                     (HDstrlen(values[2]) + 1));
+            if (show_progress) {
+                HDprintf("  secret_key set\n");
+            }
 
             fa->authenticate = TRUE;
+            if (show_progress) {
+                HDprintf("  set to authenticate\n");
+            }
+
+        } else if (*values[0] != '\0' ||
+                   *values[1] != '\0' ||
+                   *values[2] != '\0')
+        {
+            if (show_progress) {
+                HDprintf(
+                    "  ERROR: invalid assortment of empty/non-empty values\n"
+                );
+            }
+            ret_value = 0;
+            goto done;
         }
-        else if (*values[0] != '\0' || *values[1] != '\0' || *values[2] != '\0')
-            H5TOOLS_GOTO_ERROR(FAIL, "all values cannot be empty strings");
-    }
+    } /* values != NULL */
 
 done:
     return ret_value;
+
 } /* h5tools_populate_ros3_fapl */
 #endif /* H5_HAVE_ROS3_VFD */
 
-#ifdef H5_HAVE_LIBHDFS
-/*----------------------------------------------------------------------------
+
+/*-----------------------------------------------------------------------------
  *
- * Function: h5tools_parse_hdfs_fapl_tuple
+ * Function: h5tools_set_configured_fapl
  *
- * Purpose:  A convenience function that parses a string containing a tuple
- *           of HDFS VFD configuration information.
+ * Purpose: prepare fapl_id with the given property list, according to
+ *          VFD prototype.
  *
- * Return:   SUCCEED/FAIL
+ * Return: 0 on failure, 1 on success
  *
- *----------------------------------------------------------------------------
+ * Programmer: Jacob Smith
+ *             2018-05-21
+ *
+ * Changes: None.
+ *
+ *-----------------------------------------------------------------------------
  */
-herr_t
-h5tools_parse_hdfs_fapl_tuple(const char *tuple_str, int delim,
-    H5FD_hdfs_fapl_t *fapl_config_out)
+int
+h5tools_set_configured_fapl(hid_t      fapl_id,
+                           const char  vfd_name[],
+                           void       *fapl_t_ptr)
 {
-    unsigned long   k         = 0;
-    unsigned        nelems    = 0;
-    char           *props_src = NULL;
-    char          **props     = NULL;
-    herr_t          ret_value = SUCCEED;
+    int ret_value = 1;
 
-    /* Attempt to parse HDFS configuration tuple */
-    if (parse_tuple(tuple_str, delim, &props_src, &nelems, &props) < 0)
-        H5TOOLS_GOTO_ERROR(FAIL, "failed to parse HDFS VFD configuration tuple");
+    if (fapl_id < 0) {
+        return 0;
+    }
 
-    /* Sanity-check tuple count */
-    if (nelems != 5)
-        H5TOOLS_GOTO_ERROR(FAIL, "invalid HDFS VFD configuration");
+    if (!strcmp("", vfd_name)) {
+        goto done;
 
-    /* Populate fapl configuration structure with given properties.
-     * WARNING: No error-checking is done on length of input strings...
-     *          Silent overflow is possible, albeit unlikely.
-     */
-    if (HDstrncmp(props[0], "", 1)) {
-        HDstrncpy(fapl_config_out->namenode_name, (const char *)props[0], HDstrlen(props[0]));
-    }
-    if (HDstrncmp(props[1], "", 1)) {
-        k = strtoul((const char *)props[1], NULL, 0);
-        if (errno == ERANGE)
-            H5TOOLS_GOTO_ERROR(FAIL, "supposed port number wasn't");
-        fapl_config_out->namenode_port = (int32_t)k;
-    }
-    if (HDstrncmp(props[2], "", 1)) {
-        HDstrncpy(fapl_config_out->kerberos_ticket_cache, (const char *)props[2], HDstrlen(props[2]));
-    }
-    if (HDstrncmp(props[3], "", 1)) {
-        HDstrncpy(fapl_config_out->user_name, (const char *)props[3], HDstrlen(props[3]));
-    }
-    if (HDstrncmp(props[4], "", 1)) {
-        k = HDstrtoul((const char *)props[4], NULL, 0);
-        if (errno == ERANGE)
-            H5TOOLS_GOTO_ERROR(FAIL, "supposed buffersize number wasn't");
-        fapl_config_out->stream_buffer_size = (int32_t)k;
+#ifdef H5_HAVE_ROS3_VFD
+    } else if (!strcmp("ros3", vfd_name)) {
+        if ((fapl_id == H5P_DEFAULT) ||
+            (fapl_t_ptr == NULL) ||
+            (FAIL == H5Pset_fapl_ros3(
+                fapl_id,
+                (H5FD_ros3_fapl_t *)fapl_t_ptr)))
+        {
+            ret_value = 0;
+            goto done;
+        }
+#endif /* H5_HAVE_ROS3_VFD */
+
+#ifdef H5_HAVE_LIBHDFS
+    } else if (!strcmp("hdfs", vfd_name)) {
+        if ((fapl_id == H5P_DEFAULT) ||
+            (fapl_t_ptr == NULL) ||
+            (FAIL == H5Pset_fapl_hdfs(
+                fapl_id,
+                (H5FD_hdfs_fapl_t *)fapl_t_ptr)))
+        {
+            ret_value = 0;
+            goto done;
+        }
+#endif /* H5_HAVE_LIBHDFS */
+
+    } else {
+        ret_value = 0; /* unrecognized fapl type "name" */
     }
 
 done:
-    if (props)
-        HDfree(props);
-    if (props_src)
-        HDfree(props_src);
-
     return ret_value;
-}
-#endif /* H5_HAVE_LIBHDFS */
+
+} /* h5tools_set_configured_fapl() */
 

@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Raymond Lu
+ * Programmer:  Raymond Lu <slu@ncsa.uiuc.edu>
  *              Feb 27, 2002
  *
  * Purpose:     This program is run to generate a HDF5 data file with fill

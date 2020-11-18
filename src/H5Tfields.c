@@ -41,6 +41,9 @@
  * Programmer:	Robb Matzke
  *		Monday, December  8, 1997
  *
+ * Modifications:
+ *	Robb Matzke, 22 Dec 1998
+ *	Also works with enumeration datatypes.
  *-------------------------------------------------------------------------
  */
 int
@@ -79,6 +82,8 @@ done:
  *
  * Programmer:  Raymond Lu
  *	        October 8, 2002
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -119,6 +124,9 @@ done:
  * Programmer:	Robb Matzke
  *		Wednesday, January  7, 1998
  *
+ * Modifications:
+ *	Robb Matzke, 22 Dec 1998
+ *	Also works with enumeration datatypes.
  *-------------------------------------------------------------------------
  */
 char *
@@ -158,6 +166,7 @@ done:
  * Programmer:	Raymond Lu
  *              October 9, 2002
  *
+ * Modifications:
  *-------------------------------------------------------------------------
  */
 char *
@@ -215,6 +224,8 @@ done:
  *
  * Programmer:  Raymond Lu
  *              Thursday, April 4, 2002
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -382,6 +393,8 @@ H5T__sort_value(const H5T_t *dt, int *map)
  *
  * Programmer:	Robb Matzke
  *              Monday, January  4, 1999
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */

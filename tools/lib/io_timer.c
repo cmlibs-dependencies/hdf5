@@ -23,6 +23,7 @@
  */
 
 #include "H5private.h"
+#include "hdf5.h"
 
 #include "io_timer.h"
 

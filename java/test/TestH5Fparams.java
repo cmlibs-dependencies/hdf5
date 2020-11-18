@@ -57,8 +57,8 @@ public class TestH5Fparams {
     }
 
     @Test(expected = NullPointerException.class)
-    public void testH5Fis_hdf5_null() throws Throwable {
-        H5.H5Fis_hdf5(null);
+    public void testH5Fis_accessible_null() throws Throwable {
+        H5.H5Fis_accessible(null, -1);
     }
 
     @Test(expected = NullPointerException.class)
@@ -71,7 +71,7 @@ public class TestH5Fparams {
         H5.H5Funmount(-1, null);
     }
 
-    @Test
+    @Ignore
     public void testH5Fis_hdf5_text() {
         File txtFile = null;
         boolean isH5 = false;
@@ -244,7 +244,7 @@ public class TestH5Fparams {
             catch (Throwable err) {
                 fail("H5.H5Fcreate: " + err);
             }
-            H5.H5Fset_libver_bounds(fid, HDF5Constants.H5F_LIBVER_V110, HDF5Constants.H5F_LIBVER_V110+1);
+            H5.H5Fset_libver_bounds(fid, HDF5Constants.H5F_LIBVER_LATEST, HDF5Constants.H5F_LIBVER_LATEST+1);
         }
         finally {
             try {H5.H5Fclose(fid);} catch (Exception ex) {}

@@ -15,7 +15,7 @@
  *
  * Created:             H5Olink.c
  *                      Aug 29 2005
- *                      Quincey Koziol
+ *                      Quincey Koziol <koziol@ncsa.uiuc.edu>
  *
  * Purpose:             Link messages.
  *
@@ -111,6 +111,7 @@ H5FL_DEFINE_STATIC(H5O_link_t);
  *              Failure:        NULL
  *
  * Programmer:  Quincey Koziol
+ *              koziol@ncsa.uiuc.edu
  *              Aug 29 2005
  *
  *-------------------------------------------------------------------------
@@ -118,12 +119,11 @@ H5FL_DEFINE_STATIC(H5O_link_t);
 static void *
 H5O__link_decode(H5F_t *f, H5O_t H5_ATTR_UNUSED *open_oh,
     unsigned H5_ATTR_UNUSED mesg_flags, unsigned H5_ATTR_UNUSED *ioflags,
-    size_t p_size, const uint8_t *p)
+    size_t H5_ATTR_UNUSED p_size, const uint8_t *p)
 {
     H5O_link_t          *lnk = NULL;    /* Pointer to link message */
     size_t              len = 0;        /* Length of a string in the message */
     unsigned char       link_flags;     /* Flags for encoding link info */
-    const uint8_t       *p_end = p + p_size;  /* End of the p buffer */
     void                *ret_value = NULL;      /* Return value */
 
     FUNC_ENTER_STATIC
@@ -199,11 +199,6 @@ H5O__link_decode(H5F_t *f, H5O_t H5_ATTR_UNUSED *open_oh,
     if(len == 0)
         HGOTO_ERROR(H5E_OHDR, H5E_CANTLOAD, NULL, "invalid name length")
 
-    /* Make sure that length doesn't exceed buffer size, which could occur
-       when the file is corrupted */
-    if(p + len > p_end)
-        HGOTO_ERROR(H5E_OHDR, H5E_OVERFLOW, NULL, "name length causes read past end of buffer")
-
     /* Get the link's name */
     if(NULL == (lnk->name = (char *)H5MM_malloc(len + 1)))
         HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, NULL, "memory allocation failed")
@@ -223,12 +218,6 @@ H5O__link_decode(H5F_t *f, H5O_t H5_ATTR_UNUSED *open_oh,
             UINT16DECODE(p, len)
             if(len == 0)
                 HGOTO_ERROR(H5E_OHDR, H5E_CANTLOAD, NULL, "invalid link length")
-
-            /* Make sure that length doesn't exceed buffer size, which could occur
-               when the file is corrupted */
-            if(p + len > p_end)
-                HGOTO_ERROR(H5E_OHDR, H5E_OVERFLOW, NULL, "name length causes read past end of buffer")
-
             if(NULL == (lnk->u.soft.name = (char *)H5MM_malloc((size_t)len + 1)))
                 HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, NULL, "memory allocation failed")
             H5MM_memcpy(lnk->u.soft.name, p, len);
@@ -249,11 +238,6 @@ H5O__link_decode(H5F_t *f, H5O_t H5_ATTR_UNUSED *open_oh,
             lnk->u.ud.size = len;
             if(len > 0)
             {
-                /* Make sure that length doesn't exceed buffer size, which could
-                   occur when the file is corrupted */
-                if(p + len > p_end)
-                    HGOTO_ERROR(H5E_OHDR, H5E_OVERFLOW, NULL, "name length causes read past end of buffer")
-
                 if(NULL == (lnk->u.ud.udata = H5MM_malloc((size_t)len)))
                     HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, NULL, "memory allocation failed")
                 H5MM_memcpy(lnk->u.ud.udata, p, len);
@@ -290,6 +274,7 @@ done:
  * Return:      Non-negative on success/Negative on failure
  *
  * Programmer:  Quincey Koziol
+ *              koziol@ncsa.uiuc.edu
  *              Aug 29 2005
  *
  *-------------------------------------------------------------------------
@@ -416,6 +401,7 @@ H5O_link_encode(H5F_t *f, hbool_t H5_ATTR_UNUSED disable_shared, uint8_t *p, con
  *              Failure:        NULL
  *
  * Programmer:  Quincey Koziol
+ *              koziol@ncsa.uiuc.edu
  *              Aug 29 2005
  *
  *-------------------------------------------------------------------------
@@ -483,6 +469,7 @@ done:
  *              Failure:        zero
  *
  * Programmer:  Quincey Koziol
+ *              koziol@ncsa.uiuc.edu
  *              Aug 29 2005
  *
  *-------------------------------------------------------------------------
@@ -625,6 +612,7 @@ herr_t
 H5O_link_delete(H5F_t *f, H5O_t H5_ATTR_UNUSED *open_oh, void *_mesg)
 {
     H5O_link_t *lnk = (H5O_link_t *)_mesg;
+    hid_t file_id = -1;           /* ID for the file the link is located in (passed to user callback) */
     herr_t ret_value = SUCCEED;   /* Return value */
 
     FUNC_ENTER_NOAPI(FAIL)
@@ -658,25 +646,21 @@ H5O_link_delete(H5F_t *f, H5O_t H5_ATTR_UNUSED *open_oh, void *_mesg)
 
         /* Check for delete callback */
         if(link_class->del_func) {
-            hid_t file_id;           /* ID for the file the link is located in (passed to user callback) */
-
             /* Get a file ID for the file the link is in */
-            if((file_id = H5F_get_id(f, FALSE)) < 0)
+            if((file_id = H5F_get_id(f)) < 0)
                 HGOTO_ERROR(H5E_OHDR, H5E_CANTGET, FAIL, "unable to get file ID")
 
             /* Call user-defined link's 'delete' callback */
-            if((link_class->del_func)(lnk->name, file_id, lnk->u.ud.udata, lnk->u.ud.size) < 0) {
-                H5I_dec_ref(file_id);
+            if((link_class->del_func)(lnk->name, file_id, lnk->u.ud.udata, lnk->u.ud.size) < 0)
                 HGOTO_ERROR(H5E_OHDR, H5E_CALLBACK, FAIL, "link deletion callback returned failure")
-            } /* end if */
-
-            /* Release the file ID */
-            if(H5I_dec_ref(file_id) < 0)
-                HGOTO_ERROR(H5E_OHDR, H5E_CANTCLOSEFILE, FAIL, "can't close file")
         } /* end if */
     } /* end if */
 
 done:
+    /* Release the file ID */
+    if(file_id > 0 && H5I_dec_ref(file_id) < 0)
+        HDONE_ERROR(H5E_OHDR, H5E_CANTCLOSEFILE, FAIL, "can't close file")
+
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5O_link_delete() */
 
@@ -810,6 +794,7 @@ done:
  * Return:      Non-negative on success/Negative on failure
  *
  * Programmer:  Quincey Koziol
+ *              koziol@ncsa.uiuc.edu
  *              Aug 29 2005
  *
  *-------------------------------------------------------------------------
@@ -821,7 +806,7 @@ H5O__link_debug(H5F_t H5_ATTR_UNUSED *f, const void *_mesg, FILE *stream,
     const H5O_link_t    *lnk = (const H5O_link_t *) _mesg;
     herr_t               ret_value = SUCCEED;          /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* check args */
     HDassert(f);

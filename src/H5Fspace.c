@@ -15,7 +15,7 @@
  *
  * Created:		H5Fspace.c
  *			Dec 30 2013
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		Space allocation routines for the file.
  *

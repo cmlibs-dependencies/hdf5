@@ -329,14 +329,6 @@ typedef struct
 /* and bad offset values are written to that file for testing */
 #define MISC33_FILE             "bad_offset.h5"
 
-/* Definitions for misc. test #35 */
-#define MISC35_SPACE_RANK       3
-#define MISC35_SPACE_DIM1       3
-#define MISC35_SPACE_DIM2       15
-#define MISC35_SPACE_DIM3       13
-#define MISC35_NPOINTS          10
-
-
 /****************************************************************
 **
 **  test_misc1(): test unlinking a dataset from a group and immediately
@@ -474,8 +466,8 @@ static void test_misc2_write_attribute(void)
     ret = H5Aread(att1, type, &data_check);
     CHECK(ret, FAIL, "H5Aread");
 
-    ret = H5Dvlen_reclaim(type, dataspace, H5P_DEFAULT, &data_check);
-    CHECK(ret, FAIL, "H5Dvlen_reclaim");
+    ret = H5Treclaim(type, dataspace, H5P_DEFAULT, &data_check);
+    CHECK(ret, FAIL, "H5Treclaim");
 
     ret = H5Aclose(att1);
     CHECK(ret, FAIL, "H5Aclose");
@@ -500,8 +492,8 @@ static void test_misc2_write_attribute(void)
     ret = H5Aread(att2, type, &data_check);
     CHECK(ret, FAIL, "H5Aread");
 
-    ret = H5Dvlen_reclaim(type, dataspace, H5P_DEFAULT, &data_check);
-    CHECK(ret, FAIL, "H5Dvlen_reclaim");
+    ret = H5Treclaim(type, dataspace, H5P_DEFAULT, &data_check);
+    CHECK(ret, FAIL, "H5Treclaim");
 
     ret = H5Aclose(att2);
     CHECK(ret, FAIL, "H5Aclose");
@@ -549,8 +541,8 @@ static void test_misc2_read_attribute(const char *filename, const char *att_name
     ret = H5Aread(att, type, &data_check);
     CHECK(ret, FAIL, "H5Aread");
 
-    ret = H5Dvlen_reclaim(type, space, H5P_DEFAULT, &data_check);
-    CHECK(ret, FAIL, "H5Dvlen_reclaim");
+    ret = H5Treclaim(type, space, H5P_DEFAULT, &data_check);
+    CHECK(ret, FAIL, "H5Treclaim");
 
     ret = H5Sclose(space);
     CHECK(ret, FAIL, "H5Sclose");
@@ -663,7 +655,7 @@ static void
 test_misc4(void)
 {
     hid_t file1, file2, group1, group2, group3;
-    H5O_info_t oinfo1, oinfo2, oinfo3;
+    H5O_info2_t oinfo1, oinfo2, oinfo3;
     herr_t ret;
 
     /* Output message about test being performed */
@@ -688,12 +680,12 @@ test_misc4(void)
     CHECK(group3, FAIL, "H5Gcreate2");
 
     /* Get the stat information for each group */
-    ret = H5Oget_info_by_name2(file1, MISC4_GROUP_1, &oinfo1, H5O_INFO_BASIC, H5P_DEFAULT);
-    CHECK(ret, FAIL, "H5Oget_info_by_name");
-    ret = H5Oget_info_by_name2(file1, MISC4_GROUP_2, &oinfo2, H5O_INFO_BASIC, H5P_DEFAULT);
-    CHECK(ret, FAIL, "H5Oget_info_by_name");
-    ret = H5Oget_info_by_name2(file2, MISC4_GROUP_1, &oinfo3, H5O_INFO_BASIC, H5P_DEFAULT);
-    CHECK(ret, FAIL, "H5Oget_info_by_name");
+    ret = H5Oget_info_by_name3(file1, MISC4_GROUP_1, &oinfo1, H5O_INFO_BASIC, H5P_DEFAULT);
+    CHECK(ret, FAIL, "H5Oget_info_by_name3");
+    ret = H5Oget_info_by_name3(file1, MISC4_GROUP_2, &oinfo2, H5O_INFO_BASIC, H5P_DEFAULT);
+    CHECK(ret, FAIL, "H5Oget_info_by_name3");
+    ret = H5Oget_info_by_name3(file2, MISC4_GROUP_1, &oinfo3, H5O_INFO_BASIC, H5P_DEFAULT);
+    CHECK(ret, FAIL, "H5Oget_info_by_name3");
 
     /* Verify that the fileno values are the same for groups from file1 */
     VERIFY(oinfo1.fileno, oinfo2.fileno, "H5Oget_info_by_name");
@@ -1008,8 +1000,8 @@ test_misc5(void)
     }
 
     /* Reclaim the memory for the VL information */
-    ret=H5Dvlen_reclaim(mem_type_id, space_id, H5P_DEFAULT, &buf);
-    CHECK(ret,FAIL,"H5Dvlen_reclaim");
+    ret=H5Treclaim(mem_type_id, space_id, H5P_DEFAULT, &buf);
+    CHECK(ret,FAIL,"H5Treclaim");
 
     /* Close dataspace */
     ret=H5Sclose(space_id);
@@ -2075,8 +2067,8 @@ test_misc12(void)
     CHECK(ret, FAIL, "H5Sselect_all");
 
     /* Reclaim VL data memory */
-    ret = H5Dvlen_reclaim(tid1, space, H5P_DEFAULT, rdata);
-    CHECK(ret, FAIL, "H5Dvlen_reclaim");
+    ret = H5Treclaim(tid1, space, H5P_DEFAULT, rdata);
+    CHECK(ret, FAIL, "H5Treclaim");
 
     /* Close Everything */
     ret = H5Dclose(dataset);
@@ -2731,7 +2723,7 @@ test_misc15(void)
     CHECK(ret, FAIL, "H5Fclose");
 
     /* Verify that the file is still OK */
-    ret = H5Fis_hdf5(MISC15_FILE);
+    ret = H5Fis_accessible(MISC15_FILE, fapl);
     CHECK(ret, FAIL, "H5Fis_hdf5");
 
     ret = H5Pclose(fapl);
@@ -2925,7 +2917,11 @@ test_misc18(void)
     hid_t sid;          /* 'Space ID */
     hid_t did1, did2;   /* Dataset IDs */
     hid_t aid;          /* Attribute ID */
-    H5O_info_t oinfo;   /* Information about object */
+#ifndef H5_NO_DEPRECATED_SYMBOLS
+    H5O_info1_t old_oinfo;   /* (deprecated) information about object */
+#endif /* H5_NO_DEPRECATED_SYMBOLS */
+    H5O_info2_t oinfo;  /* Data model information about object */
+    H5O_native_info_t ninfo;    /* Native file format information about object */
     char attr_name[32]; /* Attribute name buffer */
     unsigned u;         /* Local index variable */
     herr_t ret;         /* Generic return value */
@@ -2943,26 +2939,48 @@ test_misc18(void)
     CHECK(did1, FAIL, "H5Dcreate2");
 
     /* Get object information */
-    ret = H5Oget_info_by_name2(fid, MISC18_DSET1_NAME, &oinfo, H5O_INFO_HDR|H5O_INFO_NUM_ATTRS, H5P_DEFAULT);
+    ret = H5Oget_info_by_name3(fid, MISC18_DSET1_NAME, &oinfo, H5O_INFO_NUM_ATTRS, H5P_DEFAULT);
     CHECK(ret, FAIL, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.nmesgs, 6, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.nchunks, 1, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.space.total, 272, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.space.free, 152, "H5Oget_info_by_name");
     VERIFY(oinfo.num_attrs, 0, "H5Oget_info_by_name");
+#ifndef H5_NO_DEPRECATED_SYMBOLS
+    ret = H5Oget_info_by_name2(fid, MISC18_DSET1_NAME, &old_oinfo, H5O_INFO_HDR|H5O_INFO_NUM_ATTRS, H5P_DEFAULT);
+    CHECK(ret, FAIL, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.nmesgs, 6, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.nchunks, 1, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.space.total, 272, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.space.free, 152, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.num_attrs, 0, "H5Oget_info_by_name");
+#endif /* H5_NO_DEPRECATED_SYMBOLS */
+    ret = H5Oget_native_info_by_name(fid, MISC18_DSET1_NAME, &ninfo, H5O_NATIVE_INFO_HDR, H5P_DEFAULT);
+    CHECK(ret, FAIL, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.nmesgs, 6, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.nchunks, 1, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.space.total, 272, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.space.free, 152, "H5Oget_native_info_by_name");
 
     /* Create second dataset */
     did2 = H5Dcreate2(fid, MISC18_DSET2_NAME, H5T_STD_U32LE, sid, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     CHECK(did2, FAIL, "H5Dcreate2");
 
     /* Get object information */
-    ret = H5Oget_info_by_name2(fid, MISC18_DSET2_NAME, &oinfo, H5O_INFO_HDR|H5O_INFO_NUM_ATTRS, H5P_DEFAULT);
+    ret = H5Oget_info_by_name3(fid, MISC18_DSET2_NAME, &oinfo, H5O_INFO_NUM_ATTRS, H5P_DEFAULT);
     CHECK(ret, FAIL, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.nmesgs, 6, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.nchunks, 1, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.space.total, 272, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.space.free, 152, "H5Oget_info_by_name");
     VERIFY(oinfo.num_attrs, 0, "H5Oget_info_by_name");
+#ifndef H5_NO_DEPRECATED_SYMBOLS
+    ret = H5Oget_info_by_name2(fid, MISC18_DSET2_NAME, &old_oinfo, H5O_INFO_HDR|H5O_INFO_NUM_ATTRS, H5P_DEFAULT);
+    CHECK(ret, FAIL, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.nmesgs, 6, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.nchunks, 1, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.space.total, 272, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.space.free, 152, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.num_attrs, 0, "H5Oget_info_by_name");
+#endif /* H5_NO_DEPRECATED_SYMBOLS */
+    ret = H5Oget_native_info_by_name(fid, MISC18_DSET2_NAME, &ninfo, H5O_NATIVE_INFO_HDR, H5P_DEFAULT);
+    CHECK(ret, FAIL, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.nmesgs, 6, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.nchunks, 1, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.space.total, 272, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.space.free, 152, "H5Oget_native_info_by_name");
 
     /* Loop creating attributes on each dataset, flushing them to the file each time */
     for(u = 0; u < 10; u++) {
@@ -2989,22 +3007,44 @@ test_misc18(void)
     } /* end for */
 
     /* Get object information for dataset #1 now */
-    ret = H5Oget_info_by_name2(fid, MISC18_DSET1_NAME, &oinfo, H5O_INFO_HDR|H5O_INFO_NUM_ATTRS, H5P_DEFAULT);
+    ret = H5Oget_info_by_name3(fid, MISC18_DSET1_NAME, &oinfo, H5O_INFO_NUM_ATTRS, H5P_DEFAULT);
     CHECK(ret, FAIL, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.nmesgs, 24, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.nchunks, 9, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.space.total, 888, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.space.free, 16, "H5Oget_info_by_name");
     VERIFY(oinfo.num_attrs, 10, "H5Oget_info_by_name");
+#ifndef H5_NO_DEPRECATED_SYMBOLS
+    ret = H5Oget_info_by_name2(fid, MISC18_DSET1_NAME, &old_oinfo, H5O_INFO_HDR|H5O_INFO_NUM_ATTRS, H5P_DEFAULT);
+    CHECK(ret, FAIL, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.nmesgs, 24, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.nchunks, 9, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.space.total, 888, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.space.free, 16, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.num_attrs, 10, "H5Oget_info_by_name");
+#endif /* H5_NO_DEPRECATED_SYMBOLS */
+    ret = H5Oget_native_info_by_name(fid, MISC18_DSET1_NAME, &ninfo, H5O_NATIVE_INFO_HDR, H5P_DEFAULT);
+    CHECK(ret, FAIL, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.nmesgs, 24, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.nchunks, 9, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.space.total, 888, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.space.free, 16, "H5Oget_native_info_by_name");
 
     /* Get object information for dataset #2 now */
-    ret = H5Oget_info_by_name2(fid, MISC18_DSET2_NAME, &oinfo, H5O_INFO_HDR|H5O_INFO_NUM_ATTRS, H5P_DEFAULT);
+    ret = H5Oget_info_by_name3(fid, MISC18_DSET2_NAME, &oinfo, H5O_INFO_NUM_ATTRS, H5P_DEFAULT);
     CHECK(ret, FAIL, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.nmesgs, 24, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.nchunks, 9, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.space.total, 888, "H5Oget_info_by_name");
-    VERIFY(oinfo.hdr.space.free, 16, "H5Oget_info_by_name");
     VERIFY(oinfo.num_attrs, 10, "H5Oget_info_by_name");
+#ifndef H5_NO_DEPRECATED_SYMBOLS
+    ret = H5Oget_info_by_name2(fid, MISC18_DSET2_NAME, &old_oinfo, H5O_INFO_HDR|H5O_INFO_NUM_ATTRS, H5P_DEFAULT);
+    CHECK(ret, FAIL, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.nmesgs, 24, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.nchunks, 9, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.space.total, 888, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.hdr.space.free, 16, "H5Oget_info_by_name");
+    VERIFY(old_oinfo.num_attrs, 10, "H5Oget_info_by_name");
+#endif /* H5_NO_DEPRECATED_SYMBOLS */
+    ret = H5Oget_native_info_by_name(fid, MISC18_DSET2_NAME, &ninfo, H5O_NATIVE_INFO_HDR, H5P_DEFAULT);
+    CHECK(ret, FAIL, "H5Oget_mative_info_by_name");
+    VERIFY(ninfo.hdr.nmesgs, 24, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.nchunks, 9, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.space.total, 888, "H5Oget_native_info_by_name");
+    VERIFY(ninfo.hdr.space.free, 16, "H5Oget_native_info_by_name");
 
     /* Close second dataset */
     ret = H5Dclose(did2);
@@ -3042,7 +3082,9 @@ test_misc19(void)
     hid_t emid = -1;                /* Error Message ID         */
     hid_t esid = -1;                /* Error Stack ID           */
     hid_t vfdid = -1;               /* Virtual File Driver ID   */
+    hid_t volid = -1;               /* Virtual Object Layer ID  */
     H5FD_class_t *vfd_cls = NULL;   /* VFD class                */
+    H5VL_class_t *vol_cls = NULL;   /* VOL class                */
     int rc;                         /* Reference count          */
     herr_t ret;                     /* Generic return value     */
 
@@ -3493,6 +3535,44 @@ test_misc19(void)
 
     HDfree(vfd_cls);
 
+/* Check H5I operations on virtual object connectors */
+
+    /* Get a VOL class to register */
+    vol_cls = h5_get_dummy_vol_class();
+    CHECK(vol_cls, NULL, "h5_get_dummy_vol_class");
+
+    /* Register a VOL connector */
+    volid = H5VLregister_connector(vol_cls, H5P_DEFAULT);
+    CHECK(volid, FAIL, "H5VLregister_connector");
+
+    /* Check the reference count */
+    rc = H5Iget_ref(volid);
+    VERIFY(rc, 1, "H5Iget_ref");
+
+    /* Increment the reference count */
+    rc = H5Iinc_ref(volid);
+    VERIFY(rc, 2, "H5Iinc_ref");
+
+    /* Unregister the VOL connector normally */
+    ret = H5VLunregister_connector(volid);
+    CHECK(ret, FAIL, "H5VLunregister_connector");
+
+    /* Check the reference count */
+    rc = H5Iget_ref(volid);
+    VERIFY(rc, 1, "H5Iget_ref");
+
+    /* Unregister the VOL connector by decrementing the reference count */
+    rc = H5Idec_ref(volid);
+    VERIFY(rc, 0, "H5Idec_ref");
+
+    /* Try unregistering the VOL connector again (should fail) */
+    H5E_BEGIN_TRY {
+        ret = H5VLunregister_connector(volid);
+    } H5E_END_TRY;
+    VERIFY(ret, FAIL, "H5VLunregister_connector");
+
+    HDfree(vol_cls);
+
 } /* end test_misc19() */
 
 /****************************************************************
@@ -3889,7 +3969,7 @@ test_misc23(void)
     hid_t       file_id=0, group_id=0, type_id=0, space_id=0,
                 tmp_id=0, create_id=H5P_DEFAULT, access_id=H5P_DEFAULT;
     char        objname[MISC23_NAME_BUF_SIZE];  /* Name of object */
-    H5O_info_t  oinfo;
+    H5O_info2_t oinfo;
     htri_t      tri_status;
     ssize_t     namelen;
     herr_t      status;
@@ -3972,9 +4052,9 @@ test_misc23(void)
     tmp_id = H5Gopen2(file_id, "/A/B01", H5P_DEFAULT);
     CHECK(tmp_id, FAIL, "H5Gopen2");
 
-    status = H5Oget_info2(tmp_id, &oinfo, H5O_INFO_BASIC);
-    CHECK(status, FAIL, "H5Oget_info");
-    VERIFY(oinfo.rc, 1, "H5Oget_info");
+    status = H5Oget_info3(tmp_id, &oinfo, H5O_INFO_BASIC);
+    CHECK(status, FAIL, "H5Oget_info3");
+    VERIFY(oinfo.rc, 1, "H5Oget_info3");
 
     status = H5Gclose(tmp_id);
     CHECK(status, FAIL, "H5Gclose");
@@ -5248,18 +5328,18 @@ test_misc29(void)
 
 
 static int
-test_misc30_get_info_cb(hid_t loc_id, const char *name, const H5L_info_t H5_ATTR_UNUSED *info,
+test_misc30_get_info_cb(hid_t loc_id, const char *name, const H5L_info2_t H5_ATTR_UNUSED *info,
     void H5_ATTR_UNUSED *op_data)
 {
-    H5O_info_t object_info;
+    H5O_info2_t object_info;
 
-    return H5Oget_info_by_name2(loc_id, name, &object_info, H5O_INFO_BASIC, H5P_DEFAULT);
+    return H5Oget_info_by_name3(loc_id, name, &object_info, H5O_INFO_BASIC, H5P_DEFAULT);
 }
 
 static int
 test_misc30_get_info(hid_t loc_id)
 {
-    return H5Literate(loc_id, H5_INDEX_NAME, H5_ITER_INC, NULL, test_misc30_get_info_cb, NULL);
+    return H5Literate2(loc_id, H5_INDEX_NAME, H5_ITER_INC, NULL, test_misc30_get_info_cb, NULL);
 }
 
 
@@ -5509,7 +5589,7 @@ test_misc33(void)
 {
     hid_t   fid = -1;   /* File ID */
     const char *testfile = H5_get_srcdir_filename(MISC33_FILE); /* Corrected test file name */
-    H5O_info_t oinfo;   /* Structure for object metadata information */
+    H5O_info2_t oinfo;  /* Structure for object metadata information */
     herr_t  ret;        /* Generic return value */
 
     /* Output message about test being performed */
@@ -5521,21 +5601,21 @@ test_misc33(void)
 
     /* Case (1) */
     H5E_BEGIN_TRY {
-        ret = H5Oget_info_by_name2(fid, "/soft_two", &oinfo, H5O_INFO_BASIC, H5P_DEFAULT);
+        ret = H5Oget_info_by_name3(fid, "/soft_two", &oinfo, H5O_INFO_BASIC, H5P_DEFAULT);
     } H5E_END_TRY;
-    VERIFY(ret, FAIL, "H5Oget_info_by_name");
+    VERIFY(ret, FAIL, "H5Oget_info_by_name3");
 
     /* Case (2) */
     H5E_BEGIN_TRY {
-        ret = H5Oget_info_by_name2(fid, "/dsetA", &oinfo, H5O_INFO_BASIC, H5P_DEFAULT);
+        ret = H5Oget_info_by_name3(fid, "/dsetA", &oinfo, H5O_INFO_BASIC, H5P_DEFAULT);
     } H5E_END_TRY;
-    VERIFY(ret, FAIL, "H5Oget_info_by_name");
+    VERIFY(ret, FAIL, "H5Oget_info_by_name3");
 
     /* Case (3) */
     H5E_BEGIN_TRY {
-        ret = H5Oget_info_by_name2(fid, "/soft_one", &oinfo, H5O_INFO_BASIC, H5P_DEFAULT);
+        ret = H5Oget_info_by_name3(fid, "/soft_one", &oinfo, H5O_INFO_BASIC, H5P_DEFAULT);
     } H5E_END_TRY;
-    VERIFY(ret, FAIL, "H5Oget_info_by_name");
+    VERIFY(ret, FAIL, "H5Oget_info_by_name3");
 
     /* Close the file */
     ret = H5Fclose(fid);
@@ -5604,118 +5684,6 @@ test_misc34(void)
 
 /****************************************************************
 **
-**  test_misc35(): Check operation of free-list routines
-**
-****************************************************************/
-static void
-test_misc35(void)
-{
-    hid_t sid = H5I_INVALID_HID; /* Dataspace ID */
-    hsize_t dims[] = {MISC35_SPACE_DIM1, MISC35_SPACE_DIM2, MISC35_SPACE_DIM3};   /* Dataspace dims */
-    hsize_t coord[MISC35_NPOINTS][MISC35_SPACE_RANK] =  /* Coordinates for point selection */
-        {{0,10, 5},
-         {1, 2, 7},
-         {2, 4, 9},
-         {0, 6,11},
-         {1, 8,13},
-         {2,12, 0},
-         {0,14, 2},
-         {1, 0, 4},
-         {2, 1, 6},
-         {0, 3, 8}};
-    size_t reg_size_start;    /* Initial amount of regular memory allocated */
-    size_t arr_size_start;    /* Initial amount of array memory allocated */
-    size_t blk_size_start;    /* Initial amount of block memory allocated */
-    size_t fac_size_start;    /* Initial amount of factory memory allocated */
-    size_t reg_size_final;    /* Final amount of regular memory allocated */
-    size_t arr_size_final;    /* Final amount of array memory allocated */
-    size_t blk_size_final;    /* Final amount of block memory allocated */
-    size_t fac_size_final;    /* Final amount of factory memory allocated */
-    H5_alloc_stats_t alloc_stats;       /* Memory stats */
-    herr_t ret;         /* Return value */
-
-    /* Output message about test being performed */
-    MESSAGE(5, ("Free-list API calls"));
-
-    /* Create dataspace */
-    /* (Allocates array free-list nodes) */
-    sid = H5Screate_simple(MISC35_SPACE_RANK, dims, NULL);
-    CHECK(sid, H5I_INVALID_HID, "H5Screate_simple");
-
-    /* Select sequence of ten points */
-    ret = H5Sselect_elements(sid, H5S_SELECT_SET, (size_t)MISC35_NPOINTS, (const hsize_t *)coord);
-    CHECK(ret, FAIL, "H5Sselect_elements");
-
-    /* Close dataspace */
-    ret = H5Sclose(sid);
-    CHECK(ret, FAIL, "H5Sclose");
-
-
-    /* Retrieve initial free list values */
-    ret = H5get_free_list_sizes(&reg_size_start, &arr_size_start, &blk_size_start, &fac_size_start);
-    CHECK(ret, FAIL, "H5get_free_list_sizes");
-
-#if !defined H5_USING_MEMCHECKER
-    /* All the free list values should be >0 */
-    CHECK(reg_size_start, 0, "H5get_free_list_sizes");
-    CHECK(arr_size_start, 0, "H5get_free_list_sizes");
-    CHECK(blk_size_start, 0, "H5get_free_list_sizes");
-    CHECK(fac_size_start, 0, "H5get_free_list_sizes");
-#else /* H5_MEMORY_ALLOC_SANITY_CHECK */
-    /* All the values should be == 0 */
-    VERIFY(reg_size_start, 0, "H5get_free_list_sizes");
-    VERIFY(arr_size_start, 0, "H5get_free_list_sizes");
-    VERIFY(blk_size_start, 0, "H5get_free_list_sizes");
-    VERIFY(fac_size_start, 0, "H5get_free_list_sizes");
-#endif /* H5_MEMORY_ALLOC_SANITY_CHECK */
-
-    /* Garbage collect the free lists */
-    ret = H5garbage_collect();
-    CHECK(ret, FAIL, "H5garbage_collect");
-
-    /* Retrieve free list values again */
-    ret = H5get_free_list_sizes(&reg_size_final, &arr_size_final, &blk_size_final, &fac_size_final);
-    CHECK(ret, FAIL, "H5get_free_list_sizes");
-
-    /* All the free list values should be <= previous values */
-    if(reg_size_final > reg_size_start)
-        ERROR("reg_size_final > reg_size_start");
-    if(arr_size_final > arr_size_start)
-        ERROR("arr_size_final > arr_size_start");
-    if(blk_size_final > blk_size_start)
-        ERROR("blk_size_final > blk_size_start");
-    if(fac_size_final > fac_size_start)
-        ERROR("fac_size_final > fac_size_start");
-
-    /* Retrieve memory allocation statistics */
-    ret = H5get_alloc_stats(&alloc_stats);
-    CHECK(ret, FAIL, "H5get_alloc_stats");
-
-#if defined H5_MEMORY_ALLOC_SANITY_CHECK
-    /* All the values should be >0 */
-    CHECK(alloc_stats.total_alloc_bytes, 0, "H5get_alloc_stats");
-    CHECK(alloc_stats.curr_alloc_bytes, 0, "H5get_alloc_stats");
-    CHECK(alloc_stats.peak_alloc_bytes, 0, "H5get_alloc_stats");
-    CHECK(alloc_stats.max_block_size, 0, "H5get_alloc_stats");
-    CHECK(alloc_stats.total_alloc_blocks_count, 0, "H5get_alloc_stats");
-    CHECK(alloc_stats.curr_alloc_blocks_count, 0, "H5get_alloc_stats");
-    CHECK(alloc_stats.peak_alloc_blocks_count, 0, "H5get_alloc_stats");
-#else /* H5_MEMORY_ALLOC_SANITY_CHECK */
-    /* All the values should be == 0 */
-    VERIFY(alloc_stats.total_alloc_bytes, 0, "H5get_alloc_stats");
-    VERIFY(alloc_stats.curr_alloc_bytes, 0, "H5get_alloc_stats");
-    VERIFY(alloc_stats.peak_alloc_bytes, 0, "H5get_alloc_stats");
-    VERIFY(alloc_stats.max_block_size, 0, "H5get_alloc_stats");
-    VERIFY(alloc_stats.total_alloc_blocks_count, 0, "H5get_alloc_stats");
-    VERIFY(alloc_stats.curr_alloc_blocks_count, 0, "H5get_alloc_stats");
-    VERIFY(alloc_stats.peak_alloc_blocks_count, 0, "H5get_alloc_stats");
-#endif /* H5_MEMORY_ALLOC_SANITY_CHECK */
-
-} /* end test_misc35() */
-
-
-/****************************************************************
-**
 **  test_misc(): Main misc. test routine.
 **
 ****************************************************************/
@@ -5763,7 +5731,6 @@ test_misc(void)
     test_misc32();      /* Test filter memory allocation functions */
     test_misc33();      /* Test to verify that H5HL_offset_into() returns error if offset exceeds heap block */
     test_misc34();      /* Test behavior of 0 and NULL in H5MM API calls */
-    test_misc35();      /* Test behavior of free-list & allocation statistics API calls */
 
 } /* test_misc() */
 

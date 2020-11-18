@@ -15,7 +15,7 @@
  *
  * Purpose:    Unit tests for the S3 Communications (s3comms) module.
  *
- * Programmer: Jacob Smith
+ * Programmer: Jacob Smith <jake.smith@hdfgroup.org>
  *             2017-10-11
  */
 

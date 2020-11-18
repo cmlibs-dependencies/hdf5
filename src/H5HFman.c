@@ -15,7 +15,7 @@
  *
  * Created:		H5HFman.c
  *			Feb 24 2006
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@ncsa.uiuc.edu>
  *
  * Purpose:		"Managed" object routines for fractal heaps.
  *
@@ -97,6 +97,7 @@ static herr_t H5HF__man_op_real(H5HF_hdr_t *hdr, const uint8_t *id,
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 13 2006
  *
  *-------------------------------------------------------------------------
@@ -220,7 +221,7 @@ done:
  *
  * Return:      SUCCEED (Can't fail)
  *
- * Programmer:  Dana Robinson
+ * Programmer:  Dana Robinson (derobins@hdfgroup.org)
  *              August 2012
  *
  *-------------------------------------------------------------------------
@@ -237,7 +238,7 @@ H5HF_man_get_obj_len(H5HF_hdr_t *hdr, const uint8_t *id, size_t *obj_len_p)
     HDassert(hdr);
     HDassert(id);
     HDassert(obj_len_p);
-
+    
     /* Skip over the flag byte */
     id++;
 
@@ -259,6 +260,7 @@ H5HF_man_get_obj_len(H5HF_hdr_t *hdr, const uint8_t *id, size_t *obj_len_p)
  * Return:      SUCCEED (Can't fail)
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 20 2015
  *
  *-------------------------------------------------------------------------
@@ -274,7 +276,7 @@ H5HF__man_get_obj_off(const H5HF_hdr_t *hdr, const uint8_t *id, hsize_t *obj_off
     HDassert(hdr);
     HDassert(id);
     HDassert(obj_off_p);
-
+    
     /* Skip over the flag byte */
     id++;
 
@@ -294,6 +296,7 @@ H5HF__man_get_obj_off(const H5HF_hdr_t *hdr, const uint8_t *id, hsize_t *obj_off
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 17 2006
  *
  *-------------------------------------------------------------------------
@@ -304,8 +307,8 @@ H5HF__man_op_real(H5HF_hdr_t *hdr, const uint8_t *id,
 {
     H5HF_direct_t *dblock = NULL;       /* Pointer to direct block to query */
     unsigned dblock_access_flags;       /* Access method for direct block */
-                                        /* must equal either
-                                         * H5AC__NO_FLAGS_SET or
+                                        /* must equal either 
+                                         * H5AC__NO_FLAGS_SET or 
                                          * H5AC__READ_ONLY_FLAG
                                          */
     haddr_t dblock_addr;                /* Direct block address */
@@ -442,6 +445,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 17 2006
  *
  *-------------------------------------------------------------------------
@@ -477,6 +481,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Dec 18 2006
  *
  *-------------------------------------------------------------------------
@@ -513,6 +518,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sept 11 2006
  *
  *-------------------------------------------------------------------------
@@ -548,6 +554,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 15 2006
  *
  *-------------------------------------------------------------------------

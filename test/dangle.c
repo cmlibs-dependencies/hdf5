@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Quincey Koziol
+ * Programmer:  Quincey Koziol <koziol@ncsa.uiuc.edu>
  *              Tuesday, May 13, 2003
  *
  * Purpose:    Test dangling IDs

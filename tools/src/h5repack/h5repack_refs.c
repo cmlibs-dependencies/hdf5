@@ -439,7 +439,7 @@ static int copy_refs_attr(hid_t loc_in,
     hsize_t     nelmts;            /* number of elements in dataset */
     hsize_t     dims[H5S_MAX_RANK];/* dimensions of dataset */
     char        name[255];
-    H5O_info_t  oinfo;             /* Object info */
+    H5O_info2_t oinfo;             /* Object info */
     unsigned    u, i, j;
     int         rank;
     H5T_class_t type_class = -1;
@@ -454,7 +454,7 @@ static int copy_refs_attr(hid_t loc_in,
     int         ref_comp_field_n = 0;
     int         ret_value = 0;
 
-    if(H5Oget_info2(loc_in, &oinfo, H5O_INFO_NUM_ATTRS) < 0)
+    if(H5Oget_info3(loc_in, &oinfo, H5O_INFO_NUM_ATTRS) < 0)
         H5TOOLS_GOTO_ERROR((-1), "H5Oget_info failed");
 
     for(u = 0; u < (unsigned)oinfo.num_attrs; u++) {
@@ -537,6 +537,7 @@ static int copy_refs_attr(hid_t loc_in,
                KY 2020-02-10
             */
             is_ref_comp = (ref_comp_field_n > 0);
+
         }
 
 
@@ -718,7 +719,7 @@ static int copy_refs_attr(hid_t loc_in,
                 H5TOOLS_GOTO_ERROR((-1), "H5Awrite failed");
 
             if (is_ref_vlen && buf)
-                H5Dvlen_reclaim (mtype_id, space_id, H5P_DEFAULT, buf);
+                H5Treclaim (mtype_id, space_id, H5P_DEFAULT, buf);
         } /* if (nelmts) */
 
         if (refbuf == buf)
@@ -802,13 +803,16 @@ MapIdToName(hid_t refobj_id, trav_table_t *travt)
         if(travt->objs[u].type == (h5trav_type_t)H5O_TYPE_DATASET ||
                 travt->objs[u].type == (h5trav_type_t)H5O_TYPE_GROUP ||
                 travt->objs[u].type == (h5trav_type_t)H5O_TYPE_NAMED_DATATYPE) {
-            H5O_info_t   ref_oinfo;     /* Stat for the refobj id */
+            H5O_info2_t ref_oinfo;     /* Stat for the refobj id */
+            int         token_cmp;
 
             /* obtain information to identify the referenced object uniquely */
-            if(H5Oget_info2(refobj_id, &ref_oinfo, H5O_INFO_BASIC) < 0)
+            if(H5Oget_info3(refobj_id, &ref_oinfo, H5O_INFO_BASIC) < 0)
                 goto out;
 
-            if(ref_oinfo.addr == travt->objs[u].objno) {
+            if(H5Otoken_cmp(refobj_id, &ref_oinfo.token, &travt->objs[u].obj_token, &token_cmp) < 0)
+                goto out;
+            if(!token_cmp) {
                 ret = travt->objs[u].name;
                 goto out;
             }

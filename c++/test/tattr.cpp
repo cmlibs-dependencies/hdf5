@@ -282,7 +282,7 @@ static void test_attr_getname()
         if (attr_exists == false)
             throw InvalidActionException("H5File::attrExists", "Attribute should exist but does not");
 
-        // Open attribute
+        // Open attribute 
         Attribute fattr1(fid1.openAttribute(FATTR1_NAME));
 
         // A. Get attribute name with
@@ -519,7 +519,7 @@ static void test_attr_basic_read()
         verify_val(num_attrs, 3, "DataSet::getNumAttrs", __LINE__, __FILE__);
 
         // Verify the correct number of attributes another way
-        H5O_info_t oinfo;
+        H5O_info2_t oinfo;
         HDmemset(&oinfo, 0, sizeof(oinfo));
         dataset.getObjinfo(oinfo, H5O_INFO_NUM_ATTRS);
         verify_val(oinfo.num_attrs, 3, "DataSet::getObjinfo", __LINE__, __FILE__);
@@ -670,7 +670,7 @@ static void test_attr_compound_read()
         verify_val(num_attrs, 1, "DataSet::getNumAttrs", __LINE__, __FILE__);
 
         // Verify the correct number of attributes another way
-        H5O_info_t oinfo;
+        H5O_info2_t oinfo;
         HDmemset(&oinfo, 0, sizeof(oinfo));
         dataset.getObjinfo(oinfo, H5O_INFO_NUM_ATTRS);
         verify_val(oinfo.num_attrs, 1, "DataSet::getObjinfo", __LINE__, __FILE__);
@@ -1221,7 +1221,7 @@ static void test_attr_delete()
         attr_name = fattr.getName();
         verify_val(attr_name, FATTR1_NAME, "Attribute::getName", __LINE__, __FILE__);
         fattr.close();
-
+        
         // Test deleting non-existing attribute
 
         // Open the dataset
@@ -1712,7 +1712,7 @@ static void test_attr_dense_create(FileCreatPropList& fcpl,
         // Close property list
         dcpl.close();
 
-        // H5O_is_attr_dense_test - un-usable
+        // H5O__is_attr_dense_test - un-usable
 
         // Add attributes, until just before converting to dense storage
         char attr_name[NAME_BUF_SIZE];
@@ -1727,7 +1727,7 @@ static void test_attr_dense_create(FileCreatPropList& fcpl,
             attr.write(PredType::NATIVE_UINT, &attr_num);
         } // end for
 
-        // H5O_is_attr_dense_test - un-usable
+        // H5O__is_attr_dense_test - un-usable
 
         { // Add one more attribute, to push into "dense" storage
 
@@ -1815,8 +1815,8 @@ static void test_attr_corder_create_basic(FileCreatPropList& fcpl,
         ds_space.close();
 
         // Check on dataset's attribute storage status.
-        // NOTE: Wrappers not available yet (H5O_is_attr_empty_test
-        // and H5O_is_attr_dense_test)
+        // NOTE: Wrappers not available yet (H5O__is_attr_empty_test
+        // and H5O__is_attr_dense_test)
 
         // Close dataset
         dataset.close();

@@ -123,15 +123,6 @@ set (HDF5_REFERENCE_TEST_FILES
     be_data.h5
     be_extlink1.h5
     be_extlink2.h5
-    bounds_ref_earliest_latest.h5
-    bounds_ref_latest_latest.h5
-    bounds_ref_v110_v110.h5
-    bounds_ref_v112_v112.h5
-    bounds_ref_v18_v18.h5
-    bounds_sel_earliest_latest.h5
-    bounds_sel_latest_latest.h5
-    bounds_sel_v110_v110.h5
-    bounds_sel_v112_v112.h5
     btree_idx_1_6.h5
     btree_idx_1_8.h5
     corrupt_stab_msg.h5
@@ -158,7 +149,7 @@ set (HDF5_REFERENCE_TEST_FILES
     le_data.h5
     le_extlink1.h5
     le_extlink2.h5
-    corrupted_name_len.h5
+    memleak_H5O_dtype_decode_helper_H5Odtype.h5
     mergemsg.h5
     multi_file_v16-r.h5
     multi_file_v16-s.h5
@@ -455,10 +446,7 @@ set (test_CLEANFILES
     vds_swmr_src_*.h5
     tmp_vds_env/vds_src_2.h5
     direct_chunk.h5
-    splitter*.h5
-    splitter.log
-    mirror_rw/*
-    mirror_wo/*
+    native_vol_test.h5
 )
 
 # Remove any output file left over from previous test run
@@ -978,6 +966,35 @@ endif ()
 
 if (HDF5_TEST_VFD)
   include (CMakeVFDTests.cmake)
+endif ()
+
+##############################################################################
+##############################################################################
+###                         V O L   T E S T S                              ###
+##############################################################################
+##############################################################################
+
+##############################################################################
+###    V O L  P L U G I N  T E S T S
+##############################################################################
+if (BUILD_SHARED_LIBS)
+  if (WIN32 OR MINGW)
+    set (CMAKE_SEP "\;")
+    set (BIN_REL_PATH "../../")
+  else ()
+    set (CMAKE_SEP ":")
+    set (BIN_REL_PATH "../")
+  endif ()
+
+  add_test (NAME H5PLUGIN-vol_plugin COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:vol_plugin>)
+  set_tests_properties (H5PLUGIN-vol_plugin PROPERTIES
+      ENVIRONMENT "HDF5_PLUGIN_PATH=${CMAKE_BINARY_DIR}/null_vol_plugin_dir;srcdir=${HDF5_TEST_BINARY_DIR}"
+      WORKING_DIRECTORY ${HDF5_TEST_BINARY_DIR}
+  )
+endif ()
+
+if (HDF5_TEST_PASSTHROUGH_VOL)
+  include (CMakePassthroughVOLTests.cmake)
 endif ()
 
 ##############################################################################

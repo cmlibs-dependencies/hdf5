@@ -15,7 +15,7 @@
  *
  * Created:		H5Adense.c
  *			Dec  4 2006
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		Routines for operating on "dense" attribute storage
  *                      for an object.
@@ -171,6 +171,7 @@ typedef struct H5A_bt2_ud_rmbi_t {
  * Return:      SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Dec  4 2006
  *
  *-------------------------------------------------------------------------
@@ -209,6 +210,9 @@ H5A__dense_create(H5F_t *f, H5O_ainfo_t *ainfo)
     /* Retrieve the heap's address in the file */
     if(H5HF_get_heap_addr(fheap, &ainfo->fheap_addr) < 0)
         HGOTO_ERROR(H5E_ATTR, H5E_CANTGETSIZE, FAIL, "can't get fractal heap address")
+#ifdef QAK
+HDfprintf(stderr, "%s: ainfo->fheap_addr = %a\n", FUNC, ainfo->fheap_addr);
+#endif /* QAK */
 
 #ifndef NDEBUG
 {
@@ -218,6 +222,9 @@ H5A__dense_create(H5F_t *f, H5O_ainfo_t *ainfo)
     if(H5HF_get_id_len(fheap, &fheap_id_len) < 0)
         HGOTO_ERROR(H5E_ATTR, H5E_CANTGETSIZE, FAIL, "can't get fractal heap ID length")
     HDassert(fheap_id_len == H5O_FHEAP_ID_LEN);
+#ifdef QAK
+HDfprintf(stderr, "%s: fheap_id_len = %Zu\n", FUNC, fheap_id_len);
+#endif /* QAK */
 }
 #endif /* NDEBUG */
 
@@ -237,6 +244,9 @@ H5A__dense_create(H5F_t *f, H5O_ainfo_t *ainfo)
     /* Retrieve the v2 B-tree's address in the file */
     if(H5B2_get_addr(bt2_name, &ainfo->name_bt2_addr) < 0)
         HGOTO_ERROR(H5E_ATTR, H5E_CANTGET, FAIL, "can't get v2 B-tree address for name index")
+#ifdef QAK
+HDfprintf(stderr, "%s: ainfo->name_bt2_addr = %a\n", FUNC, ainfo->name_bt2_addr);
+#endif /* QAK */
 
     /* Check if we should create a creation order index v2 B-tree */
     if(ainfo->index_corder) {
@@ -255,6 +265,9 @@ H5A__dense_create(H5F_t *f, H5O_ainfo_t *ainfo)
         /* Retrieve the v2 B-tree's address in the file */
         if(H5B2_get_addr(bt2_corder, &ainfo->corder_bt2_addr) < 0)
             HGOTO_ERROR(H5E_ATTR, H5E_CANTGET, FAIL, "can't get v2 B-tree address for creation order index")
+#ifdef QAK
+HDfprintf(stderr, "%s: ainfo->corder_bt2_addr = %a\n", FUNC, ainfo->corder_bt2_addr);
+#endif /* QAK */
     } /* end if */
 
 done:
@@ -277,15 +290,16 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Dec 11 2006
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Dec 11 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
 H5A__dense_fnd_cb(const H5A_t *attr, hbool_t *took_ownership, void *_user_attr)
 {
-    H5A_t const **user_attr = (H5A_t const **)_user_attr; /* User data from v2 B-tree attribute lookup */
+    const H5A_t **user_attr = (const H5A_t **)_user_attr; /* User data from v2 B-tree attribute lookup */
     herr_t ret_value = SUCCEED;         /* Return value */
 
     FUNC_ENTER_STATIC
@@ -296,30 +310,27 @@ H5A__dense_fnd_cb(const H5A_t *attr, hbool_t *took_ownership, void *_user_attr)
     HDassert(took_ownership);
 
     /*
-     *  If there is an attribute already stored in "user_attr",
-     *  we need to free the dynamially allocated spaces for the
-     *  attribute, otherwise we got infinite loop closing library due to
+     *  If there is an attribute already stored in "user_attr", 
+     *  we need to free the dynamially allocated spaces for the 
+     *  attribute, otherwise we got infinite loop closing library due to 
      *  outstanding allocation. (HDFFV-10659)
      *
      *  This callback is used by H5A__dense_remove() to close/free the
      *  attribute stored in "user_attr" (via H5O__msg_free_real()) after
      *  the attribute node is deleted from the name index v2 B-tree.
-     *  The issue is:
-     *      When deleting the attribute node from the B-tree,
-     *      if the attribute is found in the intermediate B-tree nodes,
+     *  The issue is: 
+     *      When deleting the attribute node from the B-tree, 
+     *      if the attribute is found in the intermediate B-tree nodes, 
      *      which may be merged/redistributed, we need to free the dynamically
      *      allocated spaces for the intermediate decoded attribute.
      */
     if(*user_attr != NULL) {
-        H5A_t *old_attr = *user_attr;
-        if(old_attr->shared) {
-            /* Free any dynamically allocated items */
-            if(H5A__free(old_attr) < 0)
-                HGOTO_ERROR(H5E_ATTR, H5E_CANTRELEASE, FAIL, "can't release attribute info")
+        H5A_t *old_attr = *(H5A_t **)_user_attr;
 
-            /* Destroy shared attribute struct */
-            old_attr->shared = H5FL_FREE(H5A_shared_t, old_attr->shared);
-        } /* end if */
+        /* Free any dynamically allocated items */
+        if(old_attr->shared)
+            if(H5A__shared_free(old_attr) < 0)
+                HGOTO_ERROR(H5E_ATTR, H5E_CANTRELEASE, FAIL, "can't release attribute info")
 
         old_attr = H5FL_FREE(H5A_t, old_attr);
      } /* end if */
@@ -340,8 +351,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Dec 11 2006
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Dec 11 2006
  *
  *-------------------------------------------------------------------------
  */
@@ -428,8 +440,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Dec  4 2006
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Dec  4 2006
  *
  *-------------------------------------------------------------------------
  */
@@ -585,7 +598,7 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
+ * Programmer:	Quincey Koziol
  *              Tuesday, February 20, 2007
  *
  *-------------------------------------------------------------------------
@@ -619,7 +632,7 @@ H5A__dense_write_bt2_cb2(void *_record, void *_op_data, hbool_t *changed)
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
+ * Programmer:	Quincey Koziol
  *              Tuesday, December  5, 2006
  *
  *-------------------------------------------------------------------------
@@ -730,8 +743,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Dec  4 2006
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Dec  4 2006
  *
  *-------------------------------------------------------------------------
  */
@@ -826,8 +840,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Dec  5 2006
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Dec  5 2006
  *
  *-------------------------------------------------------------------------
  */
@@ -868,8 +883,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Jan  3 2007
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Jan  3 2007
  *
  *-------------------------------------------------------------------------
  */
@@ -1049,12 +1065,13 @@ done:
  *
  * Return:      H5_ITER_ERROR/H5_ITER_CONT/H5_ITER_STOP
  *
- * Programmer:  Quincey Koziol
- *              Dec  5 2006
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Dec  5 2006
  *
  *-------------------------------------------------------------------------
  */
-static herr_t
+static int
 H5A__dense_iterate_bt2_cb(const void *_record, void *_bt2_udata)
 {
     const H5A_dense_bt2_name_rec_t *record = (const H5A_dense_bt2_name_rec_t *)_record; /* Record from B-tree */
@@ -1144,8 +1161,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Dec  5 2006
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Dec  5 2006
  *
  *-------------------------------------------------------------------------
  */
@@ -1278,8 +1296,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Dec 11 2006
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Dec 11 2006
  *
  *-------------------------------------------------------------------------
  */
@@ -1341,8 +1360,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Dec 11 2006
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Dec 11 2006
  *
  *-------------------------------------------------------------------------
  */
@@ -1415,7 +1435,7 @@ done:
     if(bt2_name && H5B2_close(bt2_name) < 0)
         HDONE_ERROR(H5E_ATTR, H5E_CLOSEERROR, FAIL, "can't close v2 B-tree for name index")
     if(attr_copy)
-        H5O__msg_free_real(H5O_MSG_ATTR, attr_copy);
+        H5O_msg_free_real(H5O_MSG_ATTR, attr_copy);
 
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5A__dense_remove() */
@@ -1428,8 +1448,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Feb 14 2007
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Feb 14 2007
  *
  *-------------------------------------------------------------------------
  */
@@ -1553,8 +1574,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Feb 14 2007
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Feb 14 2007
  *
  *-------------------------------------------------------------------------
  */
@@ -1680,8 +1702,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Dec 11 2006
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Dec 11 2006
  *
  *-------------------------------------------------------------------------
  */
@@ -1765,8 +1788,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Jan  3 2007
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Jan  3 2007
  *
  *-------------------------------------------------------------------------
  */
@@ -1815,7 +1839,7 @@ H5A__dense_delete_bt2_cb(const void *_record, void *_bt2_udata)
 done:
     /* Release resources */
     if(attr)
-        H5O__msg_free_real(H5O_MSG_ATTR, attr);
+        H5O_msg_free_real(H5O_MSG_ATTR, attr);
 
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5A__dense_delete_bt2_cb() */
@@ -1828,8 +1852,9 @@ done:
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:  Quincey Koziol
- *              Dec  6 2006
+ * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
+ *		Dec  6 2006
  *
  *-------------------------------------------------------------------------
  */

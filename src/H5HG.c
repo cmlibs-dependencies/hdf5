@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Robb Matzke
+ * Programmer:  Robb Matzke <matzke@llnl.gov>
  *              Friday, March 27, 1998
  *
  * Purpose:	Operations on the global heap.  The global heap is the set of
@@ -763,7 +763,7 @@ done:
  *-------------------------------------------------------------------------
  */
 herr_t
-H5HG_remove(H5F_t *f, H5HG_t *hobj)
+H5HG_remove (H5F_t *f, H5HG_t *hobj)
 {
     H5HG_heap_t *heap = NULL;
     uint8_t     *p = NULL, *obj_start = NULL;
@@ -785,14 +785,14 @@ H5HG_remove(H5F_t *f, H5HG_t *hobj)
         HGOTO_ERROR(H5E_HEAP, H5E_CANTPROTECT, FAIL, "unable to protect global heap")
 
     HDassert(hobj->idx < heap->nused);
-
+    
     /* When the application selects the same location to rewrite the VL element by using H5Sselect_elements,
      * it can happen that the entry has been removed by first rewrite.  Here we simply skip the removal of
      * the entry and let the second rewrite happen (see HDFFV-10635).  In the future, it'd be nice to handle
      * this situation in H5T_conv_vlen in H5Tconv.c instead of this level (HDFFV-10648). */
     if(heap->obj[hobj->idx].nrefs == 0 && heap->obj[hobj->idx].size == 0 && !heap->obj[hobj->idx].begin)
         HGOTO_DONE(ret_value)
-
+        
     obj_start = heap->obj[hobj->idx].begin;
     /* Include object header size */
     need = H5HG_ALIGN(heap->obj[hobj->idx].size) + H5HG_SIZEOF_OBJHDR(f);

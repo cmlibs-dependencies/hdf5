@@ -22,7 +22,7 @@
  *
  * Purpose: generate files for h52gif testing
  *
- * Programmer: Pedro Vicente
+ * Programmer: Pedro Vicente, pvn@hdfgroup.org
  *
  * Date: March 15, 2007
  *

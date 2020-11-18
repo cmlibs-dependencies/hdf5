@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Robb Matzke
+ * Programmer:  Robb Matzke <matzke@llnl.gov>
  *              Monday, August  2, 1999
  *
  * Purpose:	The public header file for the sec2 driver.

@@ -11,7 +11,7 @@
  * help@hdfgroup.org.                                                        *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/* Programmer:  Robb Matzke
+/* Programmer:  Robb Matzke <matzke@llnl.gov>
  *              Thursday, April 16, 1998
  */
 

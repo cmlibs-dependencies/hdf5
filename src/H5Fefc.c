@@ -15,7 +15,7 @@
  *
  * Created:             H5Defc.c
  *                      December 13, 2010
- *                      Neil Fortner
+ *                      Neil Fortner <nfortne2@hdfgroup.org>
  *
  * Purpose:             External file caching routines - implements a
  *                      cache of external files to minimize the number of
@@ -29,8 +29,10 @@
 
 /* Packages needed by this file... */
 #include "H5private.h"          /* Generic Functions                    */
+#include "H5CXprivate.h"        /* API Contexts                         */
 #include "H5Eprivate.h"         /* Error handling                       */
 #include "H5Fpkg.h"             /* File access                          */
+#include "H5Iprivate.h"         /* IDs                                  */
 #include "H5MMprivate.h"        /* Memory management                    */
 #include "H5Pprivate.h"         /* Property lists                       */
 
@@ -144,6 +146,8 @@ H5F__efc_open(H5F_t *parent, const char *name, unsigned flags, hid_t fcpl_id, hi
     H5F_efc_t   *efc = NULL;    /* External file cache for parent file */
     H5F_efc_ent_t *ent = NULL;  /* Entry for target file in efc */
     hbool_t     open_file = FALSE; /* Whether ent->file needs to be closed in case of error */
+    H5P_genplist_t *plist;      /* Property list pointer for FAPL */
+    H5VL_connector_prop_t connector_prop; /* Property for VOL connector ID & info        */
     H5F_t       *ret_value = NULL; /* Return value */
 
     FUNC_ENTER_PACKAGE
@@ -152,6 +156,18 @@ H5F__efc_open(H5F_t *parent, const char *name, unsigned flags, hid_t fcpl_id, hi
     HDassert(parent);
     HDassert(parent->shared);
     HDassert(name);
+
+    /* Get the VOL info from the fapl */
+    if(NULL == (plist = (H5P_genplist_t *)H5I_object(fapl_id)))
+        HGOTO_ERROR(H5E_FILE, H5E_BADTYPE, NULL, "not a file access property list")
+    if(H5P_peek(plist, H5F_ACS_VOL_CONN_NAME, &connector_prop) < 0)
+        HGOTO_ERROR(H5E_FILE, H5E_CANTGET, NULL, "can't get VOL connector info")
+
+    /* Stash a copy of the "top-level" connector property, before any pass-through
+     *  connectors modify or unwrap it.
+     */
+    if(H5CX_set_vol_connector_prop(&connector_prop) < 0)
+        HGOTO_ERROR(H5E_FILE, H5E_CANTSET, NULL, "can't set VOL connector info in API context")
 
     /* Get external file cache */
     efc = parent->shared->efc;
@@ -162,6 +178,10 @@ H5F__efc_open(H5F_t *parent, const char *name, unsigned flags, hid_t fcpl_id, hi
     if(!efc) {
         if(NULL == (ret_value = H5F_open(name, flags, fcpl_id, fapl_id)))
             HGOTO_ERROR(H5E_FILE, H5E_CANTOPENFILE, NULL, "can't open file")
+
+        /* Make file post open call */
+        if(H5F__post_open(ret_value) < 0)
+            HGOTO_ERROR(H5E_FILE, H5E_CANTINIT, NULL, "can't finish opening file")
 
         /* Increment the number of open objects to prevent the file from being
          * closed out from under us - "simulate" having an open file id.  Note
@@ -235,6 +255,10 @@ H5F__efc_open(H5F_t *parent, const char *name, unsigned flags, hid_t fcpl_id, hi
                 if(NULL == (ret_value = H5F_open(name, flags, fcpl_id, fapl_id)))
                     HGOTO_ERROR(H5E_FILE, H5E_CANTOPENFILE, NULL, "can't open file")
 
+                /* Make file post open call */
+                if(H5F__post_open(ret_value) < 0)
+                    HGOTO_ERROR(H5E_FILE, H5E_CANTINIT, NULL, "can't finish opening file")
+
                 /* Increment the number of open objects to prevent the file from
                  * being closed out from under us - "simulate" having an open
                  * file id */
@@ -256,6 +280,10 @@ H5F__efc_open(H5F_t *parent, const char *name, unsigned flags, hid_t fcpl_id, hi
         if(NULL == (ent->file = H5F_open(name, flags, fcpl_id, fapl_id)))
             HGOTO_ERROR(H5E_FILE, H5E_CANTOPENFILE, NULL, "can't open file")
         open_file = TRUE;
+
+        /* Make file post open call */
+        if(H5F__post_open(ent->file) < 0)
+            HGOTO_ERROR(H5E_FILE, H5E_CANTINIT, NULL, "can't finish opening file")
 
         /* Increment the number of open objects to prevent the file from being
          * closed out from under us - "simulate" having an open file id */
@@ -867,7 +895,7 @@ H5F__efc_try_close(H5F_t *f)
         HGOTO_DONE(SUCCEED)
 
     /* If the file EFC were locked, that should always mean that there exists
-     * a reference to this file that is not in an EFC (it may have just been
+     * a reference to this file that is not in an EFC (it may have just been 
      * removed from an EFC), and should have been caught by the above check */
     /* If we get here then we must be beginning a new run.  Make sure that the
      * temporary variables in f->shared->efc are at the default value */

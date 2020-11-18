@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Robb Matzke
+ * Programmer:  Robb Matzke <matzke@llnl.gov>
  *              Tuesday, December  9, 1997
  *
  * Purpose:     Tests the datatype interface (H5T)
@@ -134,8 +134,10 @@ typedef enum {
 static int num_opaque_conversions_g = 0;
 
 static int opaque_check(int tag_it);
-static herr_t convert_opaque(hid_t st, hid_t dt, H5T_cdata_t *cdata,
-        size_t nelmts, size_t buf_stride, size_t bkg_stride, void *_buf,
+static herr_t convert_opaque(hid_t st, hid_t dt,
+               H5T_cdata_t *cdata,
+        size_t nelmts, size_t buf_stride,
+               size_t bkg_stride, void *_buf,
         void *bkg, hid_t dset_xfer_plid);
 static int opaque_long(void);
 static int opaque_funcs(void);
@@ -144,13 +146,16 @@ static int opaque_funcs(void);
 /*-------------------------------------------------------------------------
  * Function:    reset_hdf5
  *
- * Purpose:     Reset the hdf5 library.  This causes statistics to be printed
- *              and counters to be reset.
+ * Purpose:    Reset the hdf5 library.  This causes statistics to be printed
+ *        and counters to be reset.
  *
- * Return:      void
+ * Return:    void
  *
- * Programmer:  Robb Matzke
+ * Programmer:    Robb Matzke
  *              Monday, November 16, 1998
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static void
@@ -184,10 +189,14 @@ reset_hdf5(void)
  * Purpose:     Test type classes
  *
  * Return:      Success:        0
+ *
  *              Failure:        number of errors
  *
  * Programmer:  Robb Matzke
  *              Tuesday, December  9, 1997
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
@@ -281,16 +290,20 @@ test_classes(void)
  * Purpose:     Are we able to copy a datatype?
  *
  * Return:      Success:        0
+ *
  *              Failure:        number of errors
  *
  * Programmer:  Robb Matzke
  *              Tuesday, December  9, 1997
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
 test_copy(void)
 {
-    hid_t         a_copy;
+    hid_t               a_copy;
     herr_t        status;
 
     TESTING("H5Tcopy()");
@@ -300,12 +313,12 @@ test_copy(void)
 
     /* We should not be able to close a built-in byte */
     H5E_BEGIN_TRY {
-        status = H5Tclose (H5T_NATIVE_SCHAR);
+    status = H5Tclose (H5T_NATIVE_SCHAR);
     } H5E_END_TRY;
     if (status>=0) {
-        H5_FAILED();
-        HDputs ("    Should not be able to close a predefined type!");
-        goto error;
+    H5_FAILED();
+    HDputs ("    Should not be able to close a predefined type!");
+    goto error;
     }
 
     PASSED();
@@ -323,6 +336,7 @@ test_copy(void)
  *              in nested types)
  *
  * Return:      Success:        0
+ *
  *              Failure:        number of errors
  *
  * Programmer:  Quincey Koziol
@@ -498,10 +512,14 @@ error:
  * Purpose:     Tests various things about compound datatypes.
  *
  * Return:      Success:        0
+ *
  *              Failure:        number of errors
  *
  * Programmer:  Robb Matzke
  *              Wednesday, January  7, 1998
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
@@ -655,34 +673,38 @@ error:
 /*-------------------------------------------------------------------------
  * Function:    test_compound_2
  *
- * Purpose:     Tests a compound type conversion where the source and
- *              destination are the same except for the order of the
- *              elements.
+ * Purpose:    Tests a compound type conversion where the source and
+ *        destination are the same except for the order of the
+ *        elements.
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
  *
- * Programmer:  Robb Matzke
+ *        Failure:    number of errors
+ *
+ * Programmer:    Robb Matzke
  *              Thursday, June 17, 1999
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
 test_compound_2(void)
 {
     struct st {
-        int a, b, c[4], d, e;
+    int a, b, c[4], d, e;
     } *s_ptr;
     struct dt {
-        int e, d, c[4], b, a;
+    int e, d, c[4], b, a;
     } *d_ptr;
 
     const size_t    nelmts = NTESTELEM;
-    const hsize_t   four = 4;
-    unsigned char  *buf=NULL, *orig=NULL, *bkg=NULL;
-    hid_t           st=-1, dt=-1;
-    hid_t           array_dt;
-    int64_t         nmembs;
-    int             i;
+    const hsize_t    four = 4;
+    unsigned char    *buf=NULL, *orig=NULL, *bkg=NULL;
+    hid_t        st=-1, dt=-1;
+    hid_t               array_dt;
+    int64_t        nmembs;
+    int            i;
 
     TESTING("compound element reordering");
 
@@ -694,15 +716,15 @@ test_compound_2(void)
     bkg = (unsigned char*)HDmalloc(nelmts * sizeof(struct dt));
     orig = (unsigned char*)HDmalloc(nelmts * sizeof(struct st));
     for (i=0; i<(int)nelmts; i++) {
-        s_ptr = ((struct st*)((void *)orig)) + i;
-        s_ptr->a    = i*8+0;
-        s_ptr->b    = i*8+1;
-        s_ptr->c[0] = i*8+2;
-        s_ptr->c[1] = i*8+3;
-        s_ptr->c[2] = i*8+4;
-        s_ptr->c[3] = i*8+5;
-        s_ptr->d    = i*8+6;
-        s_ptr->e    = i*8+7;
+    s_ptr = ((struct st*)((void *)orig)) + i;
+    s_ptr->a    = i*8+0;
+    s_ptr->b    = i*8+1;
+    s_ptr->c[0] = i*8+2;
+    s_ptr->c[1] = i*8+3;
+    s_ptr->c[2] = i*8+4;
+    s_ptr->c[3] = i*8+5;
+    s_ptr->d    = i*8+6;
+    s_ptr->e    = i*8+7;
     }
     HDmemcpy(buf, orig, nelmts*sizeof(struct st));
 
@@ -732,26 +754,26 @@ test_compound_2(void)
 
     /* Compare results */
     for (i=0; i<(int)nelmts; i++) {
-        s_ptr = ((struct st*)((void *)orig)) + i;
-        d_ptr = ((struct dt*)((void *)buf))  + i;
-        if (s_ptr->a    != d_ptr->a    ||
-            s_ptr->b    != d_ptr->b    ||
-            s_ptr->c[0] != d_ptr->c[0] ||
-            s_ptr->c[1] != d_ptr->c[1] ||
-            s_ptr->c[2] != d_ptr->c[2] ||
-            s_ptr->c[3] != d_ptr->c[3] ||
-            s_ptr->d    != d_ptr->d    ||
-            s_ptr->e    != d_ptr->e) {
-            H5_FAILED();
-            HDprintf("    i=%d\n", i);
-            HDprintf("    src={a=%d, b=%d, c=[%d,%d,%d,%d], d=%d, e=%d\n",
-            s_ptr->a, s_ptr->b, s_ptr->c[0], s_ptr->c[1], s_ptr->c[2],
-            s_ptr->c[3], s_ptr->d, s_ptr->e);
-            HDprintf("    dst={a=%d, b=%d, c=[%d,%d,%d,%d], d=%d, e=%d\n",
-            d_ptr->a, d_ptr->b, d_ptr->c[0], d_ptr->c[1], d_ptr->c[2],
-            d_ptr->c[3], d_ptr->d, d_ptr->e);
-            goto error;
-        }
+    s_ptr = ((struct st*)((void *)orig)) + i;
+    d_ptr = ((struct dt*)((void *)buf))  + i;
+    if (s_ptr->a    != d_ptr->a    ||
+        s_ptr->b    != d_ptr->b    ||
+        s_ptr->c[0] != d_ptr->c[0] ||
+        s_ptr->c[1] != d_ptr->c[1] ||
+        s_ptr->c[2] != d_ptr->c[2] ||
+        s_ptr->c[3] != d_ptr->c[3] ||
+        s_ptr->d    != d_ptr->d    ||
+        s_ptr->e    != d_ptr->e) {
+        H5_FAILED();
+        HDprintf("    i=%d\n", i);
+        HDprintf("    src={a=%d, b=%d, c=[%d,%d,%d,%d], d=%d, e=%d\n",
+        s_ptr->a, s_ptr->b, s_ptr->c[0], s_ptr->c[1], s_ptr->c[2],
+        s_ptr->c[3], s_ptr->d, s_ptr->e);
+        HDprintf("    dst={a=%d, b=%d, c=[%d,%d,%d,%d], d=%d, e=%d\n",
+        d_ptr->a, d_ptr->b, d_ptr->c[0], d_ptr->c[1], d_ptr->c[2],
+        d_ptr->c[3], d_ptr->d, d_ptr->e);
+        goto error;
+    }
     }
 
     /* Release resources */
@@ -782,25 +804,29 @@ error:
 /*-------------------------------------------------------------------------
  * Function:    test_compound_3
  *
- * Purpose:     Tests compound conversions where the source and destination
- *              are the same except the destination is missing a couple
- *              members which appear in the source.
+ * Purpose:    Tests compound conversions where the source and destination
+ *        are the same except the destination is missing a couple
+ *        members which appear in the source.
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
  *
- * Programmer:  Robb Matzke
+ *        Failure:    number of errors
+ *
+ * Programmer:    Robb Matzke
  *              Thursday, June 17, 1999
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
 test_compound_3(void)
 {
     struct st {
-        int a, b, c[4], d, e;
+    int a, b, c[4], d, e;
     } *s_ptr;
-        struct dt {
-        int a,    c[4],    e;
+    struct dt {
+    int a,    c[4],    e;
     } *d_ptr;
 
     const size_t    nelmts = NTESTELEM;
@@ -858,24 +884,24 @@ test_compound_3(void)
 
     /* Compare results */
     for (i=0; i<(int)nelmts; i++) {
-        s_ptr = ((struct st*)((void *)orig)) + i;
-        d_ptr = ((struct dt*)((void *)buf))  + i;
-        if (s_ptr->a    != d_ptr->a    ||
-            s_ptr->c[0] != d_ptr->c[0] ||
-            s_ptr->c[1] != d_ptr->c[1] ||
-            s_ptr->c[2] != d_ptr->c[2] ||
-            s_ptr->c[3] != d_ptr->c[3] ||
-            s_ptr->e    != d_ptr->e) {
-            H5_FAILED();
-            HDprintf("    i=%d\n", i);
-            HDprintf("    src={a=%d, b=%d, c=[%d,%d,%d,%d], d=%d, e=%d\n",
-            s_ptr->a, s_ptr->b, s_ptr->c[0], s_ptr->c[1], s_ptr->c[2],
-            s_ptr->c[3], s_ptr->d, s_ptr->e);
-            HDprintf("    dst={a=%d, c=[%d,%d,%d,%d], e=%d\n",
-            d_ptr->a, d_ptr->c[0], d_ptr->c[1], d_ptr->c[2],
-            d_ptr->c[3], d_ptr->e);
-            goto error;
-        }
+    s_ptr = ((struct st*)((void *)orig)) + i;
+    d_ptr = ((struct dt*)((void *)buf))  + i;
+    if (s_ptr->a    != d_ptr->a    ||
+        s_ptr->c[0] != d_ptr->c[0] ||
+        s_ptr->c[1] != d_ptr->c[1] ||
+        s_ptr->c[2] != d_ptr->c[2] ||
+        s_ptr->c[3] != d_ptr->c[3] ||
+        s_ptr->e    != d_ptr->e) {
+        H5_FAILED();
+        HDprintf("    i=%d\n", i);
+        HDprintf("    src={a=%d, b=%d, c=[%d,%d,%d,%d], d=%d, e=%d\n",
+        s_ptr->a, s_ptr->b, s_ptr->c[0], s_ptr->c[1], s_ptr->c[2],
+        s_ptr->c[3], s_ptr->d, s_ptr->e);
+        HDprintf("    dst={a=%d, c=[%d,%d,%d,%d], e=%d\n",
+        d_ptr->a, d_ptr->c[0], d_ptr->c[1], d_ptr->c[2],
+        d_ptr->c[3], d_ptr->e);
+        goto error;
+    }
     }
 
     /* Release resources */
@@ -905,15 +931,19 @@ error:
 /*-------------------------------------------------------------------------
  * Function:    test_compound_4
  *
- * Purpose:     Tests compound conversions when the destination has the same
- *              fields as the source but one or more of the fields are
- *              smaller.
+ * Purpose:    Tests compound conversions when the destination has the same
+ *        fields as the source but one or more of the fields are
+ *        smaller.
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
  *
- * Programmer:  Robb Matzke
+ *        Failure:    number of errors
+ *
+ * Programmer:    Robb Matzke
  *              Thursday, June 17, 1999
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
@@ -921,13 +951,13 @@ test_compound_4(void)
 {
 
     struct st {
-        int a, b, c[4], d, e;
+    int a, b, c[4], d, e;
     } *s_ptr;
     struct dt {
-        short b;
-        int a, c[4];
-        short d;
-        int e;
+    short b;
+    int a, c[4];
+    short d;
+    int e;
     } *d_ptr;
 
     const size_t    nelmts = NTESTELEM;
@@ -987,26 +1017,26 @@ test_compound_4(void)
 
     /* Compare results */
     for (i=0; i<(int)nelmts; i++) {
-        s_ptr = ((struct st*)((void *)orig)) + i;
-        d_ptr = ((struct dt*)((void *)buf))  + i;
-        if (s_ptr->a    != d_ptr->a    ||
-            s_ptr->b    != d_ptr->b    ||
-            s_ptr->c[0] != d_ptr->c[0] ||
-            s_ptr->c[1] != d_ptr->c[1] ||
-            s_ptr->c[2] != d_ptr->c[2] ||
-            s_ptr->c[3] != d_ptr->c[3] ||
-            s_ptr->d    != d_ptr->d    ||
-            s_ptr->e    != d_ptr->e) {
-            H5_FAILED();
-            HDprintf("    i=%d\n", i);
-            HDprintf("    src={a=%d, b=%d, c=[%d,%d,%d,%d], d=%d, e=%d\n",
-            s_ptr->a, s_ptr->b, s_ptr->c[0], s_ptr->c[1], s_ptr->c[2],
-            s_ptr->c[3], s_ptr->d, s_ptr->e);
-            HDprintf("    dst={a=%d, b=%d, c=[%d,%d,%d,%d], d=%d, e=%d\n",
-            d_ptr->a, d_ptr->b, d_ptr->c[0], d_ptr->c[1], d_ptr->c[2],
-            d_ptr->c[3], d_ptr->d, d_ptr->e);
-            goto error;
-        }
+    s_ptr = ((struct st*)((void *)orig)) + i;
+    d_ptr = ((struct dt*)((void *)buf))  + i;
+    if (s_ptr->a    != d_ptr->a    ||
+        s_ptr->b    != d_ptr->b    ||
+        s_ptr->c[0] != d_ptr->c[0] ||
+        s_ptr->c[1] != d_ptr->c[1] ||
+        s_ptr->c[2] != d_ptr->c[2] ||
+        s_ptr->c[3] != d_ptr->c[3] ||
+        s_ptr->d    != d_ptr->d    ||
+        s_ptr->e    != d_ptr->e) {
+        H5_FAILED();
+        HDprintf("    i=%d\n", i);
+        HDprintf("    src={a=%d, b=%d, c=[%d,%d,%d,%d], d=%d, e=%d\n",
+        s_ptr->a, s_ptr->b, s_ptr->c[0], s_ptr->c[1], s_ptr->c[2],
+        s_ptr->c[3], s_ptr->d, s_ptr->e);
+        HDprintf("    dst={a=%d, b=%d, c=[%d,%d,%d,%d], d=%d, e=%d\n",
+        d_ptr->a, d_ptr->b, d_ptr->c[0], d_ptr->c[1], d_ptr->c[2],
+        d_ptr->c[3], d_ptr->d, d_ptr->e);
+        goto error;
+    }
     }
 
     /* Release resources */
@@ -1036,16 +1066,20 @@ error:
 /*-------------------------------------------------------------------------
  * Function:    test_compound_5
  *
- * Purpose:     Many versions of HDF5 have a bug in the optimized compound
+ * Purpose:    Many versions of HDF5 have a bug in the optimized compound
  *              datatype conversion function, H5T_conv_struct_opt(), which
  *              is triggered when the top-level type contains a struct
  *              which must undergo a conversion.
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
  *
- * Programmer:  Robb Matzke
+ *        Failure:    number of errors
+ *
+ * Programmer:    Robb Matzke
  *              Thursday, June 17, 1999
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
@@ -1122,8 +1156,7 @@ test_compound_5(void)
         src[1].coll_ids[2]!=dst[1].coll_ids[2] ||
         src[1].coll_ids[3]!=dst[1].coll_ids[3]) {
         H5_FAILED();
-    }
-    else {
+    } else {
         PASSED();
         retval = 0;
     }
@@ -1138,15 +1171,19 @@ test_compound_5(void)
 /*-------------------------------------------------------------------------
  * Function:    test_compound_6
  *
- * Purpose:     Tests compound conversions when the destination has the same
- *              fields as the source but one or more of the fields are
- *              larger.
+ * Purpose:    Tests compound conversions when the destination has the same
+ *        fields as the source but one or more of the fields are
+ *        larger.
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
  *
- * Programmer:  Quincey Koziol
+ *        Failure:    number of errors
+ *
+ * Programmer:    Quincey Koziol
  *              Wednesday, December 13, 2000
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
@@ -1207,18 +1244,18 @@ test_compound_6(void)
 
     /* Compare results */
     for (i=0; i<(int)nelmts; i++) {
-        s_ptr = ((struct st*)((void *)orig)) + i;
-        d_ptr = ((struct dt*)((void *)buf))  + i;
-        if (s_ptr->b    != d_ptr->b    ||
-            s_ptr->d    != d_ptr->d) {
-            H5_FAILED();
-            HDprintf("    i=%d\n", i);
-            HDprintf("    src={b=%d, d=%d\n",
-            (int)s_ptr->b, (int)s_ptr->d);
-            HDprintf("    dst={b=%ld, d=%ld\n",
-            d_ptr->b, d_ptr->d);
-            goto error;
-        }
+    s_ptr = ((struct st*)((void *)orig)) + i;
+    d_ptr = ((struct dt*)((void *)buf))  + i;
+    if (s_ptr->b    != d_ptr->b    ||
+        s_ptr->d    != d_ptr->d) {
+        H5_FAILED();
+        HDprintf("    i=%d\n", i);
+        HDprintf("    src={b=%d, d=%d\n",
+           (int)s_ptr->b, (int)s_ptr->d);
+        HDprintf("    dst={b=%ld, d=%ld\n",
+           d_ptr->b, d_ptr->d);
+        goto error;
+    }
     }
 
     /* Release resources */
@@ -1247,14 +1284,15 @@ error:
 /*-------------------------------------------------------------------------
  * Function:    test_compound_7
  *
- * Purpose:     Tests inserting fields into compound datatypes when the field
+ * Purpose:    Tests inserting fields into compound datatypes when the field
  *              overlaps the end of the compound datatype.  Also, tests
  *              increasing compound type size.
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
  *
- * Programmer:  Quincey Koziol
+ *        Failure:    number of errors
+ *
+ * Programmer:    Quincey Koziol
  *              Tuesday, December 18, 2001
  *
  * Modifications:
@@ -1648,6 +1686,9 @@ test_compound_8(void)
  *
  * Programmer:  Raymond Lu
  *              Wednesday, June 9, 2004
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
@@ -1768,7 +1809,7 @@ test_compound_9(void)
         goto error;
     } /* end if */
 
-    if(H5Dvlen_reclaim(dup_tid, space_id, H5P_DEFAULT, &rdata) < 0) {
+    if(H5Treclaim(dup_tid, space_id, H5P_DEFAULT, &rdata) < 0) {
         H5_FAILED(); AT();
         HDprintf("Can't reclaim read data\n");
         goto error;
@@ -1834,7 +1875,7 @@ test_compound_9(void)
         goto error;
     } /* end if */
 
-    if(H5Dvlen_reclaim(dup_tid, space_id, H5P_DEFAULT, &rdata) < 0) {
+    if(H5Treclaim(dup_tid, space_id, H5P_DEFAULT, &rdata) < 0) {
         H5_FAILED(); AT();
         HDprintf("Can't read data\n");
         goto error;
@@ -2022,12 +2063,12 @@ test_compound_10(void)
             goto error;
         }
     } /* end for */
-    if(H5Dvlen_reclaim(arr_tid, space_id, H5P_DEFAULT, &rdata) < 0) {
+    if(H5Treclaim(arr_tid, space_id, H5P_DEFAULT, &rdata) < 0) {
         H5_FAILED(); AT();
         HDprintf("Can't reclaim read data\n");
         goto error;
     } /* end if */
-    if(H5Dvlen_reclaim(arr_tid, space_id, H5P_DEFAULT, &wdata) < 0) {
+    if(H5Treclaim(arr_tid, space_id, H5P_DEFAULT, &wdata) < 0) {
         H5_FAILED(); AT();
         HDprintf("Can't reclaim read data\n");
         goto error;
@@ -2185,7 +2226,7 @@ test_compound_11(void)
             TEST_ERROR
         } /* end if */
     } /* end for */
-    if(H5Dvlen_reclaim(little_tid2, space_id, H5P_DEFAULT, buf) < 0) {
+    if(H5Treclaim(little_tid2, space_id, H5P_DEFAULT, buf) < 0) {
         H5_FAILED(); AT();
         HDprintf("Can't reclaim data\n");
         goto error;
@@ -2229,7 +2270,7 @@ test_compound_11(void)
             TEST_ERROR
         } /* end if */
     } /* end for */
-    if(H5Dvlen_reclaim(little_tid, space_id, H5P_DEFAULT, buf) < 0) {
+    if(H5Treclaim(little_tid, space_id, H5P_DEFAULT, buf) < 0) {
         H5_FAILED(); AT();
         HDprintf("Can't reclaim data\n");
         goto error;
@@ -2267,7 +2308,7 @@ test_compound_11(void)
             TEST_ERROR
         } /* end if */
     } /* end for */
-    if(H5Dvlen_reclaim(little_tid, space_id, H5P_DEFAULT, buf) < 0) {
+    if(H5Treclaim(little_tid, space_id, H5P_DEFAULT, buf) < 0) {
         H5_FAILED(); AT();
         HDprintf("Can't reclaim data\n");
         goto error;
@@ -2770,13 +2811,13 @@ test_compound_14(void)
         goto error;
     } /* end if */
 
-    if(H5Dvlen_reclaim(cmpd_m1_tid, space_id, H5P_DEFAULT, &rdata1) < 0) {
+    if(H5Treclaim(cmpd_m1_tid, space_id, H5P_DEFAULT, &rdata1) < 0) {
         H5_FAILED(); AT();
         HDprintf("Can't reclaim read data\n");
         goto error;
     } /* end if */
     rdata1.str = NULL;
-    if(H5Dvlen_reclaim(cmpd_m2_tid, space_id, H5P_DEFAULT, &rdata2) < 0) {
+    if(H5Treclaim(cmpd_m2_tid, space_id, H5P_DEFAULT, &rdata2) < 0) {
         H5_FAILED(); AT();
         HDprintf("Can't reclaim read data\n");
         goto error;
@@ -2857,13 +2898,13 @@ test_compound_14(void)
         goto error;
     } /* end if */
 
-    if(H5Dvlen_reclaim(cmpd_m1_tid, space_id, H5P_DEFAULT, &rdata1) < 0) {
+    if(H5Treclaim(cmpd_m1_tid, space_id, H5P_DEFAULT, &rdata1) < 0) {
         H5_FAILED(); AT();
         HDprintf("Can't reclaim read data\n");
         goto error;
     } /* end if */
     rdata1.str = NULL;
-    if(H5Dvlen_reclaim(cmpd_m2_tid, space_id, H5P_DEFAULT, &rdata2) < 0) {
+    if(H5Treclaim(cmpd_m2_tid, space_id, H5P_DEFAULT, &rdata2) < 0) {
         H5_FAILED(); AT();
         HDprintf("Can't reclaim read data\n");
         goto error;
@@ -4717,13 +4758,17 @@ test_conv_enum_2(void)
 /*-------------------------------------------------------------------------
  * Function:    test_conv_bitfield
  *
- * Purpose:     Test bitfield conversions.
+ * Purpose:    Test bitfield conversions.
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
  *
- * Programmer:  Robb Matzke
+ *        Failure:    number of errors
+ *
+ * Programmer:    Robb Matzke
  *              Thursday, May 20, 1999
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
@@ -4745,9 +4790,10 @@ test_conv_bitfield(void)
     buf[2] = buf[3] = 0x55; /*irrelevant*/
     if (H5Tconvert(st, dt, (size_t)1, buf, NULL, H5P_DEFAULT) < 0) goto error;
     if (buf[0]!=0xAA || buf[1]!=0xAA || buf[2]!=0 || buf[3]!=0) {
-        H5_FAILED();
-        HDprintf("    s=0xaaaa, d=0x%02x%02x%02x%02x (test 1)\n", buf[3], buf[2], buf[1], buf[0]);
-        goto error;
+    H5_FAILED();
+    printf("    s=0xaaaa, d=0x%02x%02x%02x%02x (test 1)\n",
+        buf[3], buf[2], buf[1], buf[0]);
+    goto error;
     }
 
     /*
@@ -4763,9 +4809,10 @@ test_conv_bitfield(void)
     buf[0] = 0xA8; buf[1] = 0x2A; buf[2] = buf[3] = 0;
     if (H5Tconvert(st, dt, (size_t)1, buf, NULL, H5P_DEFAULT) < 0) goto error;
     if (buf[0]!=0 || buf[1]!=0xA8 || buf[2]!=0x2A || buf[3]!=0) {
-        H5_FAILED();
-        HDprintf("    s=0x2AA8 d=0x%02x%02x%02x%02x (test 2)\n", buf[3], buf[2], buf[1], buf[0]);
-        goto error;
+    H5_FAILED();
+    printf("    s=0x2AA8 d=0x%02x%02x%02x%02x (test 2)\n",
+        buf[3], buf[2], buf[1], buf[0]);
+    goto error;
     }
 
     /*
@@ -4776,9 +4823,10 @@ test_conv_bitfield(void)
     buf[0] = 0xA8; buf[1] = 0x2A; buf[2] = buf[3] = 0;
     if (H5Tconvert(st, dt, (size_t)1, buf, NULL, H5P_DEFAULT) < 0) goto error;
     if (buf[0]!=0xff || buf[1]!=0xAB || buf[2]!=0xEA || buf[3]!=0xff) {
-        H5_FAILED();
-        HDprintf("    s=0x2AA8 d=0x%02x%02x%02x%02x (test 3)\n", buf[3], buf[2], buf[1], buf[0]);
-        goto error;
+    H5_FAILED();
+    printf("    s=0x2AA8 d=0x%02x%02x%02x%02x (test 3)\n",
+        buf[3], buf[2], buf[1], buf[0]);
+    goto error;
     }
 
     H5Tclose(st);
@@ -4807,14 +4855,18 @@ error:
 /*-------------------------------------------------------------------------
  * Function:    test_bitfield_funcs
  *
- * Purpose:     Test some datatype functions that are and aren't supposed
+ * Purpose:    Test some datatype functions that are and aren't supposed
  *              work for bitfield type.
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
  *
- * Programmer:  Raymond Lu
+ *        Failure:    number of errors
+ *
+ * Programmer:    Raymond Lu
  *              Wednesday, April 5, 2006
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
@@ -4932,13 +4984,17 @@ error:
 /*-------------------------------------------------------------------------
  * Function:    convert_opaque
  *
- * Purpose:     A fake opaque conversion functions
+ * Purpose:    A fake opaque conversion functions
  *
- * Return:      Success:    0
- *              Failure:    -1
+ * Return:    Success:    0
  *
- * Programmer:  Robb Matzke
+ *        Failure:    -1
+ *
+ * Programmer:    Robb Matzke
  *              Friday, June  4, 1999
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static herr_t
@@ -4947,8 +5003,7 @@ convert_opaque(hid_t H5_ATTR_UNUSED st, hid_t H5_ATTR_UNUSED dt, H5T_cdata_t *cd
                size_t H5_ATTR_UNUSED bkg_stride, void H5_ATTR_UNUSED *_buf,
         void H5_ATTR_UNUSED *bkg, hid_t H5_ATTR_UNUSED dset_xfer_plid)
 {
-    if (H5T_CONV_CONV==cdata->command)
-        num_opaque_conversions_g++;
+    if (H5T_CONV_CONV==cdata->command) num_opaque_conversions_g++;
     return 0;
 }
 
@@ -4956,13 +5011,17 @@ convert_opaque(hid_t H5_ATTR_UNUSED st, hid_t H5_ATTR_UNUSED dt, H5T_cdata_t *cd
 /*-------------------------------------------------------------------------
  * Function:    test_opaque
  *
- * Purpose:     Driver function to test opaque datatypes
+ * Purpose:    Driver function to test opaque datatypes
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
  *
- * Programmer:  Raymond Lu
+ *        Failure:    number of errors
+ *
+ * Programmer:    Raymond Lu
  *              June 2, 2004
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
@@ -4995,23 +5054,25 @@ test_opaque(void)
 /*-------------------------------------------------------------------------
  * Function:    opaque_check
  *
- * Purpose:     Test opaque datatypes
+ * Purpose:    Test opaque datatypes
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
  *
- * Programmer:  Robb Matzke
+ *        Failure:    number of errors
+ *
+ * Programmer:    Robb Matzke
  *              Thursday, May 20, 1999
+ *
  *-------------------------------------------------------------------------
  */
 static int
 opaque_check(int tag_it)
 {
 #define OPAQUE_NELMTS 1000
-    hid_t     st=-1, dt=-1;
+    hid_t    st=-1, dt=-1;
     herr_t    status;
-    char      buf[1]; /*not really used*/
-    int       saved;
+    char    buf[1]; /*not really used*/
+    int        saved;
 
     saved = num_opaque_conversions_g = 0;
 
@@ -5027,29 +5088,29 @@ opaque_check(int tag_it)
 
     /* Make sure that we can't convert between the types yet */
     H5E_BEGIN_TRY {
-        status = H5Tconvert(st, dt, (size_t)OPAQUE_NELMTS, buf, NULL, H5P_DEFAULT);
+    status = H5Tconvert(st, dt, (size_t)OPAQUE_NELMTS, buf, NULL, H5P_DEFAULT);
     } H5E_END_TRY;
     if (status>=0) {
-        H5_FAILED();
-        HDprintf("    opaque conversion should have failed but succeeded\n");
-        goto error;
+    H5_FAILED();
+    printf("    opaque conversion should have failed but succeeded\n");
+    goto error;
     }
 
     /* Register a conversion function */
     if (H5Tregister(H5T_PERS_HARD, "o_test", st, dt, convert_opaque) < 0)
-        goto error;
+    goto error;
 
     /* Try the conversion again, this time it should work */
     if (H5Tconvert(st, dt, (size_t)OPAQUE_NELMTS, buf, NULL, H5P_DEFAULT) < 0) goto error;
     if (saved+1 != num_opaque_conversions_g) {
-        H5_FAILED();
-        HDprintf("    unexpected number of opaque conversions\n");
-        goto error;
+    H5_FAILED();
+    printf("    unexpected number of opaque conversions\n");
+    goto error;
     }
 
     /* Unregister conversion function */
     if (H5Tunregister(H5T_PERS_HARD, "o_test", st, dt, convert_opaque) < 0)
-        goto error;
+    goto error;
 
     H5Tclose(st);
     H5Tclose(dt);
@@ -5066,12 +5127,12 @@ opaque_check(int tag_it)
 /*-------------------------------------------------------------------------
  * Function:    opaque_long
  *
- * Purpose:     Test named (committed) opaque datatypes w/very long tags
+ * Purpose:    Test named (committed) opaque datatypes w/very long tags
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
+ *        Failure:    number of errors
  *
- * Programmer:  Quincey Koziol
+ * Programmer:    Quincey Koziol
  *              Tuesday, June 14, 2005
  *
  *-------------------------------------------------------------------------
@@ -5081,7 +5142,7 @@ opaque_long(void)
 {
     char     *long_tag = NULL;
     hid_t    dt = -1;
-    herr_t   ret;
+    herr_t      ret;
 
     /* Build opaque type */
     if((dt=H5Tcreate(H5T_OPAQUE, (size_t)4)) < 0) TEST_ERROR
@@ -5093,7 +5154,7 @@ opaque_long(void)
 
     /* Set opaque type's tag */
     H5E_BEGIN_TRY {
-        ret = H5Tset_tag(dt, long_tag);
+    ret = H5Tset_tag(dt, long_tag);
     } H5E_END_TRY;
     if(ret != FAIL) TEST_ERROR
 
@@ -5118,20 +5179,24 @@ error:
 /*-------------------------------------------------------------------------
  * Function:    opaque_funcs
  *
- * Purpose:     Test some type functions that are and aren't supposed to
+ * Purpose:    Test some type functions that are and aren't supposed to
  *              work with opaque type.
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
  *
- * Programmer:  Raymond Lu
+ *        Failure:    number of errors
+ *
+ * Programmer:    Raymond Lu
  *              Wednesday, April 5, 2006
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
 opaque_funcs(void)
 {
-    hid_t       type = -1, super=-1;
+    hid_t    type = -1, super=-1;
     size_t      size;
     H5T_pad_t   inpad;
     H5T_cset_t  cset;
@@ -5738,7 +5803,7 @@ test_encode(void)
     }
 
     H5E_BEGIN_TRY {
-        ret = H5Tclose(decoded_tid3);
+    ret = H5Tclose(decoded_tid3);
     } H5E_END_TRY;
     if(ret!=FAIL) {
         H5_FAILED();
@@ -5819,7 +5884,7 @@ test_latest(void)
     hid_t       file = (-1);            /* File ID */
     hid_t       tid1 = (-1), tid2 = (-1); /* Datatype ID */
     hid_t       fapl = (-1);            /* File access property list */
-    H5O_info_t    oi;                     /* Stat buffer for committed datatype */
+    H5O_native_info_t    oi;            /* Stat buffer for committed datatype */
     hsize_t     old_dtype_oh_size;      /* Size of object header with "old" format */
     hsize_t     new_dtype_oh_size;      /* Size of object header with "new" format */
     char        filename[1024];         /* Buffer for filename */
@@ -5853,7 +5918,7 @@ test_latest(void)
         FAIL_STACK_ERROR
 
     /* Get information about datatype on disk */
-    if(H5Oget_info_by_name2(file, compnd_type, &oi, H5O_INFO_HDR, H5P_DEFAULT) < 0)
+    if(H5Oget_native_info_by_name(file, compnd_type, &oi, H5O_NATIVE_INFO_HDR, H5P_DEFAULT) < 0)
         FAIL_STACK_ERROR
     old_dtype_oh_size = oi.hdr.space.total;
 
@@ -5878,7 +5943,7 @@ test_latest(void)
         FAIL_STACK_ERROR
 
     /* Get information about datatype on disk */
-    if(H5Oget_info_by_name2(file, compnd_type, &oi, H5O_INFO_HDR, H5P_DEFAULT) < 0)
+    if(H5Oget_native_info_by_name(file, compnd_type, &oi, H5O_NATIVE_INFO_HDR, H5P_DEFAULT) < 0)
         FAIL_STACK_ERROR
 
     /* Check that the object header info is still the same */
@@ -5914,7 +5979,7 @@ test_latest(void)
         FAIL_STACK_ERROR
 
     /* Get information about datatype on disk */
-    if(H5Oget_info_by_name2(file, compnd_type, &oi, H5O_INFO_HDR, H5P_DEFAULT) < 0)
+    if(H5Oget_native_info_by_name(file, compnd_type, &oi, H5O_NATIVE_INFO_HDR, H5P_DEFAULT) < 0)
         FAIL_STACK_ERROR
     new_dtype_oh_size = oi.hdr.space.total;
 
@@ -5943,7 +6008,7 @@ test_latest(void)
         FAIL_STACK_ERROR
 
     /* Get information about datatype on disk */
-    if(H5Oget_info_by_name2(file, compnd_type, &oi, H5O_INFO_HDR, H5P_DEFAULT) < 0)
+    if(H5Oget_native_info_by_name(file, compnd_type, &oi, H5O_NATIVE_INFO_HDR, H5P_DEFAULT) < 0)
         FAIL_STACK_ERROR
 
     /* Check that the object header info is still the same */
@@ -6037,13 +6102,14 @@ static int
 test_int_float_except(void)
 {
 #if H5_SIZEOF_INT==4 && H5_SIZEOF_FLOAT==4
-    float buf[CONVERT_SIZE] = {(float)INT_MIN - 172.0f, (float)INT_MAX - 32.0f, (float)INT_MAX - 68.0f, (float)4.5f};
-    int   buf_int[CONVERT_SIZE] = {INT_MIN, INT_MAX, INT_MAX-127, 4};
+    float buf[CONVERT_SIZE] = {(float)INT_MIN - 172.0f, (float)INT_MAX - 32.0f,
+            (float)INT_MAX - 68.0f, (float)4.5f};
+    int buf_int[CONVERT_SIZE] = {INT_MIN, INT_MAX, INT_MAX-127, 4};
     float buf_float[CONVERT_SIZE] = {(float)INT_MIN, (float)INT_MAX + 1.0f, (float)INT_MAX - 127.0f, 4};
-    int  *intp;          /* Pointer to buffer, as integers */
-    int   buf2[CONVERT_SIZE] = {INT_MIN, INT_MAX, INT_MAX - 72, 0};
+    int *intp;          /* Pointer to buffer, as integers */
+    int buf2[CONVERT_SIZE] = {INT_MIN, INT_MAX, INT_MAX - 72, 0};
     float buf2_float[CONVERT_SIZE] = {(float)INT_MIN, (float)INT_MAX, (float)INT_MAX - 127.0f, (float)0.0f};
-    int   buf2_int[CONVERT_SIZE] = {INT_MIN, INT_MAX, INT_MAX - 127, 0};
+    int buf2_int[CONVERT_SIZE] = {INT_MIN, INT_MAX, INT_MAX - 127, 0};
     float *floatp;      /* Pointer to buffer #2, as floats */
     hid_t dxpl;         /* Dataset transfer property list */
     except_info_t e;    /* Exception information */
@@ -6099,8 +6165,8 @@ test_int_float_except(void)
 
     /* Convert second buffer */
     HDmemset(&e, 0, sizeof(except_info_t));
-    if(H5Tconvert(H5T_NATIVE_INT, H5T_NATIVE_FLOAT, (size_t)CONVERT_SIZE, buf2, NULL, dxpl) < 0)
-        TEST_ERROR
+    if(H5Tconvert(H5T_NATIVE_INT, H5T_NATIVE_FLOAT, (size_t)CONVERT_SIZE,
+            buf2, NULL, dxpl) < 0) TEST_ERROR
 
     /* Check the buffer after conversion, as floats */
     for(u = 0; u < CONVERT_SIZE; u++) {
@@ -6117,8 +6183,8 @@ test_int_float_except(void)
 
     /* Convert buffer */
     HDmemset(&e, 0, sizeof(except_info_t));
-    if(H5Tconvert(H5T_NATIVE_FLOAT, H5T_NATIVE_INT, (size_t)CONVERT_SIZE, buf2, NULL, dxpl) < 0)
-        TEST_ERROR
+    if(H5Tconvert(H5T_NATIVE_FLOAT, H5T_NATIVE_INT, (size_t)CONVERT_SIZE,
+            buf2, NULL, dxpl) < 0) TEST_ERROR
 
     /* Check the buffer after conversion, as integers */
     for(u = 0; u < CONVERT_SIZE; u++) {
@@ -6349,7 +6415,7 @@ test_set_order_compound(hid_t fapl)
     hid_t       cmpd = -1, memb_cmpd = -1, memb_array1 = -1, memb_array2 = -1, cmpd_array = -1;
     hid_t       vl_id = -1;
     hsize_t     dims[2] = {3, 4};   /* Array dimenstions */
-    char        filename[1024];
+    char    filename[1024];
     herr_t      ret;                /* Generic return value */
 
     TESTING("H5Tset/get_order for compound type");
@@ -6455,14 +6521,18 @@ error:
 /*-------------------------------------------------------------------------
  * Function:    test_named_indirect_reopen
  *
- * Purpose:     Tests that open named datatypes can be reopened indirectly
+ * Purpose:    Tests that open named datatypes can be reopened indirectly
  *              through H5Dget_type without causing problems.
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
  *
- * Programmer:  Neil Fortner
+ *        Failure:    number of errors
+ *
+ * Programmer:    Neil Fortner
  *              Thursday, June 4, 2009
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static int
@@ -6470,11 +6540,11 @@ test_named_indirect_reopen(hid_t fapl)
 {
     hid_t        file=-1, type=-1, reopened_type=-1, strtype=-1, dset=-1, space=-1;
     static hsize_t    dims[1] = {3};
-    size_t            dt_size;
-    int               enum_value;
-    const char       *tag = "opaque_tag";
-    char             *tag_ret = NULL;
-    char              filename[1024];
+    size_t              dt_size;
+    int                 enum_value;
+    const char          *tag = "opaque_tag";
+    char                *tag_ret = NULL;
+    char        filename[1024];
 
     TESTING("indirectly reopening committed datatypes");
 
@@ -6638,11 +6708,11 @@ test_named_indirect_reopen(hid_t fapl)
 
 error:
     H5E_BEGIN_TRY {
-        H5Tclose(type);
-        H5Tclose(strtype);
-        H5Tclose(reopened_type);
-        H5Sclose(space);
-        H5Dclose(dset);
+    H5Tclose(type);
+    H5Tclose(strtype);
+    H5Tclose(reopened_type);
+    H5Sclose(space);
+    H5Dclose(dset);
     H5Fclose(file);
     } H5E_END_TRY;
     if(tag_ret)
@@ -6842,12 +6912,12 @@ test_delete_obj_named(hid_t fapl)
 
 error:
     H5E_BEGIN_TRY {
-        H5Tclose(attr);
-        H5Dclose(dset);
-        H5Pclose(fapl2);
-        H5Fclose(filea1);
-        H5Fclose(filea2);
-        H5Fclose(fileb);
+    H5Tclose(attr);
+    H5Dclose(dset);
+    H5Pclose(fapl2);
+    H5Fclose(filea1);
+    H5Fclose(filea2);
+    H5Fclose(fileb);
     } H5E_END_TRY;
     return 1;
 } /* end test_delete_obj_named() */
@@ -6908,13 +6978,13 @@ test_delete_obj_named_fileid(hid_t fapl)
 
             /* Verify file ID from dataset matches correct file */
             dset_fid = H5Iget_file_id(dset);
-            if(dset_fid != filea1) TEST_ERROR
+            if(!H5F__same_file_test(dset_fid, filea1)) TEST_ERROR
             H5Fclose(dset_fid);
 
             /* Verify file ID from datatype (from dataset) matches correct file */
             type = H5Dget_type(dset);
             type_fid = H5Iget_file_id(type);
-            if(type_fid != filea1) TEST_ERROR
+            if(!H5F__same_file_test(type_fid, filea1)) TEST_ERROR
             H5Fclose(type_fid);
             H5Tclose(type);
 
@@ -6930,13 +7000,13 @@ test_delete_obj_named_fileid(hid_t fapl)
 
             /* Verify file ID from dataset matches correct file */
             dset_fid = H5Iget_file_id(dset);
-            if(dset_fid != filea1) TEST_ERROR
+            if(!H5F__same_file_test(dset_fid, filea1)) TEST_ERROR
             H5Fclose(dset_fid);
 
             /* Verify file ID from datatype (from dataset) matches correct file */
             type = H5Dget_type(dset);
             type_fid = H5Iget_file_id(type);
-            if(type_fid != filea1) TEST_ERROR
+            if(!H5F__same_file_test(type_fid, filea1)) TEST_ERROR
             H5Fclose(type_fid);
             H5Tclose(type);
 
@@ -6958,13 +7028,13 @@ test_delete_obj_named_fileid(hid_t fapl)
 
             /* Verify file ID from dataset matches correct file */
             attr_fid = H5Iget_file_id(attr);
-            if(attr_fid != filea1) TEST_ERROR
+            if(!H5F__same_file_test(attr_fid, filea1)) TEST_ERROR
             H5Fclose(attr_fid);
 
             /* Verify file ID from datatype (from dataset) matches correct file */
             type = H5Aget_type(attr);
             type_fid = H5Iget_file_id(type);
-            if(type_fid != filea1) TEST_ERROR
+            if(!H5F__same_file_test(type_fid, filea1)) TEST_ERROR
             H5Fclose(type_fid);
             H5Tclose(type);
 
@@ -6980,13 +7050,13 @@ test_delete_obj_named_fileid(hid_t fapl)
 
             /* Verify file ID from dataset matches correct file */
             attr_fid = H5Iget_file_id(attr);
-            if(attr_fid != filea1) TEST_ERROR
+            if(!H5F__same_file_test(attr_fid, filea1)) TEST_ERROR
             H5Fclose(attr_fid);
 
             /* Verify file ID from datatype (from dataset) matches correct file */
             type = H5Aget_type(attr);
             type_fid = H5Iget_file_id(type);
-            if(type_fid != filea1) TEST_ERROR
+            if(!H5F__same_file_test(type_fid, filea1)) TEST_ERROR
             H5Fclose(type_fid);
             H5Tclose(type);
 
@@ -7005,15 +7075,15 @@ test_delete_obj_named_fileid(hid_t fapl)
 
 error:
     H5E_BEGIN_TRY {
-        H5Aclose(attr);
-        H5Tclose(type);
-        H5Dclose(dset);
-        H5Pclose(fapl2);
-        H5Fclose(filea1);
-        H5Fclose(filea2);
-        H5Fclose(fileb);
-        H5Fclose(attr_fid);
-        H5Fclose(type_fid);
+    H5Aclose(attr);
+    H5Tclose(type);
+    H5Dclose(dset);
+    H5Pclose(fapl2);
+    H5Fclose(filea1);
+    H5Fclose(filea2);
+    H5Fclose(fileb);
+    H5Fclose(attr_fid);
+    H5Fclose(type_fid);
     } H5E_END_TRY;
     return 1;
 } /* end test_delete_obj_named_fileid() */
@@ -7022,12 +7092,12 @@ error:
 /*-------------------------------------------------------------------------
  * Function:    test_deprec
  *
- * Purpose:     Tests deprecated API routines for datatypes.
+ * Purpose:    Tests deprecated API routines for datatypes.
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
+ *        Failure:    number of errors
  *
- * Programmer:  Quincey Koziol
+ * Programmer:    Quincey Koziol
  *              Thursday, September 27, 2007
  *
  *-------------------------------------------------------------------------
@@ -7097,31 +7167,31 @@ test_deprec(hid_t fapl)
 
     /* Predefined types cannot be committed */
     H5E_BEGIN_TRY {
-        status = H5Tcommit1(file, "test_named_1 (should not exist)", H5T_NATIVE_INT);
+    status = H5Tcommit1(file, "test_named_1 (should not exist)", H5T_NATIVE_INT);
     } H5E_END_TRY;
     if(status >= 0)
-        FAIL_PUTS_ERROR("    Predefined types should not be committable!")
+    FAIL_PUTS_ERROR("    Predefined types should not be committable!")
 
     /* Copy a predefined datatype and commit the copy */
     if((type = H5Tcopy(H5T_NATIVE_INT)) < 0) FAIL_STACK_ERROR
     if(H5Tcommit1(file, "native-int", type) < 0) FAIL_STACK_ERROR
     if((status = H5Tcommitted(type)) < 0) FAIL_STACK_ERROR
     if(0 == status)
-        FAIL_PUTS_ERROR("    H5Tcommitted() returned false!")
+    FAIL_PUTS_ERROR("    H5Tcommitted() returned false!")
 
     /* We should not be able to modify a type after it has been committed. */
     H5E_BEGIN_TRY {
-        status = H5Tset_precision(type, (size_t)256);
+    status = H5Tset_precision(type, (size_t)256);
     } H5E_END_TRY;
     if(status >= 0)
-        FAIL_PUTS_ERROR("    Committed type is not constant!")
+    FAIL_PUTS_ERROR("    Committed type is not constant!")
 
     /* We should not be able to re-commit a committed type */
     H5E_BEGIN_TRY {
-        status = H5Tcommit1(file, "test_named_2 (should not exist)", type);
+    status = H5Tcommit1(file, "test_named_2 (should not exist)", type);
     } H5E_END_TRY;
     if(status >= 0)
-        FAIL_PUTS_ERROR("    Committed types should not be recommitted!")
+    FAIL_PUTS_ERROR("    Committed types should not be recommitted!")
 
     /*
      * Close the committed type and reopen it.  It should return a named type.
@@ -7130,7 +7200,7 @@ test_deprec(hid_t fapl)
     if((type = H5Topen1(file, "native-int")) < 0) FAIL_STACK_ERROR
     if((status = H5Tcommitted(type)) < 0) FAIL_STACK_ERROR
     if(!status)
-        FAIL_PUTS_ERROR("    Opened named types should be named types!")
+    FAIL_PUTS_ERROR("    Opened named types should be named types!")
 
     /* Close */
     if(H5Tclose(type) < 0) FAIL_STACK_ERROR
@@ -7160,8 +7230,8 @@ test_deprec(hid_t fapl)
 
 error:
     H5E_BEGIN_TRY {
-        H5Tclose(type);
-        H5Fclose(file);
+    H5Tclose(type);
+    H5Fclose(file);
     } H5E_END_TRY;
     return 1;
 } /* end test_deprec() */
@@ -7171,13 +7241,13 @@ error:
 /*-------------------------------------------------------------------------
  * Function:    test_utf_ascii_conv
  *
- * Purpose:     Make sure the library doesn't conversion strings between
+ * Purpose:    Make sure the library doesn't conversion strings between
  *              ASCII and UTF8.
  *
- * Return:      Success:    0
- *              Failure:    number of errors
+ * Return:    Success:    0
+ *        Failure:    number of errors
  *
- * Programmer:  Raymond Lu
+ * Programmer:    Raymond Lu
  *              10 November 2011
  *-------------------------------------------------------------------------
  */
@@ -7222,7 +7292,7 @@ test_utf_ascii_conv(void)
 
     /* Test conversion in memory */
     H5E_BEGIN_TRY {
-        status = H5Tconvert(utf8_vtid, ascii_vtid, 1, (void *)utf8_w, NULL, H5P_DEFAULT);
+        status = H5Tconvert(utf8_vtid, ascii_vtid, 1, &utf8_w, NULL, H5P_DEFAULT);
     } H5E_END_TRY
     if(status >= 0)
         FAIL_STACK_ERROR
@@ -7255,7 +7325,7 @@ test_utf_ascii_conv(void)
      ************************************************/
     /* Test conversion in memory */
     H5E_BEGIN_TRY {
-        status = H5Tconvert(ascii_vtid, utf8_vtid, 1, (void *)ascii_w, NULL, H5P_DEFAULT);
+        status = H5Tconvert(ascii_vtid, utf8_vtid, 1, &ascii_w, NULL, H5P_DEFAULT);
     } H5E_END_TRY
     if(status >= 0)
         FAIL_STACK_ERROR
@@ -7367,13 +7437,13 @@ test_utf_ascii_conv(void)
 
 error:
     H5E_BEGIN_TRY {
-        H5Tclose(utf8_vtid);
-        H5Tclose(ascii_vtid);
-        H5Tclose(utf8_tid);
-        H5Tclose(ascii_tid);
-        H5Dclose(did);
-        H5Sclose(sid);
-        H5Fclose(fid);
+    H5Tclose(utf8_vtid);
+    H5Tclose(ascii_vtid);
+    H5Tclose(utf8_tid);
+    H5Tclose(ascii_tid);
+    H5Dclose(did);
+    H5Sclose(sid);
+    H5Fclose(fid);
     } H5E_END_TRY;
     return 1;
 }
@@ -7578,7 +7648,9 @@ test_versionbounds(void)
     H5F_t *filep = NULL;       /* Pointer to internal structure of a file */
     H5T_t *dtypep = NULL;      /* Pointer to internal structure of a datatype */
     hsize_t arr_dim[] = {ARRAY_LEN}; /* Length of the array */
-    H5F_libver_t low, high;    /* File format bounds */
+    int low, high;             /* Indices for iterating over versions */
+    H5F_libver_t versions[] = {H5F_LIBVER_EARLIEST, H5F_LIBVER_V18, H5F_LIBVER_V110, H5F_LIBVER_V112};
+    int versions_count = 4;     /* Number of version bounds in the array */
     unsigned highest_version;  /* Highest version in nested datatypes */
     color_t enum_val;          /* Enum type index */
     herr_t ret = 0;            /* Generic return value */
@@ -7678,12 +7750,13 @@ test_versionbounds(void)
        skipping invalid combinations */
     /* Create the file, create and write to a dataset with compound datatype */
     /* Verify the dataset's datatype and its members */
-    for(low = H5F_LIBVER_EARLIEST; low < H5F_LIBVER_NBOUNDS; low++) {
-        for(high = H5F_LIBVER_EARLIEST; high < H5F_LIBVER_NBOUNDS; high++) {
+    for(low = 0; low < versions_count; low++) {
+
+        for(high = 0; high < versions_count; high++) {
 
             /* Set version bounds */
             H5E_BEGIN_TRY {
-                ret = H5Pset_libver_bounds(fapl, low, high);
+                ret = H5Pset_libver_bounds(fapl, versions[low], versions[high]);
             } H5E_END_TRY;
 
             if (ret < 0) /* Invalid low/high combinations */
@@ -7709,7 +7782,7 @@ test_versionbounds(void)
             highest_version = dtypep->shared->version;
 
             /* Verify version of the datatype recursevily */
-            ret = verify_version(dset_dtype, low, &highest_version);
+            ret = verify_version(dset_dtype, versions[low], &highest_version);
 
             /* Close the dataset's datatype */
             if (H5Tclose(dset_dtype) < 0) TEST_ERROR
@@ -7754,13 +7827,16 @@ error:
  *
  * Programmer:  Robb Matzke
  *              Tuesday, December  9, 1997
+ *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 int
 main(void)
 {
     long    nerrors = 0;
-    hid_t   fapl = H5I_INVALID_HID;
+    hid_t    fapl = -1;
 
     /* Set the random # seed */
     HDsrandom((unsigned)HDtime(NULL));
@@ -7769,7 +7845,7 @@ main(void)
     fapl = h5_fileaccess();
 
     if(ALIGNMENT)
-        HDprintf("Testing non-aligned conversions (ALIGNMENT=%d)....\n", ALIGNMENT);
+    printf("Testing non-aligned conversions (ALIGNMENT=%d)....\n", ALIGNMENT);
 
     /* Do the tests */
     nerrors += test_classes();
@@ -7824,7 +7900,8 @@ main(void)
     nerrors += test_versionbounds();
 
     if(nerrors) {
-        HDprintf("***** %lu FAILURE%s! *****\n", nerrors, 1==nerrors?"":"S");
+        HDprintf("***** %lu FAILURE%s! *****\n",
+               nerrors, 1==nerrors?"":"S");
         HDexit(EXIT_FAILURE);
     }
 

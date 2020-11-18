@@ -15,7 +15,7 @@
  *
  * Created:     H5trace.c
  *              Aug 21 2006
- *              Quincey Koziol
+ *              Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:     Internal code for tracing API calls
  *
@@ -34,8 +34,10 @@
 #include "H5Dprivate.h"     /* Datasets                                 */
 #include "H5Eprivate.h"     /* Error handling                           */
 #include "H5FDprivate.h"    /* File drivers                             */
+#include "H5Rprivate.h"     /* References                               */
 #include "H5Ipkg.h"         /* IDs                                      */
 #include "H5MMprivate.h"    /* Memory management                        */
+#include "H5VLprivate.h"    /* Virtual Object Layer                     */
 
 #ifdef H5_HAVE_PARALLEL
 /* datatypes of predefined drivers needed by H5_trace() */
@@ -125,11 +127,8 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
     hssize_t            i;
     void                *vp = NULL;
     FILE                *out = H5_debug_g.trace;
-    static hbool_t      is_first_invocation = TRUE;
-    H5_timer_t          function_timer;
-    H5_timevals_t       function_times;
-    static H5_timer_t   running_timer;
-    H5_timevals_t       running_times;
+    H5_timer_t          event_time;
+    static H5_timer_t   first_time = {0.0F, 0.0F, 0.0F};
     static int          current_depth = 0;
     static int          last_call_depth = 0;
 
@@ -155,18 +154,13 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
         } /* end else */
     } /* end if */
 
-    /* Get time for event if the trace times flag is set */
-    if(is_first_invocation && H5_debug_g.ttimes) {
-        /* start the library-wide timer */
-        is_first_invocation = FALSE;
-        H5_timer_init(&running_timer);
-        H5_timer_start(&running_timer);
-    } /* end if */
-    if(H5_debug_g.ttimes) {
-        /* start the timer for this function */
-        H5_timer_init(&function_timer);
-        H5_timer_start(&function_timer);
-    } /* end if */
+    /* Get time for event */
+    if(H5_DBL_ABS_EQUAL(first_time.etime, H5_DOUBLE(0.0)))
+        H5_timer_begin(&first_time);
+    if(H5_debug_g.ttimes)
+        H5_timer_begin(&event_time);
+    else
+        HDmemset(&event_time, 0, sizeof event_time);
 
     /* Print the first part of the line.  This is the indication of the
      * nesting depth followed by the function name and either start of
@@ -182,9 +176,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             if(H5_debug_g.ttimes) {
                 char tmp[320];
 
-                H5_timer_get_times(function_timer, &function_times);
-                H5_timer_get_times(running_timer, &running_times);
-                HDsprintf(tmp, "%.6f", (function_times.elapsed - running_times.elapsed));
+                HDsprintf(tmp, "%.6f", event_time.etime-first_time.etime);
                 HDfprintf(out, " %*s ", (int)HDstrlen(tmp), "");
             } /* end if */
             for(i = 0; i < current_depth; i++)
@@ -199,11 +191,8 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
     else {
         if(current_depth>last_call_depth)
             HDfputs(" = <delayed>\n", out);
-        if(H5_debug_g.ttimes) {
-            H5_timer_get_times(function_timer, &function_times);
-            H5_timer_get_times(running_timer, &running_times);
-            HDfprintf(out, "@%.6f ", (function_times.elapsed - running_times.elapsed));
-        } /* end if */
+        if(H5_debug_g.ttimes)
+            HDfprintf(out, "@%.6f ", event_time.etime - first_time.etime);
         for(i = 0; i < current_depth; i++)
             HDfputc('+', out);
         HDfprintf(out, "%*s%s(", 2*current_depth, "", func);
@@ -260,7 +249,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             case 'a':
                 if(ptr) {
                     if(vp)
-                        HDfprintf(out, "0x%p", vp);
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
                     else
                         HDfprintf(out, "NULL");
                 } /* end if */
@@ -274,7 +263,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             case 'b':
                 if(ptr) {
                     if(vp)
-                        HDfprintf(out, "0x%p", vp);
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
                     else
                         HDfprintf(out, "NULL");
                     } /* end if */
@@ -293,7 +282,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             case 'd':
                 if(ptr) {
                     if(vp)
-                        HDfprintf(out, "0x%p", vp);
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
                     else
                         HDfprintf(out, "NULL");
                 } /* end if */
@@ -309,7 +298,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'a':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -347,7 +336,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'c':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -373,7 +362,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'f':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -407,7 +396,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'F':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -441,7 +430,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'h':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -471,7 +460,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'i':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -509,7 +498,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'k':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -555,7 +544,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'l':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -597,7 +586,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'n':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -644,7 +633,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'o':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -674,7 +663,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 's':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -708,7 +697,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 't':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -734,7 +723,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'v':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -762,7 +751,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                         break;
 
                     default:
-                       HDfprintf(out, "BADTYPE(D%c)", type[1]);
+                       HDfprintf (out, "BADTYPE(D%c)", type[1]);
                         goto error;
                 } /* end switch */
                 break;
@@ -770,7 +759,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             case 'e':
                 if(ptr) {
                     if(vp)
-                       HDfprintf(out, "0x%p", vp);
+                       HDfprintf(out, "0x%lx", (unsigned long)vp);
                     else
                        HDfprintf(out, "NULL");
                 } /* end if */
@@ -789,7 +778,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'd':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -815,21 +804,52 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'e':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
                         else {
                             H5E_error2_t *error = HDva_arg(ap, H5E_error2_t *);
 
-                           HDfprintf(out, "0x%p", error);
+                           HDfprintf(out, "0x%lx", (unsigned long)error);
+                        } /* end else */
+                        break;
+
+                    case 's':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5ES_status_t status = (H5ES_status_t)HDva_arg(ap, int);
+
+                            switch(status) {
+                                case H5ES_STATUS_IN_PROGRESS:
+                                    HDfprintf(out, "H5ES_STATUS_IN_PROGRESS");
+                                    break;
+                                case H5ES_STATUS_SUCCEED:
+                                    HDfprintf(out, "H5ES_STATUS_SUCCEED");
+                                    break;
+                                case H5ES_STATUS_FAIL:
+                                    HDfprintf(out, "H5ES_STATUS_FAIL");
+                                    break;
+                                case H5ES_STATUS_CANCELED:
+                                    HDfprintf(out, "H5ES_STATUS_CANCELED");
+                                    break;
+
+                                default:
+                                    HDfprintf(out, "%ld", (long)status);
+                                    break;
+                            } /* end switch */
                         } /* end else */
                         break;
 
                     case 't':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -863,7 +883,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'd':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -897,7 +917,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'f':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -932,7 +952,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'm':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -983,7 +1003,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 's':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -1009,7 +1029,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 't':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -1018,7 +1038,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'v':
                         if(ptr) {
                             if(vp)
-                               HDfprintf(out, "0x%p", vp);
+                               HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                HDfprintf(out, "NULL");
                         } /* end if */
@@ -1035,7 +1055,11 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                                     break;
 
                                 case H5F_LIBVER_V110:
-                                    HDcompile_assert(H5F_LIBVER_LATEST == H5F_LIBVER_V110);
+                                    HDfprintf(out, "H5F_LIBVER_V110");
+                                    break;
+
+                                case H5F_LIBVER_V112:
+                                    HDcompile_assert(H5F_LIBVER_LATEST == H5F_LIBVER_V112);
                                     HDfprintf(out, "H5F_LIBVER_LATEST");
                                     break;
 
@@ -1060,7 +1084,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'o':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -1108,14 +1132,14 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 's':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
                         else {
                             H5G_stat_t *statbuf = HDva_arg(ap, H5G_stat_t*);
 
-                            HDfprintf(out, "0x%p", statbuf);
+                            HDfprintf(out, "0x%lx", (unsigned long)statbuf);
                         }
                         break;
 #endif /* H5_NO_DEPRECATED_SYMBOLS */
@@ -1129,7 +1153,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             case 'h':
                 if(ptr) {
                     if(vp) {
-                        HDfprintf(out, "0x%p", vp);
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
                         if(asize_idx >= 0 && asize[asize_idx] >= 0) {
                             hsize_t *p = (hsize_t *)vp;
 
@@ -1163,7 +1187,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 's':
                         if(ptr) {
                             if(vp) {
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                                 if(asize_idx >= 0 && asize[asize_idx] >= 0) {
                                     hssize_t *p = (hssize_t *)vp;
 
@@ -1185,7 +1209,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                         break;
 
                     default:
-                        HDfprintf(out, "BADTYPE(H%c)", type[1]);
+                        HDfprintf (out, "BADTYPE(H%c)", type[1]);
                         goto error;
                 } /* end switch */
                 break;
@@ -1193,7 +1217,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             case 'i':
                 if(ptr) {
                     if(vp)
-                        HDfprintf(out, "0x%p", vp);
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
                     else
                         HDfprintf(out, "NULL");
                 } /* end if */
@@ -1336,12 +1360,16 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                                 HDfprintf(out, "%ld (attr)", (long)obj);
                                 break;
 
-                            case H5I_REFERENCE:
-                                HDfprintf(out, "%ld (reference)", (long)obj);
+                            case H5I_MAP:
+                                HDfprintf(out, "%ld (map)", (long)obj);
                                 break;
 
                             case H5I_VFL:
                                 HDfprintf(out, "%ld (file driver)", (long)obj);
+                                break;
+
+                            case H5I_VOL:
+                                HDfprintf(out, "%ld (VOL plugin)", (long)obj);
                                 break;
 
                             case H5I_GENPROP_CLS:
@@ -1364,8 +1392,12 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                                 HDfprintf(out, "%ld (err stack)", (long)obj);
                                 break;
 
+                            case H5I_SPACE_SEL_ITER:
+                                HDfprintf(out, "%ld (dataspace selection iterator)", (long)obj);
+                                break;
+
                             case H5I_NTYPES:
-                                HDfprintf(out, "%ld (ntypes - error)", (long)obj);
+                                HDfprintf (out, "%ld (ntypes - error)", (long)obj);
                                 break;
 
                             default:
@@ -1381,7 +1413,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'i':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -1415,7 +1447,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'o':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -1453,7 +1485,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 's':
                         if(ptr) {
                             if(vp) {
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                                 if(asize_idx >= 0 && asize[asize_idx] >= 0) {
                                     int *p = (int*)vp;
 
@@ -1469,7 +1501,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                         else {
                             int is = HDva_arg(ap, int);
 
-                            HDfprintf(out, "%d", is);
+                            HDfprintf (out, "%d", is);
                             asize[argno] = is;
                         } /* end else */
                         break;
@@ -1477,7 +1509,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 't':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -1517,12 +1549,16 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                                     HDfprintf(out, "H5I_ATTR");
                                     break;
 
-                                case H5I_REFERENCE:
-                                    HDfprintf(out, "H5I_REFERENCE");
+                                case H5I_MAP:
+                                    HDfprintf(out, "H5I_MAP");
                                     break;
 
                                 case H5I_VFL:
                                     HDfprintf(out, "H5I_VFL");
+                                    break;
+
+                                case H5I_VOL:
+                                    HDfprintf(out, "H5I_VOL");
                                     break;
 
                                 case H5I_GENPROP_CLS:
@@ -1545,6 +1581,10 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                                     HDfprintf(out, "H5I_ERROR_STACK");
                                     break;
 
+                                case H5I_SPACE_SEL_ITER:
+                                    HDfprintf(out, "H5I_SPACE_SEL_ITER");
+                                    break;
+
                                 case H5I_NTYPES:
                                     HDfprintf(out, "H5I_NTYPES");
                                     break;
@@ -1559,7 +1599,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'u':
                         if(ptr) {
                             if(vp) {
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                                 if(asize_idx >= 0 && asize[asize_idx] >= 0) {
                                     unsigned *p = (unsigned*)vp;
 
@@ -1581,9 +1621,25 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                         break;
 
                     default:
-                        HDfprintf(out, "BADTYPE(I%c)", type[1]);
+                        HDfprintf (out, "BADTYPE(I%c)", type[1]);
                         goto error;
                 } /* end switch */
+                break;
+
+            case 'k':
+                if(ptr) {
+                    if(vp)
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
+                    else
+                        HDfprintf(out, "NULL");
+                } /* end if */
+                else {
+                    H5O_token_t token = HDva_arg(ap, H5O_token_t);
+                    int j;
+
+                    for (j = 0; j < H5O_MAX_TOKEN_SIZE; j++)
+                        HDfprintf(out, "%02x", token.__data[j]);
+                } /* end else */
                 break;
 
             case 'L':
@@ -1591,7 +1647,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'l':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -1637,7 +1693,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'c':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -1653,7 +1709,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'i':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -1669,7 +1725,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 't':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -1728,14 +1784,14 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             case 'o':
                 if(ptr) {
                     if(vp)
-                        HDfprintf(out, "0x%p", vp);
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
                     else
                         HDfprintf(out, "NULL");
                 } /* end if */
                 else {
                     off_t offset = HDva_arg(ap, off_t);
 
-                    HDfprintf(out, "%ld", (long)offset);
+                    HDfprintf (out, "%ld", (long)offset);
                 } /* end else */
                 break;
 
@@ -1744,7 +1800,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 't':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -1768,6 +1824,10 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                                     HDfprintf(out, "H5O_TYPE_NAMED_DATATYPE");
                                     break;
 
+                                case H5O_TYPE_MAP:
+                                    HDfprintf(out, "H5O_TYPE_MAP");
+                                    break;
+
                                 case H5O_TYPE_NTYPES:
                                     HDfprintf(out, "H5O_TYPE_NTYPES");
                                     break;
@@ -1788,7 +1848,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             case 'p':
                 if(ptr) {
                     if(vp)
-                        HDfprintf(out, "0x%p", vp);
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
                     else
                         HDfprintf(out, "NULL");
                 } /* end if */
@@ -1809,26 +1869,55 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                 } /* end else */
                 break;
 
-            case 'r':
-                if(ptr) {
-                    if(vp)
-                        HDfprintf(out, "0x%p", vp);
-                    else
-                        HDfprintf(out, "NULL");
-                } /* end if */
-                else {
-                    hobj_ref_t ref = HDva_arg(ap, hobj_ref_t);
-
-                    HDfprintf(out, "Reference Object=%a", ref);
-                } /* end else */
-                break;
-
             case 'R':
                 switch(type[1]) {
+
+                    case 'o':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            hobj_ref_t ref = HDva_arg(ap, hobj_ref_t);
+
+                            HDfprintf(out, "Reference Object=%a", ref);
+                        } /* end else */
+                        break;
+
+                    case 'd':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            /* Note! region references are array types */
+                            HDfprintf(out, "Reference Region");
+                            goto error;
+                        } /* end else */
+                        break;
+
+                    case 'r':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            /* Note! reference types are opaque types */
+                            HDfprintf(out, "Reference Opaque");
+                            goto error;
+                        } /* end else */
+                        break;
+
                     case 't':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -1840,12 +1929,24 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                                     HDfprintf(out, "H5R_BADTYPE");
                                     break;
 
-                                case H5R_OBJECT:
-                                    HDfprintf(out, "H5R_OBJECT");
+                                case H5R_OBJECT1:
+                                    HDfprintf(out, "H5R_OBJECT1");
                                     break;
 
-                                case H5R_DATASET_REGION:
-                                    HDfprintf(out, "H5R_DATASET_REGION");
+                                case H5R_DATASET_REGION1:
+                                    HDfprintf(out, "H5R_DATASET_REGION1");
+                                    break;
+
+                                case H5R_OBJECT2:
+                                    HDfprintf(out, "H5R_OBJECT2");
+                                    break;
+
+                                case H5R_DATASET_REGION2:
+                                    HDfprintf(out, "H5R_DATASET_REGION2");
+                                    break;
+
+                                case H5R_ATTR:
+                                    HDfprintf(out, "H5R_ATTR");
                                     break;
 
                                 case H5R_MAXTYPE:
@@ -1870,7 +1971,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'c':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -1904,7 +2005,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 's':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -1962,7 +2063,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 't':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2010,7 +2111,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             case 's':
                 if(ptr) {
                     if(vp)
-                        HDfprintf(out, "0x%p", vp);
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
                     else
                         HDfprintf(out, "NULL");
                 } /* end if */
@@ -2026,7 +2127,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'c':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2073,7 +2174,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'd':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2103,7 +2204,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'e':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2133,7 +2234,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'n':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2167,7 +2268,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'o':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2209,7 +2310,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'p':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2247,7 +2348,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 's':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2281,7 +2382,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 't':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2351,7 +2452,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'z':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2399,7 +2500,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                         break;
 
                     default:
-                        HDfprintf(out, "BADTYPE(T%c)", type[1]);
+                        HDfprintf (out, "BADTYPE(T%c)", type[1]);
                         goto error;
                 } /* end switch */
                 break;
@@ -2407,7 +2508,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             case 't':
                 if(ptr) {
                     if(vp)
-                        HDfprintf(out, "0x%p", vp);
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
                     else
                         HDfprintf(out, "NULL");
                 } /* end if */
@@ -2415,9 +2516,9 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     htri_t tri_var = HDva_arg (ap, htri_t);
 
                     if(tri_var>0)
-                        HDfprintf(out, "TRUE");
+                        HDfprintf (out, "TRUE");
                     else if(!tri_var)
-                        HDfprintf(out, "FALSE");
+                        HDfprintf (out, "FALSE");
                     else
                         HDfprintf(out, "FAIL(%d)", (int)tri_var);
                 } /* end else */
@@ -2428,7 +2529,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'l':
                         if(ptr) {
                             if(vp) {
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                                 if(asize_idx >= 0 && asize[asize_idx] >= 0) {
                                     unsigned long *p = (unsigned long *)vp;
 
@@ -2452,7 +2553,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'L':
                         if(ptr) {
                             if(vp) {
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                                 if(asize_idx >= 0 && asize[asize_idx] >= 0) {
                                     unsigned long long *p = (unsigned long long *)vp;
 
@@ -2474,7 +2575,933 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                         break;
 
                     default:
-                        HDfprintf(out, "BADTYPE(U%c)", type[1]);
+                        HDfprintf (out, "BADTYPE(U%c)", type[1]);
+                        goto error;
+                } /* end switch */
+                break;
+
+            case 'V':
+                switch(type[1]) {
+                    case 'a':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_attr_get_t get = (H5VL_attr_get_t)HDva_arg(ap, int);
+
+                            switch(get) {
+                                case H5VL_ATTR_GET_SPACE:
+                                    HDfprintf(out, "H5VL_ATTR_GET_SPACE");
+                                    break;
+                                case H5VL_ATTR_GET_TYPE:
+                                    HDfprintf(out, "H5VL_ATTR_GET_TYPE");
+                                    break;
+                                case H5VL_ATTR_GET_ACPL:
+                                    HDfprintf(out, "H5VL_ATTR_GET_ACPL");
+                                    break;
+                                case H5VL_ATTR_GET_NAME:
+                                    HDfprintf(out, "H5VL_ATTR_GET_NAME");
+                                    break;
+                                case H5VL_ATTR_GET_STORAGE_SIZE:
+                                    HDfprintf(out, "H5VL_ATTR_GET_STORAGE_SIZE");
+                                    break;
+                                case H5VL_ATTR_GET_INFO:
+                                    HDfprintf(out, "H5VL_ATTR_GET_INFO");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)get);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'A':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_blob_optional_t optional = (H5VL_blob_optional_t)HDva_arg(ap, int);
+
+                            switch(optional) {
+                                default:
+                                    HDfprintf(out, "%ld", (long)optional);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'b':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_attr_specific_t specific = (H5VL_attr_specific_t)HDva_arg(ap, int);
+
+                            switch(specific) {
+                                case H5VL_ATTR_DELETE:
+                                    HDfprintf(out, "H5VL_ATTR_DELETE");
+                                    break;
+                                case H5VL_ATTR_EXISTS:
+                                    HDfprintf(out, "H5VL_ATTR_EXISTS");
+                                    break;
+                                case H5VL_ATTR_ITER:
+                                    HDfprintf(out, "H5VL_ATTR_ITER");
+                                    break;
+                                case H5VL_ATTR_RENAME:
+                                    HDfprintf(out, "H5VL_ATTR_RENAME");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)specific);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'B':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_blob_specific_t specific = (H5VL_blob_specific_t)HDva_arg(ap, int);
+
+                            switch(specific) {
+                                case H5VL_BLOB_DELETE:
+                                    HDfprintf(out, "H5VL_BLOB_DELETE");
+                                    break;
+                                case H5VL_BLOB_GETSIZE:
+                                    HDfprintf(out, "H5VL_BLOB_GETSIZE");
+                                    break;
+                                case H5VL_BLOB_ISNULL:
+                                    HDfprintf(out, "H5VL_BLOB_ISNULL");
+                                    break;
+                                case H5VL_BLOB_SETNULL:
+                                    HDfprintf(out, "H5VL_BLOB_SETNULL");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)specific);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'C':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_class_value_t class_val = (H5VL_class_value_t)HDva_arg(ap, H5VL_class_value_t);
+
+                            if(H5_VOL_NATIVE == class_val)
+                                HDfprintf(out, "H5_VOL_NATIVE");
+                            else
+                                HDfprintf(out, "%ld", (long)class_val);
+                        } /* end else */
+                        break;
+
+                    case 'c':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_dataset_get_t get = (H5VL_dataset_get_t)HDva_arg(ap, int);
+
+                            switch(get) {
+                                case H5VL_DATASET_GET_SPACE:
+                                    HDfprintf(out, "H5VL_DATASET_GET_SPACE");
+                                    break;
+                                case H5VL_DATASET_GET_SPACE_STATUS:
+                                    HDfprintf(out, "H5VL_DATASET_GET_SPACE_STATUS");
+                                    break;
+                                case H5VL_DATASET_GET_TYPE:
+                                    HDfprintf(out, "H5VL_DATASET_GET_TYPE");
+                                    break;
+                                case H5VL_DATASET_GET_DCPL:
+                                    HDfprintf(out, "H5VL_DATASET_GET_DCPL");
+                                    break;
+                                case H5VL_DATASET_GET_DAPL:
+                                    HDfprintf(out, "H5VL_DATASET_GET_DAPL");
+                                    break;
+                                case H5VL_DATASET_GET_STORAGE_SIZE:
+                                    HDfprintf(out, "H5VL_DATASET_GET_STORAGE_SIZE");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)get);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'd':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_dataset_specific_t specific = (H5VL_dataset_specific_t)HDva_arg(ap, int);
+
+                            switch(specific) {
+                                case H5VL_DATASET_SET_EXTENT:
+                                    HDfprintf(out, "H5VL_DATASET_SET_EXTENT");
+                                    break;
+                                case H5VL_DATASET_FLUSH:
+                                    HDfprintf(out, "H5VL_DATASET_FLUSH");
+                                    break;
+                                case H5VL_DATASET_REFRESH:
+                                    HDfprintf(out, "H5VL_DATASET_REFRESH");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)specific);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'e':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_datatype_get_t get = (H5VL_datatype_get_t)HDva_arg(ap, int);
+
+                            switch(get) {
+                                case H5VL_DATATYPE_GET_BINARY:
+                                    HDfprintf(out, "H5VL_DATATYPE_GET_BINARY");
+                                    break;
+                                case H5VL_DATATYPE_GET_TCPL:
+                                    HDfprintf(out, "H5VL_DATATYPE_GET_TCPL");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)get);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'f':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_datatype_specific_t specific = (H5VL_datatype_specific_t)HDva_arg(ap, int);
+
+                            switch(specific) {
+                                case H5VL_DATATYPE_FLUSH:
+                                    HDfprintf(out, "H5VL_DATATYPE_FLUSH");
+                                    break;
+                                case H5VL_DATATYPE_REFRESH:
+                                    HDfprintf(out, "H5VL_DATATYPE_REFRESH");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)specific);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'g':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_file_get_t get = (H5VL_file_get_t)HDva_arg(ap, int);
+
+                            switch(get) {
+                                case H5VL_FILE_GET_CONT_INFO:
+                                    HDfprintf(out, "H5VL_FILE_GET_CONT_INFO");
+                                    break;
+                                case H5VL_FILE_GET_FAPL:
+                                    HDfprintf(out, "H5VL_FILE_GET_FAPL");
+                                    break;
+                                case H5VL_FILE_GET_FCPL:
+                                    HDfprintf(out, "H5VL_FILE_GET_FCPL");
+                                    break;
+                                case H5VL_FILE_GET_FILENO:
+                                    HDfprintf(out, "H5VL_FILE_GET_FILENO");
+                                    break;
+                                case H5VL_FILE_GET_INTENT:
+                                    HDfprintf(out, "H5VL_FILE_GET_INTENT");
+                                    break;
+                                case H5VL_FILE_GET_NAME:
+                                    HDfprintf(out, "H5VL_FILE_GET_NAME");
+                                    break;
+                                case H5VL_FILE_GET_OBJ_COUNT:
+                                    HDfprintf(out, "H5VL_FILE_GET_OBJ_COUNT");
+                                    break;
+                                case H5VL_FILE_GET_OBJ_IDS:
+                                    HDfprintf(out, "H5VL_FILE_GET_OBJ_IDS");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)get);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'h':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_file_specific_t specific = (H5VL_file_specific_t)HDva_arg(ap, int);
+
+                            switch(specific) {
+                                case H5VL_FILE_FLUSH:
+                                    HDfprintf(out, "H5VL_FILE_FLUSH");
+                                    break;
+                                case H5VL_FILE_REOPEN:
+                                    HDfprintf(out, "H5VL_FILE_REOPEN");
+                                    break;
+                                case H5VL_FILE_MOUNT:
+                                    HDfprintf(out, "H5VL_FILE_MOUNT");
+                                    break;
+                                case H5VL_FILE_UNMOUNT:
+                                    HDfprintf(out, "H5VL_FILE_UNMOUNT");
+                                    break;
+                                case H5VL_FILE_IS_ACCESSIBLE:
+                                    HDfprintf(out, "H5VL_FILE_IS_ACCESSIBLE");
+                                    break;
+                                case H5VL_FILE_DELETE:
+                                    HDfprintf(out, "H5VL_FILE_DELETE");
+                                    break;
+                                case H5VL_FILE_IS_EQUAL:
+                                    HDfprintf(out, "H5VL_FILE_IS_EQUAL");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)specific);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'i':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_group_get_t get = (H5VL_group_get_t)HDva_arg(ap, int);
+
+                            switch(get) {
+                                case H5VL_GROUP_GET_GCPL:
+                                    HDfprintf(out, "H5VL_GROUP_GET_GCPL");
+                                    break;
+                                case H5VL_GROUP_GET_INFO:
+                                    HDfprintf(out, "H5VL_GROUP_GET_INFO");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)get);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'j':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_group_specific_t specific = (H5VL_group_specific_t)HDva_arg(ap, int);
+
+                            switch(specific) {
+                                case H5VL_GROUP_FLUSH:
+                                    HDfprintf(out, "H5VL_GROUP_FLUSH");
+                                    break;
+                                case H5VL_GROUP_REFRESH:
+                                    HDfprintf(out, "H5VL_GROUP_REFRESH");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)specific);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'k':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_link_create_type_t create = (H5VL_link_create_type_t)HDva_arg(ap, int);
+
+                            switch(create) {
+                                case H5VL_LINK_CREATE_HARD:
+                                    HDfprintf(out, "H5VL_LINK_CREATE_HARD");
+                                    break;
+                                case H5VL_LINK_CREATE_SOFT:
+                                    HDfprintf(out, "H5VL_LINK_CREATE_SOFT");
+                                    break;
+                                case H5VL_LINK_CREATE_UD:
+                                    HDfprintf(out, "H5VL_LINK_CREATE_UD");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)create);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'l':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_link_get_t get = (H5VL_link_get_t)HDva_arg(ap, int);
+
+                            switch(get) {
+                                case H5VL_LINK_GET_INFO:
+                                    HDfprintf(out, "H5VL_LINK_GET_INFO");
+                                    break;
+                                case H5VL_LINK_GET_NAME:
+                                    HDfprintf(out, "H5VL_LINK_GET_NAME");
+                                    break;
+                                case H5VL_LINK_GET_VAL:
+                                    HDfprintf(out, "H5VL_LINK_GET_VAL");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)get);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'L':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_get_conn_lvl_t get = (H5VL_get_conn_lvl_t)HDva_arg(ap, int);
+
+                            switch(get) {
+                                case H5VL_GET_CONN_LVL_CURR:
+                                    HDfprintf(out, "H5VL_GET_CONN_LVL_CURR");
+                                    break;
+                                case H5VL_GET_CONN_LVL_TERM:
+                                    HDfprintf(out, "H5VL_GET_CONN_LVL_TERM");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)get);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'm':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_link_specific_t specific = (H5VL_link_specific_t)HDva_arg(ap, int);
+
+                            switch(specific) {
+                                case H5VL_LINK_DELETE:
+                                    HDfprintf(out, "H5VL_LINK_DELETE");
+                                    break;
+                                case H5VL_LINK_EXISTS:
+                                    HDfprintf(out, "H5VL_LINK_EXISTS");
+                                    break;
+                                case H5VL_LINK_ITER:
+                                    HDfprintf(out, "H5VL_LINK_ITER");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)specific);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'n':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_object_get_t get = (H5VL_object_get_t)HDva_arg(ap, int);
+
+                            switch(get) {
+                                case H5VL_OBJECT_GET_FILE:
+                                    HDfprintf(out, "H5VL_OBJECT_GET_FILE");
+                                    break;
+                                case H5VL_OBJECT_GET_NAME:
+                                    HDfprintf(out, "H5VL_OBJECT_GET_NAME");
+                                    break;
+                                case H5VL_OBJECT_GET_TYPE:
+                                    HDfprintf(out, "H5VL_OBJECT_GET_TYPE");
+                                    break;
+                                case H5VL_OBJECT_GET_INFO:
+                                    HDfprintf(out, "H5VL_OBJECT_GET_INFO");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)get);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'o':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_object_specific_t specific = (H5VL_object_specific_t)HDva_arg(ap, int);
+
+                            switch(specific) {
+                                case H5VL_OBJECT_CHANGE_REF_COUNT:
+                                    HDfprintf(out, "H5VL_OBJECT_CHANGE_REF_COUNT");
+                                    break;
+                                case H5VL_OBJECT_EXISTS:
+                                    HDfprintf(out, "H5VL_OBJECT_EXISTS");
+                                    break;
+                                case H5VL_OBJECT_LOOKUP:
+                                    HDfprintf(out, "H5VL_OBJECT_LOOKUP");
+                                    break;
+                                case H5VL_OBJECT_VISIT:
+                                    HDfprintf(out, "H5VL_OBJECT_VISIT");
+                                    break;
+                                case H5VL_OBJECT_FLUSH:
+                                    HDfprintf(out, "H5VL_OBJECT_FLUSH");
+                                    break;
+                                case H5VL_OBJECT_REFRESH:
+                                    HDfprintf(out, "H5VL_OBJECT_REFRESH");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)specific);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'r':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_request_specific_t specific = (H5VL_request_specific_t)HDva_arg(ap, int);
+
+                            switch(specific) {
+                                case H5VL_REQUEST_WAITANY:
+                                    HDfprintf(out, "H5VL_REQUEST_WAITANY");
+                                    break;
+                                case H5VL_REQUEST_WAITSOME:
+                                    HDfprintf(out, "H5VL_REQUEST_WAITSOME");
+                                    break;
+                                case H5VL_REQUEST_WAITALL:
+                                    HDfprintf(out, "H5VL_REQUEST_WAITALL");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)specific);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 's':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_attr_optional_t optional = (H5VL_attr_optional_t)HDva_arg(ap, int);
+
+                            switch(optional) {
+#ifndef H5_NO_DEPRECATED_SYMBOLS
+                                case H5VL_NATIVE_ATTR_ITERATE_OLD:
+                                    HDfprintf(out, "H5VL_NATIVE_ATTR_ITERATE_OLD");
+                                    break;
+#endif /* H5_NO_DEPRECATED_SYMBOLS */
+                                default:
+                                    HDfprintf(out, "%ld", (long)optional);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'S':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_subclass_t subclass = (H5VL_subclass_t)HDva_arg(ap, int);
+
+                            switch(subclass) {
+                                case H5VL_SUBCLS_NONE:
+                                    HDfprintf(out, "H5VL_SUBCLS_NONE");
+                                    break;
+                                case H5VL_SUBCLS_INFO:
+                                    HDfprintf(out, "H5VL_SUBCLS_INFO");
+                                    break;
+                                case H5VL_SUBCLS_WRAP:
+                                    HDfprintf(out, "H5VL_SUBCLS_WRAP");
+                                    break;
+                                case H5VL_SUBCLS_ATTR:
+                                    HDfprintf(out, "H5VL_SUBCLS_ATTR");
+                                    break;
+                                case H5VL_SUBCLS_DATASET:
+                                    HDfprintf(out, "H5VL_SUBCLS_DATASET");
+                                    break;
+                                case H5VL_SUBCLS_DATATYPE:
+                                    HDfprintf(out, "H5VL_SUBCLS_DATATYPE");
+                                    break;
+                                case H5VL_SUBCLS_FILE:
+                                    HDfprintf(out, "H5VL_SUBCLS_FILE");
+                                    break;
+                                case H5VL_SUBCLS_GROUP:
+                                    HDfprintf(out, "H5VL_SUBCLS_GROUP");
+                                    break;
+                                case H5VL_SUBCLS_LINK:
+                                    HDfprintf(out, "H5VL_SUBCLS_LINK");
+                                    break;
+                                case H5VL_SUBCLS_OBJECT:
+                                    HDfprintf(out, "H5VL_SUBCLS_OBJECT");
+                                    break;
+                                case H5VL_SUBCLS_REQUEST:
+                                    HDfprintf(out, "H5VL_SUBCLS_REQUEST");
+                                    break;
+                                case H5VL_SUBCLS_BLOB:
+                                    HDfprintf(out, "H5VL_SUBCLS_BLOB");
+                                    break;
+                                case H5VL_SUBCLS_TOKEN:
+                                    HDfprintf(out, "H5VL_SUBCLS_TOKEN");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)subclass);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 't':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_dataset_optional_t optional = (H5VL_dataset_optional_t)HDva_arg(ap, int);
+
+                            switch(optional) {
+                                case H5VL_NATIVE_DATASET_FORMAT_CONVERT:
+                                    HDfprintf(out, "H5VL_NATIVE_DATASET_FORMAT_CONVERT");
+                                    break;
+                                case H5VL_NATIVE_DATASET_GET_CHUNK_INDEX_TYPE:
+                                    HDfprintf(out, "H5VL_NATIVE_DATASET_GET_CHUNK_INDEX_TYPE");
+                                    break;
+                                case H5VL_NATIVE_DATASET_GET_CHUNK_STORAGE_SIZE:
+                                    HDfprintf(out, "H5VL_NATIVE_DATASET_GET_CHUNK_STORAGE_SIZE");
+                                    break;
+                                case H5VL_NATIVE_DATASET_GET_NUM_CHUNKS:
+                                    HDfprintf(out, "H5VL_NATIVE_DATASET_GET_NUM_CHUNKS");
+                                    break;
+                                case H5VL_NATIVE_DATASET_GET_CHUNK_INFO_BY_IDX:
+                                    HDfprintf(out, "H5VL_NATIVE_DATASET_GET_CHUNK_INFO_BY_IDX");
+                                    break;
+                                case H5VL_NATIVE_DATASET_GET_CHUNK_INFO_BY_COORD:
+                                    HDfprintf(out, "H5VL_NATIVE_DATASET_GET_CHUNK_INFO_BY_COORD");
+                                    break;
+                                case H5VL_NATIVE_DATASET_CHUNK_READ:
+                                    HDfprintf(out, "H5VL_NATIVE_DATASET_CHUNK_READ");
+                                    break;
+                                case H5VL_NATIVE_DATASET_CHUNK_WRITE:
+                                    HDfprintf(out, "H5VL_NATIVE_DATASET_CHUNK_WRITE");
+                                    break;
+                                case H5VL_NATIVE_DATASET_GET_VLEN_BUF_SIZE:
+                                    HDfprintf(out, "H5VL_NATIVE_DATASET_GET_VLEN_BUF_SIZE");
+                                    break;
+                                case H5VL_NATIVE_DATASET_GET_OFFSET:
+                                    HDfprintf(out, "H5VL_NATIVE_DATASET_GET_OFFSET");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)optional);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'u':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_datatype_optional_t optional = (H5VL_datatype_optional_t)HDva_arg(ap, int);
+
+                            switch(optional) {
+                                default:
+                                    HDfprintf(out, "%ld", (long)optional);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'v':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_file_optional_t optional = (H5VL_file_optional_t)HDva_arg(ap, int);
+
+                            switch(optional) {
+                                case H5VL_NATIVE_FILE_CLEAR_ELINK_CACHE:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_CLEAR_ELINK_CACHE");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_FILE_IMAGE:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_FILE_IMAGE");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_FREE_SECTIONS:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_FREE_SECTIONS");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_FREE_SPACE:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_FREE_SPACE");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_INFO:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_INFO");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_MDC_CONF:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_MDC_CONF");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_MDC_HR:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_MDC_HR");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_MDC_SIZE:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_MDC_SIZE");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_SIZE:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_SIZE");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_VFD_HANDLE:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_VFD_HANDLE");
+                                    break;
+                                case H5VL_NATIVE_FILE_RESET_MDC_HIT_RATE:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_RESET_MDC_HIT_RATE");
+                                    break;
+                                case H5VL_NATIVE_FILE_SET_MDC_CONFIG:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_SET_MDC_CONFIG");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_METADATA_READ_RETRY_INFO:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_METADATA_READ_RETRY_INFO");
+                                    break;
+                                case H5VL_NATIVE_FILE_START_SWMR_WRITE:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_START_SWMR_WRITE");
+                                    break;
+                                case H5VL_NATIVE_FILE_START_MDC_LOGGING:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_START_MDC_LOGGING");
+                                    break;
+                                case H5VL_NATIVE_FILE_STOP_MDC_LOGGING:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_STOP_MDC_LOGGING");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_MDC_LOGGING_STATUS:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_MDC_LOGGING_STATUS");
+                                    break;
+                                case H5VL_NATIVE_FILE_FORMAT_CONVERT:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_FORMAT_CONVERT");
+                                    break;
+                                case H5VL_NATIVE_FILE_RESET_PAGE_BUFFERING_STATS:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_RESET_PAGE_BUFFERING_STATS");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_PAGE_BUFFERING_STATS:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_PAGE_BUFFERING_STATS");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_MDC_IMAGE_INFO:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_MDC_IMAGE_INFO");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_EOA:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_EOA");
+                                    break;
+                                case H5VL_NATIVE_FILE_INCR_FILESIZE:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_INCR_FILESIZE");
+                                    break;
+                                case H5VL_NATIVE_FILE_SET_LIBVER_BOUNDS:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_SET_LIBVER_BOUNDS");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_MIN_DSET_OHDR_FLAG:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_MIN_DSET_OHDR_FLAG");
+                                    break;
+                                case H5VL_NATIVE_FILE_SET_MIN_DSET_OHDR_FLAG:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_SET_MIN_DSET_OHDR_FLAG");
+                                    break;
+                                case H5VL_NATIVE_FILE_GET_MPI_ATOMICITY:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_GET_MPI_ATOMICITY");
+                                    break;
+                                case H5VL_NATIVE_FILE_SET_MPI_ATOMICITY:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_SET_MPI_ATOMICITY");
+                                    break;
+                                case H5VL_NATIVE_FILE_POST_OPEN:
+                                    HDfprintf(out, "H5VL_NATIVE_FILE_POST_OPEN");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)optional);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'w':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_group_optional_t optional = (H5VL_group_optional_t)HDva_arg(ap, int);
+
+                            switch(optional) {
+#ifndef H5_NO_DEPRECATED_SYMBOLS
+                                case H5VL_NATIVE_GROUP_ITERATE_OLD:
+                                    HDfprintf(out, "H5VL_NATIVE_GROUP_ITERATE_OLD");
+                                    break;
+                                case H5VL_NATIVE_GROUP_GET_OBJINFO:
+                                    HDfprintf(out, "H5VL_NATIVE_GROUP_GET_OBJINFO");
+                                    break;
+#endif /* H5_NO_DEPRECATED_SYMBOLS */
+                                default:
+                                    HDfprintf(out, "%ld", (long)optional);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'x':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_link_optional_t optional = (H5VL_link_optional_t)HDva_arg(ap, int);
+
+                            switch(optional) {
+                                default:
+                                    HDfprintf(out, "%ld", (long)optional);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'y':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_object_optional_t optional = (H5VL_object_optional_t)HDva_arg(ap, int);
+
+                            switch(optional) {
+                                case H5VL_NATIVE_OBJECT_GET_COMMENT:
+                                    HDfprintf(out, "H5VL_NATIVE_OBJECT_GET_COMMENT");
+                                    break;
+                                case H5VL_NATIVE_OBJECT_SET_COMMENT:
+                                    HDfprintf(out, "H5VL_NATIVE_OBJECT_SET_COMMENT");
+                                    break;
+                                case H5VL_NATIVE_OBJECT_DISABLE_MDC_FLUSHES:
+                                    HDfprintf(out, "H5VL_NATIVE_OBJECT_DISABLE_MDC_FLUSHES");
+                                    break;
+                                case H5VL_NATIVE_OBJECT_ENABLE_MDC_FLUSHES:
+                                    HDfprintf(out, "H5VL_NATIVE_OBJECT_ENABLE_MDC_FLUSHES");
+                                    break;
+                                case H5VL_NATIVE_OBJECT_ARE_MDC_FLUSHES_DISABLED:
+                                    HDfprintf(out, "H5VL_NATIVE_OBJECT_ARE_MDC_FLUSHES_DISABLED");
+                                    break;
+                                case H5VL_NATIVE_OBJECT_GET_NATIVE_INFO:
+                                    HDfprintf(out, "H5VL_NATIVE_OBJECT_GET_NATIVE_INFO");
+                                    break;
+                                default:
+                                    HDfprintf(out, "%ld", (long)optional);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    case 'z':
+                        if(ptr) {
+                            if(vp)
+                                HDfprintf (out, "0x%lx", (unsigned long)vp);
+                            else
+                                HDfprintf(out, "NULL");
+                        } /* end if */
+                        else {
+                            H5VL_request_optional_t optional = (H5VL_request_optional_t)HDva_arg(ap, int);
+
+                            switch(optional) {
+                                default:
+                                    HDfprintf(out, "%ld", (long)optional);
+                                    break;
+                            } /* end switch */
+                        } /* end else */
+                        break;
+
+                    default:
+                        HDfprintf(out, "BADTYPE(Z%c)", type[1]);
                         goto error;
                 } /* end switch */
                 break;
@@ -2482,14 +3509,14 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             case 'x':
                 if(ptr) {
                     if(vp) {
-                        HDfprintf(out, "0x%p", vp);
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
                         if(asize_idx >= 0 && asize[asize_idx] >= 0) {
                             void **p = (void**)vp;
 
                             HDfprintf(out, " {");
                             for(i = 0; i < asize[asize_idx]; i++) {
                                 if(p[i])
-                                    HDfprintf(out, "%s0x%p", (i ? ", " : ""), p[i]);
+                                    HDfprintf(out, "%s0x%lx", (i ? ", " : ""), (unsigned long)(p[i]));
                                 else
                                     HDfprintf(out, "%sNULL", (i ? ", " : ""));
                             } /* end for */
@@ -2503,7 +3530,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     vp = HDva_arg (ap, void *);
 
                     if(vp)
-                        HDfprintf(out, "0x%p", vp);
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
                     else
                         HDfprintf(out, "NULL");
                 } /* end else */
@@ -2512,7 +3539,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
             case 'z':
                 if(ptr) {
                     if(vp) {
-                        HDfprintf(out, "0x%p", vp);
+                        HDfprintf(out, "0x%lx", (unsigned long)vp);
                         if(asize_idx >= 0 && asize[asize_idx] >= 0) {
                             size_t *p = (size_t *)vp;
 
@@ -2538,7 +3565,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'a':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2568,21 +3595,21 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'c':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
                         else {
                             H5Z_class2_t *filter = HDva_arg(ap, H5Z_class2_t*);
 
-                            HDfprintf(out, "0x%p", filter);
+                            HDfprintf(out, "0x%lx", (unsigned long)filter);
                         } /* end else */
                         break;
 
                     case 'e':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2601,7 +3628,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 'f':
                         if(ptr) {
                             if(vp)
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                             else
                                 HDfprintf(out, "NULL");
                         } /* end if */
@@ -2618,7 +3645,7 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
                     case 's':
                         if(ptr) {
                             if(vp) {
-                                HDfprintf(out, "0x%p", vp);
+                                HDfprintf(out, "0x%lx", (unsigned long)vp);
                                 if(asize_idx >= 0 && asize[asize_idx] >= 0) {
                                     ssize_t *p = (ssize_t *)vp;
 
@@ -2655,12 +3682,9 @@ H5_trace(const double *returning, const char *func, const char *type, ...)
     } /* end for */
 
     /* Display event time for return */
-    if(returning && H5_debug_g.ttimes) {
-        H5_timer_get_times(function_timer, &function_times);
-        H5_timer_get_times(running_timer, &running_times);
-        HDfprintf(out, " @%.6f [dt=%.6f]", (function_times.elapsed - running_times.elapsed),
-                (function_times.elapsed - *returning));
-    } /* end if */
+    if(returning && H5_debug_g.ttimes)
+        HDfprintf(out, " @%.6f [dt=%.6f]", (event_time.etime - first_time.etime),
+                (event_time.etime - *returning));
 
 error:
     HDva_end(ap);
@@ -2668,13 +3692,10 @@ error:
         HDfprintf(out, ";\n");
     else {
         last_call_depth = current_depth++;
-        HDfprintf(out, ")");
+        HDfprintf (out, ")");
     } /* end else */
     HDfflush(out);
 
-    if(H5_debug_g.ttimes)
-        return function_times.elapsed;
-    else
-        return 0.0F;
+    return event_time.etime;
 } /* end H5_trace() */
 

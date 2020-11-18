@@ -14,6 +14,7 @@
 package test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -32,6 +33,7 @@ import org.junit.rules.TestName;
 public class TestH5F {
     @Rule public TestName testname = new TestName();
     private static final String H5_FILE = "testF.h5";
+    private static final String H5_FILE2 = "testF2.h5";
 
     private static final int COUNT_OBJ_FILE = 1;
     private static final int COUNT_OBJ_DATASET = 0;
@@ -174,6 +176,64 @@ public class TestH5F {
             fail("H5.H5Fget_intent: " + err);
         }
         assertEquals(HDF5Constants.H5F_ACC_RDONLY, intent);
+    }
+
+    @Test
+    public void testH5Fget_fileno_same() {
+        long fileno1 = 0;
+        long fileno2 = 0;
+        long fid1 = -1;
+        long fid2 = -1;
+
+        try {
+            fid1 = H5.H5Fcreate(H5_FILE2, HDF5Constants.H5F_ACC_TRUNC,
+                    HDF5Constants.H5P_DEFAULT, HDF5Constants.H5P_DEFAULT);
+            H5.H5Fflush(fid1, HDF5Constants.H5F_SCOPE_LOCAL);
+            assertTrue("H5Fcreate failed", fid1 > 0);
+            fid2 = H5.H5Fopen(H5_FILE2, HDF5Constants.H5F_ACC_RDWR,
+                    HDF5Constants.H5P_DEFAULT);
+            assertTrue("H5Fopen failed", fid2 > 0);
+            fileno1 = H5.H5Fget_fileno(fid1);
+            assertTrue("H5Fget_fileno1="+fileno1, fileno1 > 0);
+            fileno2 = H5.H5Fget_fileno(fid2);
+            assertTrue("H5Fget_fileno2="+fileno2, fileno2 > 0);
+
+            assertEquals("fileno1["+fileno1+"]!=fileno2["+fileno2+"]", fileno1, fileno2);
+        }
+        catch (Throwable err) {
+            fail("testH5Fget_fileno_same: " + err);
+        }
+        finally {
+            H5.H5Fclose(fid1);
+            H5.H5Fclose(fid2);
+        }
+    }
+
+    @Test
+    public void testH5Fget_fileno_diff() {
+        long fileno1 = 0;
+        long fileno2 = 0;
+        long fid2 = -1;
+
+        try {
+            fid2 = H5.H5Fcreate(H5_FILE2, HDF5Constants.H5F_ACC_TRUNC,
+                    HDF5Constants.H5P_DEFAULT, HDF5Constants.H5P_DEFAULT);
+            H5.H5Fflush(fid2, HDF5Constants.H5F_SCOPE_LOCAL);
+            assertTrue("H5Fcreate failed", fid2 > 0);
+
+            fileno1 = H5.H5Fget_fileno(H5fid);
+            assertTrue("H5Fget_fileno1="+fileno1, fileno1 > 0);
+            fileno2 = H5.H5Fget_fileno(fid2);
+            assertTrue("H5Fget_fileno2="+fileno2, fileno2 > 0);
+
+            assertNotEquals("fileno1["+fileno1+"]==fileno2["+fileno2+"]", fileno1, fileno2);
+        }
+        catch (Throwable err) {
+            fail("testH5Fget_fileno_diff: " + err);
+        }
+        finally {
+            H5.H5Fclose(fid2);
+        }
     }
 
     @Test

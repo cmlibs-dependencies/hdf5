@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer: James Laird
+ * Programmer: James Laird <matzke@llnl.gov>
  *             Friday, December 1, 2005
  *
  * Purpose:     This file contains declarations which are visible

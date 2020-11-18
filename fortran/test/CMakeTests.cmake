@@ -129,6 +129,25 @@ set_tests_properties (FORTRAN_fortranlib_test_F03 PROPERTIES
     FIXTURES_REQUIRED clear_testhdf5_fortran
 )
 
+#-- Adding test for vol_connector
+if (HDF5_ENABLE_USING_MEMCHECKER)
+  add_test (NAME FORTRAN_vol_connector COMMAND ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:vol_connector>)
+else ()
+  add_test (NAME FORTRAN_vol_connector COMMAND "${CMAKE_COMMAND}"
+      -D "TEST_EMULATOR=${CMAKE_CROSSCOMPILING_EMULATOR}"
+      -D "TEST_PROGRAM=$<TARGET_FILE:vol_connector>"
+      -D "TEST_ARGS:STRING="
+      -D "TEST_EXPECT=0"
+      -D "TEST_SKIP_COMPARE=TRUE"
+      -D "TEST_REGEX= 0 error.s."
+      -D "TEST_MATCH= 0 error(s)"
+      -D "TEST_OUTPUT=vol_connector.txt"
+      #-D "TEST_REFERENCE=vol_connector.out"
+      -D "TEST_FOLDER=${PROJECT_BINARY_DIR}"
+      -P "${HDF_RESOURCES_EXT_DIR}/runTest.cmake"
+  )
+endif ()
+
 #-- Adding test for fflush1
 add_test (
     NAME FORTRAN_flush1-clear-objects

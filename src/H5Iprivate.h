@@ -25,6 +25,7 @@
 
 /* Private headers needed by this file */
 #include "H5private.h"
+#include "H5VLprivate.h"
 
 /**************************/
 /* Library Private Macros */
@@ -74,13 +75,24 @@ H5_DLL int H5I_dec_ref(hid_t id);
 H5_DLL int H5I_dec_app_ref(hid_t id);
 H5_DLL int H5I_dec_app_ref_always_close(hid_t id);
 H5_DLL int H5I_dec_type_ref(H5I_type_t type);
-H5_DLL hid_t H5I_get_file_id(hid_t obj_id, H5I_type_t id_type);
+H5_DLL herr_t H5I_find_id(const void *object, H5I_type_t type, hid_t *id /*out*/);
+
+/* NOTE:    The object and ID functions below deal in non-VOL objects (i.e.;
+ *          H5S_t, etc.). Similar VOL calls exist in H5VLprivate.h. Use
+ *          the H5VL calls with objects that go through the VOL, such as
+ *          datasets and groups, and the H5I calls with objects
+ *          that do not, such as property lists and dataspaces. Datatypes
+ *          are can be either named, where they will use the VOL, or not,
+ *          and thus require special treatment. See the datatype docs for
+ *          how to handle this.
+ */
 
 /* Functions that manipulate objects */
 H5_DLL void *H5I_object(hid_t id);
 H5_DLL void *H5I_object_verify(hid_t id, H5I_type_t id_type);
 H5_DLL void *H5I_remove(hid_t id);
 H5_DLL void *H5I_subst(hid_t id, const void *new_object);
+H5_DLL htri_t H5I_is_file_object(hid_t id);
 
 /* ID registration functions */
 H5_DLL hid_t H5I_register(H5I_type_t type, const void *object, hbool_t app_ref);

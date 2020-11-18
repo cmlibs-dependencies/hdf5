@@ -15,7 +15,7 @@
  *
  * Created:		H5Gcompact.c
  *			Sep  5 2005
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@ncsa.uiuc.edu>
  *
  * Purpose:		Functions for handling compact storage.
  *
@@ -60,7 +60,7 @@ typedef struct {
 
 /* PRIVATE PROTOTYPES */
 static herr_t H5G__compact_build_table_cb(const void *_mesg, unsigned idx, void *_udata);
-static herr_t H5G__compact_build_table(const H5O_loc_t *oloc,
+static herr_t H5G__compact_build_table(const H5O_loc_t *oloc, 
     const H5O_linfo_t *linfo, H5_index_t idx_type, H5_iter_order_t order,
     H5G_link_table_t *ltable);
 static herr_t H5G__compact_lookup_cb(const void *_mesg, unsigned H5_ATTR_UNUSED idx, void *_udata);
@@ -75,6 +75,7 @@ static herr_t H5G__compact_lookup_cb(const void *_mesg, unsigned H5_ATTR_UNUSED 
  * Return:      SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sep  5 2005
  *
  *-------------------------------------------------------------------------
@@ -177,6 +178,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sep  6 2005
  *
  *-------------------------------------------------------------------------
@@ -255,7 +257,7 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5G__compact_remove_common_cb
+ * Function:	H5G_compact_remove_common_cb
  *
  * Purpose:	Common callback routine for deleting 'link' message for a
  *              particular name.
@@ -263,18 +265,19 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sep  5 2005
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G__compact_remove_common_cb(const void *_mesg, unsigned H5_ATTR_UNUSED idx, void *_udata)
+H5G_compact_remove_common_cb(const void *_mesg, unsigned H5_ATTR_UNUSED idx, void *_udata)
 {
     const H5O_link_t *lnk = (const H5O_link_t *)_mesg;  /* Pointer to link */
     H5G_iter_rm_t *udata = (H5G_iter_rm_t *)_udata;     /* 'User data' passed in */
     herr_t ret_value = H5_ITER_CONT;           /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_NOAPI_NOINIT
 
     /* check arguments */
     HDassert(lnk);
@@ -292,7 +295,7 @@ H5G__compact_remove_common_cb(const void *_mesg, unsigned H5_ATTR_UNUSED idx, vo
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__compact_remove_common_cb() */
+} /* end H5G_compact_remove_common_cb() */
 
 
 /*-------------------------------------------------------------------------
@@ -325,7 +328,7 @@ H5G__compact_remove(const H5O_loc_t *oloc, H5RS_str_t *grp_full_path_r,
     udata.name = name;
 
     /* Iterate over the link messages to delete the right one */
-    if(H5O_msg_remove_op(oloc, H5O_LINK_ID, H5O_FIRST, H5G__compact_remove_common_cb, &udata, TRUE) < 0)
+    if(H5O_msg_remove_op(oloc, H5O_LINK_ID, H5O_FIRST, H5G_compact_remove_common_cb, &udata, TRUE) < 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTDELETE, FAIL, "unable to delete link message")
 
 done:
@@ -373,7 +376,7 @@ H5G__compact_remove_by_idx(const H5O_loc_t *oloc, const H5O_linfo_t *linfo,
     udata.name = ltable.lnks[n].name;
 
     /* Iterate over the link messages to delete the right one */
-    if(H5O_msg_remove_op(oloc, H5O_LINK_ID, H5O_FIRST, H5G__compact_remove_common_cb, &udata, TRUE) < 0)
+    if(H5O_msg_remove_op(oloc, H5O_LINK_ID, H5O_FIRST, H5G_compact_remove_common_cb, &udata, TRUE) < 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTDELETE, FAIL, "unable to delete link message")
 
 done:
@@ -438,6 +441,7 @@ done:
  * Return:      SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sep 20 2005
  *
  *-------------------------------------------------------------------------
@@ -483,6 +487,7 @@ done:
  * Return:	Non-negative (TRUE/FALSE) on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sep 20 2005
  *
  *-------------------------------------------------------------------------
@@ -528,6 +533,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov  6 2006
  *
  *-------------------------------------------------------------------------
@@ -565,72 +571,4 @@ done:
 
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5G__compact_lookup_by_idx() */
-
-#ifndef H5_NO_DEPRECATED_SYMBOLS
-
-/*-------------------------------------------------------------------------
- * Function:	H5G__compact_get_type_by_idx
- *
- * Purpose:     Returns the type of objects in the group by giving index.
- *
- * Return:	Success:        Non-negative
- *		Failure:	Negative
- *
- * Programmer:	Quincey Koziol
- *	        Sep 12, 2005
- *
- *-------------------------------------------------------------------------
- */
-H5G_obj_t
-H5G__compact_get_type_by_idx(H5O_loc_t *oloc, const H5O_linfo_t *linfo,
-    hsize_t idx)
-{
-    H5G_link_table_t    ltable = {0, NULL};         /* Link table */
-    H5G_obj_t		ret_value = H5G_UNKNOWN;    /* Return value */
-
-    FUNC_ENTER_PACKAGE
-
-    /* Sanity check */
-    HDassert(oloc);
-
-    /* Build table of all link messages */
-    if(H5G__compact_build_table(oloc, linfo, H5_INDEX_NAME, H5_ITER_INC, &ltable) < 0)
-        HGOTO_ERROR(H5E_SYM, H5E_CANTINIT, H5G_UNKNOWN, "can't create link message table")
-
-    /* Check for going out of bounds */
-    if(idx >= ltable.nlinks)
-	HGOTO_ERROR(H5E_ARGS, H5E_BADRANGE, H5G_UNKNOWN, "index out of bound")
-
-    /* Determine type of object */
-    if(ltable.lnks[idx].type == H5L_TYPE_SOFT)
-        ret_value = H5G_LINK;
-    else if(ltable.lnks[idx].type >= H5L_TYPE_UD_MIN)
-        ret_value = H5G_UDLINK;
-    else if(ltable.lnks[idx].type == H5L_TYPE_HARD){
-        H5O_loc_t tmp_oloc;             /* Temporary object location */
-        H5O_type_t obj_type;            /* Type of object at location */
-
-        /* Build temporary object location */
-        tmp_oloc.file = oloc->file;
-        tmp_oloc.addr = ltable.lnks[idx].u.hard.addr;
-
-        /* Get the type of the object */
-        if(H5O_obj_type(&tmp_oloc, &obj_type) < 0)
-            HGOTO_ERROR(H5E_SYM, H5E_CANTGET, H5G_UNKNOWN, "can't get object type")
-
-        /* Map to group object type */
-        if(H5G_UNKNOWN == (ret_value = H5G_map_obj_type(obj_type)))
-            HGOTO_ERROR(H5E_SYM, H5E_BADTYPE, H5G_UNKNOWN, "can't determine object type")
-    } else {
-        HGOTO_ERROR(H5E_SYM, H5E_BADTYPE, H5G_UNKNOWN, "unknown link type")
-    } /* end else */
-
-done:
-    /* Release link table */
-    if(ltable.lnks && H5G__link_release_table(&ltable) < 0)
-        HDONE_ERROR(H5E_SYM, H5E_CANTFREE, H5G_UNKNOWN, "unable to release link table")
-
-    FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5G__compact_get_type_by_idx() */
-#endif /* H5_NO_DEPRECATED_SYMBOLS */
 

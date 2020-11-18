@@ -15,7 +15,7 @@
  *
  * Created:     H5FAint.c
  *              Fall 2012
- *              Dana Robinson
+ *              Dana Robinson <derobins@hdfgroup.org>
  *
  * Purpose:     Internal routines for fixed arrays.
  *

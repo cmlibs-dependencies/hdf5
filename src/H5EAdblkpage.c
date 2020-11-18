@@ -15,7 +15,7 @@
  *
  * Created:		H5EAdblkpage.c
  *			Nov 20 2008
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		Data block page routines for extensible arrays.
  *
@@ -91,6 +91,7 @@ H5FL_DEFINE_STATIC(H5EA_dblk_page_t);
  * Return:	Non-NULL pointer to data block on success/NULL on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov 20 2008
  *
  *-------------------------------------------------------------------------
@@ -140,6 +141,7 @@ END_FUNC(PKG)   /* end H5EA__dblk_page_alloc() */
  * Return:	Valid file address on success/HADDR_UNDEF on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov 20 2008
  *
  *-------------------------------------------------------------------------
@@ -204,6 +206,7 @@ END_FUNC(PKG)   /* end H5EA__dblk_page_create() */
  * Return:	Non-NULL pointer to data block page on success/NULL on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov 20 2008
  *
  *-------------------------------------------------------------------------
@@ -264,6 +267,7 @@ END_FUNC(PKG)   /* end H5EA__dblk_page_protect() */
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov 20 2008
  *
  *-------------------------------------------------------------------------
@@ -294,6 +298,7 @@ END_FUNC(PKG)   /* end H5EA__dblk_page_unprotect() */
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov 20 2008
  *
  *-------------------------------------------------------------------------

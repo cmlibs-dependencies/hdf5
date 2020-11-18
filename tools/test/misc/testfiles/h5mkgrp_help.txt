@@ -5,4 +5,3 @@ usage: h5mkgrp [OPTIONS] FILE GROUP...
       -p, --parents      No error if existing, make parent groups as needed
       -v, --verbose      Print information about OBJECTS and OPTIONS
       -V, --version      Print version number and exit
-

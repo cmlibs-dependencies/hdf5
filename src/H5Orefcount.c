@@ -15,7 +15,7 @@
  *
  * Created:             H5Orefcount.c
  *                      Mar 10 2007
- *                      Quincey Koziol
+ *                      Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:             Object ref. count messages.
  *
@@ -83,6 +83,7 @@ H5FL_DEFINE_STATIC(H5O_refcount_t);
  *              Failure:        NULL
  *
  * Programmer:  Quincey Koziol
+ *              koziol@hdfgroup.org
  *              Mar 10 2007
  *
  *-------------------------------------------------------------------------
@@ -131,6 +132,7 @@ done:
  * Return:      Non-negative on success/Negative on failure
  *
  * Programmer:  Quincey Koziol
+ *              koziol@hdfgroup.org
  *              Mar 10 2007
  *
  *-------------------------------------------------------------------------
@@ -167,6 +169,7 @@ H5O_refcount_encode(H5F_t H5_ATTR_UNUSED *f, hbool_t H5_ATTR_UNUSED disable_shar
  *              Failure:        NULL
  *
  * Programmer:  Quincey Koziol
+ *              koziol@hdfgroup.org
  *              Mar 10 2007
  *
  *-------------------------------------------------------------------------
@@ -207,6 +210,7 @@ done:
  *              Failure:        zero
  *
  * Programmer:  Quincey Koziol
+ *              koziol@hdfgroup.org
  *              Mar 10 2007
  *
  *-------------------------------------------------------------------------
@@ -293,6 +297,7 @@ H5O_refcount_pre_copy_file(H5F_t H5_ATTR_UNUSED *file_src, const void H5_ATTR_UN
  * Return:      Non-negative on success/Negative on failure
  *
  * Programmer:  Quincey Koziol
+ *              koziol@hdfgroup.org
  *              Mar  6 2007
  *
  *-------------------------------------------------------------------------

@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Quincey Koziol
+ * Programmer:  Quincey Koziol <koziol@hdfgroup.org>
  *              Monday, May  1, 2006
  *
  * Purpose:     Free space section routines for fractal heaps
@@ -156,7 +156,7 @@ static hbool_t H5HF_sect_indirect_is_first(H5HF_free_section_t *sect);
 static H5HF_indirect_t * H5HF_sect_indirect_get_iblock(H5HF_free_section_t *sect);
 static hsize_t H5HF_sect_indirect_iblock_off(const H5HF_free_section_t *sect);
 static H5HF_free_section_t * H5HF_sect_indirect_top(H5HF_free_section_t *sect);
-static herr_t H5HF__sect_indirect_merge_row(H5HF_hdr_t *hdr,
+static herr_t H5HF__sect_indirect_merge_row(H5HF_hdr_t *hdr, 
     H5HF_free_section_t *sect1, H5HF_free_section_t *sect2);
 static herr_t H5HF__sect_indirect_build_parent(H5HF_hdr_t *hdr, H5HF_free_section_t *sect);
 static herr_t H5HF__sect_indirect_shrink(H5HF_hdr_t *hdr,
@@ -476,6 +476,7 @@ done:
  * Return:	Pointer to new section on success/NULL on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 30 2006
  *
  *-------------------------------------------------------------------------
@@ -527,6 +528,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		October 24 2006
  *
  *-------------------------------------------------------------------------
@@ -588,6 +590,7 @@ done:
  * Return:      SUCCEED/FAIL
  *
  * Programmer:  Quincey Koziol
+ *              koziol@hdfgroup.org
  *              May  8 2006
  *
  *-------------------------------------------------------------------------
@@ -635,6 +638,7 @@ done:
  * Return:      SUCCEED/FAIL
  *
  * Programmer:  Quincey Koziol
+ *              koziol@hdfgroup.org
  *              October 24 2006
  *
  *-------------------------------------------------------------------------
@@ -682,6 +686,7 @@ H5HF_sect_single_dblock_info(H5HF_hdr_t *hdr, const H5HF_free_section_t *sect,
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 31 2006
  *
  *-------------------------------------------------------------------------
@@ -1135,10 +1140,11 @@ H5HF__sect_single_free(H5FS_section_info_t *_sect)
     HDassert(sect);
 
     /* Check for live reference to an indirect block */
-    if(sect->sect_info.state == H5FS_SECT_LIVE)
+    if(sect->sect_info.state == H5FS_SECT_LIVE) {
         /* Get parent indirect block, if there was one */
         if(sect->u.single.parent)
             parent = sect->u.single.parent;
+    } /* end if */
 
     /* Release the section */
     if(H5HF_sect_node_free(sect, parent) < 0)
@@ -1288,6 +1294,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  6 2006
  *
  *-------------------------------------------------------------------------
@@ -1336,6 +1343,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  6 2006
  *
  *-------------------------------------------------------------------------
@@ -1383,6 +1391,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  6 2006
  *
  *-------------------------------------------------------------------------
@@ -1458,6 +1467,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July 10 2006
  *
  *-------------------------------------------------------------------------
@@ -1498,6 +1508,7 @@ done:
  * Return:	Pointer to indirect block on success/NULL on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  9 2006
  *
  *-------------------------------------------------------------------------
@@ -1532,6 +1543,7 @@ H5HF_sect_row_get_iblock(H5HF_free_section_t *sect)
  * Return:	Non-negative on success / Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@lbl.gov
  *		February 4 2018
  *
  *-------------------------------------------------------------------------
@@ -1782,11 +1794,13 @@ H5HF__sect_row_can_merge(const H5FS_section_info_t *_sect1,
      *  the first section, but doesn't already have same underlying indirect
      *  section.
      */
-    if(top_indir_sect1 != top_indir_sect2)
-        if(H5HF_sect_indirect_iblock_off(sect1->u.row.under) == H5HF_sect_indirect_iblock_off(sect2->u.row.under))
+    if(top_indir_sect1 != top_indir_sect2) {
+        if(H5HF_sect_indirect_iblock_off(sect1->u.row.under) == H5HF_sect_indirect_iblock_off(sect2->u.row.under)) {
             /* Check if second section adjoins first section */
             if(H5F_addr_eq((top_indir_sect1->sect_info.addr + top_indir_sect1->u.indirect.span_size), top_indir_sect2->sect_info.addr))
                 HGOTO_DONE(TRUE)
+        } /* end if */
+    } /* end if */
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
@@ -2120,6 +2134,7 @@ H5HF__sect_row_debug(const H5FS_section_info_t *_sect, FILE *stream, int indent,
  * Return:	Offset of indirect block in "heap space" (can't fail)
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  6 2006
  *
  *-------------------------------------------------------------------------
@@ -2150,6 +2165,7 @@ H5HF_sect_indirect_iblock_off(const H5HF_free_section_t *sect)
  * Return:	Pointer to the top indirect section (can't fail)
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  6 2006
  *
  *-------------------------------------------------------------------------
@@ -2255,6 +2271,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  6 2006
  *
  *-------------------------------------------------------------------------
@@ -2326,6 +2343,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  6 2006
  *
  *-------------------------------------------------------------------------
@@ -2389,6 +2407,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  6 2006
  *
  *-------------------------------------------------------------------------
@@ -2639,6 +2658,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  3 2006
  *
  *-------------------------------------------------------------------------
@@ -2715,6 +2735,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  6 2006
  *
  *-------------------------------------------------------------------------
@@ -2765,6 +2786,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  3 2006
  *
  *-------------------------------------------------------------------------
@@ -2810,6 +2832,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July 10 2006
  *
  *-------------------------------------------------------------------------
@@ -2868,6 +2891,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July 10 2006
  *
  *-------------------------------------------------------------------------
@@ -3138,6 +3162,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July 10 2006
  *
  *-------------------------------------------------------------------------
@@ -3371,6 +3396,7 @@ done:
  * Return:	Non-negative (TRUE/FALSE) on success/<can't fail>
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July 17 2006
  *
  *-------------------------------------------------------------------------
@@ -3405,6 +3431,7 @@ H5HF_sect_indirect_is_first(H5HF_free_section_t *sect)
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July 10 2006
  *
  *-------------------------------------------------------------------------
@@ -3456,6 +3483,7 @@ done:
  * Return:	Pointer to indirect block on success/NULL on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  9 2006
  *
  *-------------------------------------------------------------------------
@@ -4029,10 +4057,11 @@ H5HF_sect_indirect_free(H5HF_free_section_t *sect)
     sect->u.indirect.indir_ents = (H5HF_free_section_t **)H5MM_xfree(sect->u.indirect.indir_ents);
 
     /* Check for live reference to an indirect block */
-    if(sect->sect_info.state == H5FS_SECT_LIVE)
+    if(sect->sect_info.state == H5FS_SECT_LIVE) {
         /* Get indirect block, if there was one */
         if(sect->u.indirect.u.iblock)
             iblock = sect->u.indirect.u.iblock;
+    } /* end if */
 
     /* Release the sections */
     if(H5HF_sect_node_free(sect, iblock) < 0)

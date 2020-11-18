@@ -15,7 +15,7 @@
  *
  * Created:		tchecksum.c
  *			Aug 21 2006
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		Test internal checksum routine(s)
  *

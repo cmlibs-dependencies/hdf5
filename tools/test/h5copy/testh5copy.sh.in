@@ -13,7 +13,7 @@
 #
 # Tests for the h5copy tool
 #
-# Pedro Vicente Nunes, Albert Cheng
+# Pedro Vicente Nunes (pvn@hdfgroup.org), Albert Cheng (acheng@hdfgroup.org)
 # Thursday, July 20, 2006
 #
 
@@ -200,7 +200,6 @@ TOOLTEST()
         fi
         runh5diff=no
     fi
-
     if [ "$3" = -o ]; then
         outputfile=$4
     else
@@ -220,7 +219,6 @@ TOOLTEST()
         $RUNSERIAL $H5COPY_BIN $@
     ) > $actualout 2> $actualerr
     RET=$?
-
     if [ $RET != 0 ]; then
         echo "*FAILED*"
         echo "failed result is:"
@@ -270,7 +268,6 @@ TOOLTEST_PREFILL()
         $RUNSERIAL $H5COPY_BIN  -i $inputfile -o $outputfile -v -s $grp_name -d $grp_name2
     ) > $actualout 2> $actualerr
     RET=$?
-
     if [ $RET != 0 ]; then
         echo "*FAILED*"
         echo "failed result is:"
@@ -285,7 +282,6 @@ TOOLTEST_PREFILL()
             $RUNSERIAL $H5COPY_BIN  -i $inputfile -o $outputfile -v -s $obj_name -d $obj_name2
         ) > $actualout 2> $actualerr
         RET=$?
-
         if [ $RET != 0 ]; then
             echo "*FAILED*"
             echo "failed result is:"
@@ -317,7 +313,6 @@ TOOLTEST_SAME()
     else
         runh5diff=no
     fi
-
     if [ "$3" = -o ]; then
         outputfile=$4
     else
@@ -335,7 +330,6 @@ TOOLTEST_SAME()
         $RUNSERIAL $H5COPY_BIN  -i $inputfile -o $outputfile -v -s $grp_name -d $grp_name
     ) > $actualout 2> $actualerr
     RET=$?
-
     if [ $RET != 0 ]; then
         echo "*FAILED*"
         echo "failed result is:"
@@ -350,7 +344,6 @@ TOOLTEST_SAME()
             $RUNSERIAL $H5COPY_BIN  -i $outputfile -o $outputfile -v -s $grp_name -d $grp_name2
         ) > $actualout 2> $actualerr
         RET=$?
-
         if [ $RET != 0 ]; then
             echo "*FAILED*"
             echo "failed result is:"
@@ -413,7 +406,6 @@ TOOLTEST_FAIL()
     if [ "$1" = -i ]; then
         inputfile=$2
     fi
-
     if [ "$3" = -o ]; then
         outputfile=$4
     fi
@@ -425,8 +417,8 @@ TOOLTEST_FAIL()
         #echo "#############################"
         $RUNSERIAL $H5COPY_BIN $@
     ) > $actualout 2> $actualerr
-    RET=$?
 
+    RET=$?
     # save actualout and actualerr in case they are needed later.
     cp $actualout $actualout_sav
     STDOUT_FILTER $actualout

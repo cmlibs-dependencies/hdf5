@@ -150,13 +150,12 @@ H5_DLL herr_t H5Dread(hid_t dset_id, hid_t mem_type_id, hid_t mem_space_id,
 			hid_t file_space_id, hid_t plist_id, void *buf/*out*/);
 H5_DLL herr_t H5Dwrite(hid_t dset_id, hid_t mem_type_id, hid_t mem_space_id,
 			 hid_t file_space_id, hid_t plist_id, const void *buf);
-H5_DLL herr_t H5Dwrite_chunk(hid_t dset_id, hid_t dxpl_id, uint32_t filters,
+H5_DLL herr_t H5Dwrite_chunk(hid_t dset_id, hid_t dxpl_id, uint32_t filters, 
             const hsize_t *offset, size_t data_size, const void *buf);
 H5_DLL herr_t H5Dread_chunk(hid_t dset_id, hid_t dxpl_id,
             const hsize_t *offset, uint32_t *filters, void *buf);
 H5_DLL herr_t H5Diterate(void *buf, hid_t type_id, hid_t space_id,
             H5D_operator_t op, void *operator_data);
-H5_DLL herr_t H5Dvlen_reclaim(hid_t type_id, hid_t space_id, hid_t plist_id, void *buf);
 H5_DLL herr_t H5Dvlen_get_buf_size(hid_t dataset_id, hid_t type_id, hid_t space_id, hsize_t *size);
 H5_DLL herr_t H5Dfill(const void *fill, hid_t fill_type, void *buf,
         hid_t buf_type, hid_t space);
@@ -194,7 +193,7 @@ H5_DLL herr_t H5Dget_chunk_index_type(hid_t did, H5D_chunk_index_t *idx_type);
 #define H5D_XFER_DIRECT_CHUNK_READ_FLAG_NAME        "direct_chunk_read_flag"
 #define H5D_XFER_DIRECT_CHUNK_READ_OFFSET_NAME      "direct_chunk_read_offset"
 #define H5D_XFER_DIRECT_CHUNK_READ_FILTERS_NAME     "direct_chunk_read_filters"
-
+ 
 /* Typedefs */
 
 
@@ -203,6 +202,7 @@ H5_DLL hid_t H5Dcreate1(hid_t file_id, const char *name, hid_t type_id,
     hid_t space_id, hid_t dcpl_id);
 H5_DLL hid_t H5Dopen1(hid_t file_id, const char *name);
 H5_DLL herr_t H5Dextend(hid_t dset_id, const hsize_t size[]);
+H5_DLL herr_t H5Dvlen_reclaim(hid_t type_id, hid_t space_id, hid_t plist_id, void *buf);
 
 #endif /* H5_NO_DEPRECATED_SYMBOLS */
 

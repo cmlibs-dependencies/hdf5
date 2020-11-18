@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Quincey Koziol
+ * Programmer:  Quincey Koziol <koziol@ncsa.uiuc.edu>
  *              Thursday, November 09, 2000
  *
  * Purpose:	Create a two datasets with compound datatypes, one with no array

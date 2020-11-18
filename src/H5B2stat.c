@@ -11,7 +11,7 @@
  * help@hdfgroup.org.                                                        *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/* Programmer:  Quincey Koziol
+/* Programmer:  Quincey Koziol <koziol@hdfgroup.org>
  *              Monday, March  6, 2006
  *
  * Purpose:     v2 B-tree metadata statistics functions.

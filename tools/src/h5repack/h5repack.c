@@ -79,8 +79,6 @@ h5repack_init(pack_opt_t *options, int verbose, hbool_t latest)
     options->layout_g = H5D_LAYOUT_ERROR;
     options->low_bound = H5F_LIBVER_EARLIEST;
     options->high_bound = H5F_LIBVER_LATEST;
-    options->fin_fapl = H5P_DEFAULT;
-    options->fout_fapl = H5P_DEFAULT;
 
     for (n = 0; n < H5_REPACK_MAX_NFILTERS; n++) {
         options->filter_g[n].filtn = -1;
@@ -224,18 +222,27 @@ h5repack_addlayout(const char *str, pack_opt_t *options)
 hid_t
 copy_named_datatype(hid_t type_in, hid_t fidout, named_dt_t **named_dt_head_p, trav_table_t *travt, pack_opt_t *options)
 {
-    named_dt_t *dt = *named_dt_head_p; /* Stack pointer */
-    named_dt_t *dt_ret = NULL;         /* Datatype to return */
-    H5O_info_t  oinfo;                 /* Object info of input dtype */
-    hid_t       ret_value = H5I_INVALID_HID;
+    named_dt_t  *dt = *named_dt_head_p; /* Stack pointer */
+    named_dt_t  *dt_ret = NULL;         /* Datatype to return */
+    H5O_info2_t  oinfo;                 /* Object info of input dtype */
+    int          token_cmp;
+    hid_t        ret_value = H5I_INVALID_HID;
 
-    if (H5Oget_info2(type_in, &oinfo, H5O_INFO_BASIC) < 0)
+    if (H5Oget_info3(type_in, &oinfo, H5O_INFO_BASIC) < 0)
         H5TOOLS_GOTO_ERROR(H5I_INVALID_HID, "H5Oget_info failed");
 
     if (*named_dt_head_p) {
+        if (H5Otoken_cmp(type_in, &dt->obj_token, &oinfo.token, &token_cmp) < 0)
+            H5TOOLS_GOTO_ERROR(H5I_INVALID_HID, "failed to compare object tokens");
+
         /* Stack already exists, search for the datatype */
-        while (dt && dt->addr_in != oinfo.addr)
+        while (dt && token_cmp) {
             dt = dt->next;
+
+            if (H5Otoken_cmp(type_in, &dt->obj_token, &oinfo.token, &token_cmp) < 0)
+                H5TOOLS_GOTO_ERROR(H5I_INVALID_HID, "failed to compare object tokens");
+        }
+
         dt_ret = dt;
     }
     else {
@@ -251,13 +258,14 @@ copy_named_datatype(hid_t type_in, hid_t fidout, named_dt_t **named_dt_head_p, t
                 *named_dt_head_p = dt;
 
                 /* Update the address and id */
-                dt->addr_in = travt->objs[i].objno;
+                HDmemcpy(&dt->obj_token, &travt->objs[i].obj_token, sizeof(H5O_token_t));
                 dt->id_out = H5I_INVALID_HID;
 
                 /* Check if this type is the one requested */
-                if (oinfo.addr == dt->addr_in) {
+                if (H5Otoken_cmp(type_in, &oinfo.token, &dt->obj_token, &token_cmp) < 0)
+                    H5TOOLS_GOTO_ERROR(H5I_INVALID_HID, "failed to compare object tokens");
+                if (!token_cmp)
                     dt_ret = dt;
-                }
             } /* end if named datatype */
         } /* end for each object in traversal table */
     } /* end else (create the stack) */
@@ -273,7 +281,7 @@ copy_named_datatype(hid_t type_in, hid_t fidout, named_dt_t **named_dt_head_p, t
         *named_dt_head_p = dt_ret;
 
         /* Update the address and id */
-        dt_ret->addr_in = oinfo.addr;
+        HDmemcpy(&dt_ret->obj_token, &oinfo.token, sizeof(H5O_token_t));
         dt_ret->id_out = H5I_INVALID_HID;
     } /* end if requested datatype not found */
 
@@ -357,14 +365,14 @@ copy_attr(hid_t loc_in, hid_t loc_out, named_dt_t **named_dt_head_p, trav_table_
     htri_t      is_named;      /* Whether the datatype is named */
     hsize_t     dims[H5S_MAX_RANK];/* dimensions of dataset */
     char        name[255];
-    H5O_info_t  oinfo;         /* object info */
+    H5O_info2_t oinfo;         /* object info */
     int         j;
     unsigned    u;
     hbool_t     is_ref = 0;
     H5T_class_t type_class = -1;
     int         ret_value = 0;
 
-    if (H5Oget_info2(loc_in, &oinfo, H5O_INFO_NUM_ATTRS) < 0)
+    if (H5Oget_info3(loc_in, &oinfo, H5O_INFO_NUM_ATTRS) < 0)
         H5TOOLS_GOTO_ERROR((-1), "H5Oget_info failed");
 
     /*-------------------------------------------------------------------------
@@ -488,7 +496,7 @@ copy_attr(hid_t loc_in, hid_t loc_out, named_dt_t **named_dt_head_p, trav_table_
             /* Check if we have VL data and string in the attribute's  datatype that must
              * be reclaimed */
             if (TRUE == h5tools_detect_vlen(wtype_id))
-                H5Dvlen_reclaim(wtype_id, space_id, H5P_DEFAULT, buf);
+                H5Treclaim(wtype_id, space_id, H5P_DEFAULT, buf);
             HDfree(buf);
             buf = NULL;
         } /*H5T_REFERENCE*/
@@ -521,7 +529,7 @@ done:
              * datatype that must be reclaimed
              */
             if (TRUE == h5tools_detect_vlen(wtype_id))
-                H5Dvlen_reclaim(wtype_id, space_id, H5P_DEFAULT, buf);
+                H5Treclaim(wtype_id, space_id, H5P_DEFAULT, buf);
 
             /* Free buf */
             HDfree(buf);
@@ -743,8 +751,7 @@ check_objects(const char* fname, pack_opt_t *options)
      * open the file
      *-------------------------------------------------------------------------
      */
-    if ((fid = h5tools_fopen(fname, H5F_ACC_RDONLY, options->fin_fapl,
-            (options->fin_fapl == H5P_DEFAULT) ? FALSE : TRUE, NULL, 0)) < 0)
+    if ((fid = h5tools_fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT, NULL, NULL, 0)) < 0)
         H5TOOLS_GOTO_ERROR((-1), "h5tools_fopen failed <%s>: %s", fname, H5FOPENERROR);
 
     /*-------------------------------------------------------------------------
@@ -755,7 +762,7 @@ check_objects(const char* fname, pack_opt_t *options)
     /* Initialize indexing options */
     h5trav_set_index(sort_by, sort_order);
     /* init table */
-    trav_table_init(&travt);
+    trav_table_init(fid, &travt);
 
     /* get the list of objects in the file */
     if (h5trav_gettable(fid, travt) < 0)

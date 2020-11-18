@@ -13,6 +13,8 @@
 
 #include "H5IMprivate.h"
 #include "H5LTprivate.h"
+#include <string.h>
+#include <stdlib.h>
 
 /*-------------------------------------------------------------------------
 * Function: H5IMmake_image_8bit
@@ -21,7 +23,7 @@
 *
 * Return: Success: 0, Failure: -1
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: June 13, 2001
 *
@@ -42,7 +44,7 @@ herr_t H5IMmake_image_8bit( hid_t loc_id,
     hsize_t  dims[IMAGE8_RANK];
 
     /* check the arguments */
-    if (dset_name == NULL)
+    if (dset_name == NULL) 
         return -1;
 
     /* Initialize the image dimensions */
@@ -75,7 +77,7 @@ herr_t H5IMmake_image_8bit( hid_t loc_id,
 *
 * Return: Success: 0, Failure: -1
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: June 13, 2001
 *
@@ -102,9 +104,9 @@ herr_t H5IMmake_image_24bit( hid_t loc_id,
     hsize_t  dims[IMAGE24_RANK];
 
     /* check the arguments */
-    if (interlace == NULL)
+    if (interlace == NULL) 
         return -1;
-    if (dset_name == NULL)
+    if (dset_name == NULL) 
         return -1;
 
 
@@ -160,7 +162,7 @@ herr_t H5IMmake_image_24bit( hid_t loc_id,
 *
 * Return:
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: May 28, 2001
 *
@@ -178,7 +180,7 @@ static herr_t find_palette(hid_t loc_id,
     int ret = H5_ITER_CONT;
 
     /* check the arguments */
-    if (name == NULL)
+    if (name == NULL) 
         return -1;
 
     /* Shut compiler up */
@@ -202,7 +204,7 @@ static herr_t find_palette(hid_t loc_id,
 *
 * Return: Success: 1, Failure: 0
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: May 11, 2001
 *
@@ -228,7 +230,7 @@ herr_t H5IM_find_palette( hid_t loc_id )
 *
 * Return: Success: 0, Failure: -1
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: July 25, 2001
 *
@@ -259,9 +261,9 @@ herr_t H5IMget_image_info( hid_t loc_id,
     int         has_attr;
 
     /* check the arguments */
-    if (dset_name == NULL)
+    if (dset_name == NULL) 
       return -1;
-    if (interlace == NULL)
+    if (interlace == NULL) 
       return -1;
 
     /*assume initially we have no palettes attached*/
@@ -272,8 +274,7 @@ herr_t H5IMget_image_info( hid_t loc_id,
         return -1;
 
     /* Try to find the attribute "INTERLACE_MODE" on the >>image<< dataset */
-    if ((has_attr = H5LT_find_attribute(did, "INTERLACE_MODE")) < 0)
-        goto out;
+    has_attr = H5LT_find_attribute(did, "INTERLACE_MODE");
 
     /* It exists, get it */
     if(has_attr == 1)
@@ -410,7 +411,7 @@ out:
 *
 * Return: Success: 0, Failure: -1
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: June 13, 2001
 *
@@ -429,7 +430,7 @@ herr_t H5IMread_image( hid_t loc_id,
     hid_t   did;
 
     /* check the arguments */
-    if (dset_name == NULL)
+    if (dset_name == NULL) 
       return -1;
 
     /* Open the dataset. */
@@ -460,7 +461,7 @@ out:
 *
 * Return: Success: 0, Failure: -1
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: May 01, 2001
 *
@@ -482,7 +483,7 @@ herr_t H5IMmake_palette( hid_t loc_id,
     int has_pal;
 
     /* check the arguments */
-    if (pal_name == NULL)
+    if (pal_name == NULL) 
       return -1;
 
     /* Check if the dataset already exists */
@@ -516,7 +517,7 @@ herr_t H5IMmake_palette( hid_t loc_id,
 *
 * Return: Success: 0, Failure: -1
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: May 01, 2001
 *
@@ -547,11 +548,11 @@ herr_t H5IMlink_palette( hid_t loc_id,
     hsize_t     dim_ref;
     int         ok_pal;
 
-
+    
     /* check the arguments */
-    if (image_name == NULL)
+    if (image_name == NULL) 
       return -1;
-    if (pal_name == NULL)
+    if (pal_name == NULL) 
       return -1;
 
     /* The image dataset may or may not have the attribute "PALETTE"
@@ -693,7 +694,7 @@ out:
 *
 * Return: Success: 0, Failure: -1
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: September 10, 2001
 *
@@ -716,9 +717,9 @@ herr_t H5IMunlink_palette( hid_t loc_id,
     int         ok_pal, has_pal;
 
     /* check the arguments */
-    if(image_name == NULL)
+    if(image_name == NULL) 
       return -1;
-    if(pal_name == NULL)
+    if(pal_name == NULL) 
       return -1;
 
     /* Try to find the palette dataset */
@@ -794,7 +795,7 @@ out:
 *
 * Return: Success: 0, Failure: -1
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: July 22, 2001
 *
@@ -817,7 +818,7 @@ herr_t H5IMget_npalettes( hid_t loc_id,
     int         has_pal;
 
     /* check the arguments */
-    if(image_name == NULL)
+    if(image_name == NULL) 
       return -1;
 
     /*assume initially we have no palettes attached*/
@@ -885,7 +886,7 @@ out:
 *
 * Return: Success: 0, Failure: -1
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: July 22, 2001
 *
@@ -915,7 +916,7 @@ herr_t H5IMget_palette_info( hid_t loc_id,
     hsize_t    pal_maxdims[2];
 
     /* check the arguments */
-    if (image_name == NULL)
+    if (image_name == NULL) 
       return -1;
 
     /* Open the dataset. */
@@ -1001,7 +1002,7 @@ out:
 *
 * Return: Success: 0, Failure: -1
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: August 30, 2001
 *
@@ -1029,9 +1030,9 @@ herr_t H5IMget_palette( hid_t loc_id,
     hid_t      pal_id;
 
     /* check the arguments */
-    if (image_name == NULL)
+    if (image_name == NULL) 
       return -1;
-    if (pal_data == NULL)
+    if (pal_data == NULL) 
       return -1;
 
 
@@ -1108,7 +1109,7 @@ out:
 *
 * Return: true, false, fail
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: August 30, 2001
 *
@@ -1132,7 +1133,7 @@ herr_t H5IMis_image( hid_t loc_id,
     herr_t     ret;
 
     /* check the arguments */
-    if (dset_name == NULL)
+    if (dset_name == NULL) 
       return -1;
 
     /* Assume initially fail condition */
@@ -1212,7 +1213,7 @@ out:
 *
 * Return: true, false, fail
 *
-* Programmer: Pedro Vicente Nunes
+* Programmer: Pedro Vicente Nunes, pvn@ncsa.uiuc.edu
 *
 * Date: August 30, 2001
 *
@@ -1236,7 +1237,7 @@ herr_t H5IMis_palette( hid_t loc_id,
     herr_t     ret;
 
     /* check the arguments */
-    if (dset_name == NULL)
+    if (dset_name == NULL) 
       return -1;
 
     /* Assume initially fail condition */

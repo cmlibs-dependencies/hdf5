@@ -329,6 +329,9 @@ extern jobject get_enum_object(JNIEnv *env, const char* enum_class_name,
 /* implemented at H5G.c */
 extern jobject create_H5G_info_t(JNIEnv *env, H5G_info_t group_info);
 
+/* implemented at h5oimp.c */
+extern jobject create_H5O_token_t(JNIEnv *env, const H5O_token_t *token, hbool_t is_critical_pinning);
+
 #ifdef __cplusplus
 } /* end extern "C" */
 #endif /* __cplusplus */

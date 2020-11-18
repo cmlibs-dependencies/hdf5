@@ -11,7 +11,7 @@
  * help@hdfgroup.org.                                                        *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/* Programmer:  Quincey Koziol
+/* Programmer:  Quincey Koziol <koziol@ncsa.uiuc.edu>
  *              Monday, March  6, 2006
  *
  * Purpose:	Fractal heap metadata statistics functions.

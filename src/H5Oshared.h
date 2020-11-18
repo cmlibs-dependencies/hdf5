@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:	Quincey Koziol
+ * Programmer:	Quincey Koziol <koziol@hdfgroup.org>
  *		Friday, January 19, 2007
  *
  * Purpose:	This file contains inline definitions for "generic" routines
@@ -66,7 +66,7 @@ H5O_SHARED_DECODE(H5F_t *f, H5O_t *open_oh, unsigned mesg_flags,
     /* Check for shared message */
     if(mesg_flags & H5O_MSG_FLAG_SHARED) {
         /* Retrieve native message info indirectly through shared message */
-        if(NULL == (ret_value = H5O_shared_decode(f, open_oh, ioflags, p, H5O_SHARED_TYPE)))
+        if(NULL == (ret_value = H5O__shared_decode(f, open_oh, ioflags, p, H5O_SHARED_TYPE)))
             HGOTO_ERROR(H5E_OHDR, H5E_CANTDECODE, NULL, "unable to decode shared message")
 
         /* We currently do not support automatically fixing shared messages */
@@ -129,7 +129,7 @@ H5O_SHARED_ENCODE(H5F_t *f, hbool_t disable_shared, uint8_t *p, const void *_mes
     /* Check for message stored elsewhere */
     if(H5O_IS_STORED_SHARED(sh_mesg->type) && !disable_shared) {
         /* Encode shared message into buffer */
-        if(H5O_shared_encode(f, p, sh_mesg) < 0)
+        if(H5O__shared_encode(f, p, sh_mesg) < 0)
             HGOTO_ERROR(H5E_OHDR, H5E_CANTENCODE, FAIL, "unable to encode shared message")
     } /* end if */
     else {
@@ -181,7 +181,7 @@ H5O_SHARED_SIZE(const H5F_t *f, hbool_t disable_shared, const void *_mesg)
     /* Check for message stored elsewhere */
     if(H5O_IS_STORED_SHARED(sh_mesg->type) && !disable_shared) {
         /* Retrieve encoded size of shared message */
-        if(0 == (ret_value = H5O_shared_size(f, sh_mesg)))
+        if(0 == (ret_value = H5O__shared_size(f, sh_mesg)))
             HGOTO_ERROR(H5E_OHDR, H5E_CANTGET, 0, "unable to retrieve encoded size of shared message")
     } /* end if */
     else {
@@ -473,7 +473,7 @@ H5O_SHARED_DEBUG(H5F_t *f, const void *_mesg, FILE *stream, int indent,
     /* Check for message stored elsewhere */
     if(H5O_IS_STORED_SHARED(sh_mesg->type)) {
         /* Print shared message information */
-        if(H5O_shared_debug(sh_mesg, stream, indent, fwidth) < 0)
+        if(H5O__shared_debug(sh_mesg, stream, indent, fwidth) < 0)
             HGOTO_ERROR(H5E_OHDR, H5E_WRITEERROR, FAIL, "unable to display shared message info")
     } /* end if */
 

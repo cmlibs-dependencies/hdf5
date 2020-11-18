@@ -15,7 +15,7 @@
  *
  * Created:             H5Fio.c
  *                      Jan 10 2008
- *                      Quincey Koziol
+ *                      Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:             File I/O routines.
  *
@@ -77,6 +77,50 @@
 
 
 /*-------------------------------------------------------------------------
+ * Function:	H5F_shared_block_read
+ *
+ * Purpose:	Reads some data from a file/server/etc into a buffer.
+ *		The data is contiguous.	 The address is relative to the base
+ *		address for the file.
+ *
+ * Return:	Non-negative on success/Negative on failure
+ *
+ * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
+ *		Jul 10 1997
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5F_shared_block_read(H5F_shared_t *f_sh, H5FD_mem_t type, haddr_t addr, size_t size, void *buf/*out*/)
+{
+    H5FD_mem_t  map_type;               /* Mapped memory type */
+    herr_t      ret_value = SUCCEED;    /* Return value */
+
+    FUNC_ENTER_NOAPI(FAIL)
+
+    /* Sanity checks */
+    HDassert(f_sh);
+    HDassert(buf);
+    HDassert(H5F_addr_defined(addr));
+
+    /* Check for attempting I/O on 'temporary' file address */
+    if(H5F_addr_le(f_sh->tmp_addr, (addr + size)))
+        HGOTO_ERROR(H5E_IO, H5E_BADRANGE, FAIL, "attempting I/O in temporary file space")
+
+    /* Treat global heap as raw data */
+    map_type = (type == H5FD_MEM_GHEAP) ? H5FD_MEM_DRAW : type;
+
+    /* Pass through page buffer layer */
+    if(H5PB_read(f_sh, map_type, addr, size, buf) < 0)
+        HGOTO_ERROR(H5E_IO, H5E_READERROR, FAIL, "read through page buffer failed")
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5F_shared_block_read() */
+
+
+/*-------------------------------------------------------------------------
  * Function:	H5F_block_read
  *
  * Purpose:	Reads some data from a file/server/etc into a buffer.
@@ -86,6 +130,7 @@
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Jul 10 1997
  *
  *-------------------------------------------------------------------------
@@ -121,6 +166,51 @@ done:
 
 
 /*-------------------------------------------------------------------------
+ * Function:	H5F_shared_block_write
+ *
+ * Purpose:	Writes some data from memory to a file/server/etc.  The
+ *		data is contiguous.  The address is relative to the base
+ *		address.
+ *
+ * Return:	Non-negative on success/Negative on failure
+ *
+ * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
+ *		Jul 10 1997
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5F_shared_block_write(H5F_shared_t *f_sh, H5FD_mem_t type, haddr_t addr, size_t size, const void *buf)
+{
+    H5FD_mem_t  map_type;               /* Mapped memory type */
+    herr_t      ret_value = SUCCEED;    /* Return value */
+
+    FUNC_ENTER_NOAPI(FAIL)
+
+    /* Sanity checks */
+    HDassert(f_sh);
+    HDassert(H5F_SHARED_INTENT(f_sh) & H5F_ACC_RDWR);
+    HDassert(buf);
+    HDassert(H5F_addr_defined(addr));
+
+    /* Check for attempting I/O on 'temporary' file address */
+    if(H5F_addr_le(f_sh->tmp_addr, (addr + size)))
+        HGOTO_ERROR(H5E_IO, H5E_BADRANGE, FAIL, "attempting I/O in temporary file space")
+
+    /* Treat global heap as raw data */
+    map_type = (type == H5FD_MEM_GHEAP) ? H5FD_MEM_DRAW : type;
+
+    /* Pass through page buffer layer */
+    if(H5PB_write(f_sh, map_type, addr, size, buf) < 0)
+        HGOTO_ERROR(H5E_IO, H5E_WRITEERROR, FAIL, "write through page buffer failed")
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5F_shared_block_write() */
+
+
+/*-------------------------------------------------------------------------
  * Function:	H5F_block_write
  *
  * Purpose:	Writes some data from memory to a file/server/etc.  The
@@ -130,6 +220,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Jul 10 1997
  *
  *-------------------------------------------------------------------------

@@ -15,9 +15,11 @@
  *
  * Created:             H5ACpublic.h
  *                      Jul 10 1997
- *                      Robb Matzke
+ *                      Robb Matzke <matzke@llnl.gov>
  *
  * Purpose:             Public include file for cache functions.
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */

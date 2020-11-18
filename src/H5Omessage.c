@@ -15,7 +15,7 @@
  *
  * Created:		H5Omessage.c
  *			Dec  3 2006
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		Object header message routines.
  *
@@ -105,6 +105,7 @@ static herr_t H5O__copy_mesg(H5F_t *f, H5O_t *oh, size_t idx,
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Dec  1 2006
  *
  *-------------------------------------------------------------------------
@@ -152,6 +153,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Dec 31 2002
  *
  *-------------------------------------------------------------------------
@@ -194,6 +196,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Dec  8 2006
  *
  *-------------------------------------------------------------------------
@@ -222,7 +225,7 @@ H5O__msg_append_real(H5F_t *f, H5O_t *oh, const H5O_msg_class_t *type,
     if(H5O__copy_mesg(f, oh, idx, type, mesg, mesg_flags, update_flags) < 0)
         HGOTO_ERROR(H5E_OHDR, H5E_CANTCOPY, FAIL, "unable to write message")
 #ifdef H5O_DEBUG
-H5O_assert(oh);
+H5O__assert(oh);
 #endif /* H5O_DEBUG */
 
 done:
@@ -245,6 +248,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Aug  6 1997
  *
  *-------------------------------------------------------------------------
@@ -300,6 +304,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Dec  6 2007
  *
  *-------------------------------------------------------------------------
@@ -347,6 +352,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Aug  6 1997
  *
  *-------------------------------------------------------------------------
@@ -421,7 +427,7 @@ H5O__msg_write_real(H5F_t *f, H5O_t *oh, const H5O_msg_class_t *type,
     if(H5O__copy_mesg(f, oh, idx, type, mesg, mesg_flags, update_flags) < 0)
         HGOTO_ERROR(H5E_OHDR, H5E_CANTINIT, FAIL, "unable to write message")
 #ifdef H5O_DEBUG
-H5O_assert(oh);
+H5O__assert(oh);
 #endif /* H5O_DEBUG */
 
 done:
@@ -447,6 +453,7 @@ done:
  *		Failure:	NULL
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Aug  6 1997
  *
  *-------------------------------------------------------------------------
@@ -499,6 +506,7 @@ done:
  *		Failure:	NULL
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Aug  6 1997
  *
  *-------------------------------------------------------------------------
@@ -555,6 +563,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Aug 12 1997
  *
  *-------------------------------------------------------------------------
@@ -591,6 +600,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Aug 12 1997
  *
  *-------------------------------------------------------------------------
@@ -648,7 +658,7 @@ H5O_msg_free(unsigned type_id, void *mesg)
     HDassert(type);
 
     /* Call the "real" free routine */
-    ret_value = H5O__msg_free_real(type, mesg);
+    ret_value = H5O_msg_free_real(type, mesg);
 
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5O_msg_free() */
@@ -657,7 +667,7 @@ H5O_msg_free(unsigned type_id, void *mesg)
 /*-------------------------------------------------------------------------
  * Function:	H5O__msg_free_mesg
  *
- * Purpose:	Call H5O__msg_free_real() on a message.
+ * Purpose:	Call H5O_msg_free_real() on a message.
  *
  * Return:	Non-negative on success/Negative on failure
  *
@@ -675,14 +685,14 @@ H5O__msg_free_mesg(H5O_mesg_t *mesg)
     HDassert(mesg);
 
     /* Free any native information */
-    mesg->native = H5O__msg_free_real(mesg->type, mesg->native);
+    mesg->native = H5O_msg_free_real(mesg->type, mesg->native);
 
     FUNC_LEAVE_NOAPI(SUCCEED)
 } /* end H5O__msg_free_mesg() */
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5O__msg_free_real
+ * Function:	H5O_msg_free_real
  *
  * Purpose:	Similar to H5O_msg_reset() except it also frees the message
  *		pointer.
@@ -696,9 +706,9 @@ H5O__msg_free_mesg(H5O_mesg_t *mesg)
  *-------------------------------------------------------------------------
  */
 void *
-H5O__msg_free_real(const H5O_msg_class_t *type, void *msg_native)
+H5O_msg_free_real(const H5O_msg_class_t *type, void *msg_native)
 {
-    FUNC_ENTER_PACKAGE_NOERR
+    FUNC_ENTER_NOAPI_NOINIT_NOERR
 
     /* check args */
     HDassert(type);
@@ -712,7 +722,7 @@ H5O__msg_free_real(const H5O_msg_class_t *type, void *msg_native)
     } /* end if */
 
     FUNC_LEAVE_NOAPI(NULL)
-} /* end H5O__msg_free_real() */
+} /* end H5O_msg_free_real() */
 
 
 /*-------------------------------------------------------------------------
@@ -791,7 +801,7 @@ H5O_msg_count(const H5O_loc_t *loc, unsigned type_id)
         HGOTO_ERROR(H5E_OHDR, H5E_CANTPROTECT, FAIL, "unable to protect object header")
 
     /* Count the messages of the correct type */
-    msg_count = H5O_msg_count_real(oh, type);
+    msg_count = H5O__msg_count_real(oh, type);
     H5_CHECKED_ASSIGN(ret_value, int, msg_count, unsigned);
 
 done:
@@ -803,7 +813,7 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5O_msg_count_real
+ * Function:	H5O__msg_count_real
  *
  * Purpose:	Counts the number of messages in an object header which are a
  *		certain type.
@@ -818,12 +828,12 @@ done:
  *-------------------------------------------------------------------------
  */
 unsigned
-H5O_msg_count_real(const H5O_t *oh, const H5O_msg_class_t *type)
+H5O__msg_count_real(const H5O_t *oh, const H5O_msg_class_t *type)
 {
     unsigned u;                 /* Local index variable */
     unsigned ret_value = 0;     /* Return value */
 
-    FUNC_ENTER_NOAPI_NOINIT_NOERR
+    FUNC_ENTER_PACKAGE_NOERR
 
     /* Check args */
     HDassert(oh);
@@ -835,7 +845,7 @@ H5O_msg_count_real(const H5O_t *oh, const H5O_msg_class_t *type)
             ret_value++;
 
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5O_msg_count_real() */
+} /* end H5O__msg_count_real() */
 
 
 /*-------------------------------------------------------------------------
@@ -941,6 +951,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Aug 28 1997
  *
  *-------------------------------------------------------------------------
@@ -991,6 +1002,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sep  6 2005
  *
  *-------------------------------------------------------------------------
@@ -1040,6 +1052,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sep  6 2005
  *
  *-------------------------------------------------------------------------
@@ -1077,7 +1090,7 @@ H5O__msg_remove_cb(H5O_t *oh, H5O_mesg_t *mesg/*in,out*/, unsigned sequence,
          * (OK to remove constant messages - QAK)
          */
         /* Convert message into a null message */
-        if(H5O_release_mesg(udata->f, oh, mesg, udata->adj_link) < 0)
+        if(H5O__release_mesg(udata->f, oh, mesg, udata->adj_link) < 0)
             HGOTO_ERROR(H5E_OHDR, H5E_CANTDELETE, H5_ITER_ERROR, "unable to release message")
 
         /* Indicate that the object header was modified */
@@ -1105,6 +1118,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Aug 28 1997
  *
  *-------------------------------------------------------------------------
@@ -1161,6 +1175,7 @@ done:
  *      object headers were processed.
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Nov 19 2004
  *
  * Description:
@@ -1226,6 +1241,7 @@ done:
  *      object headers were processed.
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sep  6 2005
  *
  * Description:
@@ -1299,7 +1315,7 @@ done:
          *  message removal)
          */
 	if(oh_modified & H5O_MODIFY_CONDENSE)
-	    if(H5O_condense_header(f, oh) < 0)
+	    if(H5O__condense_header(f, oh) < 0)
             HDONE_ERROR(H5E_OHDR, H5E_CANTPACK, FAIL, "can't pack object header")
 
         /* Mark object header as changed */
@@ -1324,6 +1340,7 @@ done:
  * Return:	Size of message on success, 0 on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb 13 2003
  *
  *-------------------------------------------------------------------------
@@ -1366,6 +1383,7 @@ done:
  * Return:	Size of message on success, 0 on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sep  6 2005
  *
  *-------------------------------------------------------------------------
@@ -1429,6 +1447,7 @@ done:
  * Return:	Size of message on success, 0 on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Mar  7 2007
  *
  *-------------------------------------------------------------------------
@@ -1565,6 +1584,7 @@ H5O_msg_can_share_in_ohdr(unsigned type_id)
  *              Object is not shared:    FALSE
  *
  * Programmer:  James Laird
+ *              jlaird@ncsa.uiuc.edu
  *              April 5 2006
  *
  *-------------------------------------------------------------------------
@@ -1609,6 +1629,7 @@ H5O_msg_is_shared(unsigned type_id, const void *mesg)
  *		Failure:	Negative
  *
  * Programmer:	James Laird
+ *		jlaird@hdfgroup.org
  *		November 1 2006
  *
  *-------------------------------------------------------------------------
@@ -1659,6 +1680,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	James Laird
+ *		jlaird@hdfgroup.org
  *		Oct 17 2006
  *
  *-------------------------------------------------------------------------
@@ -1666,15 +1688,12 @@ done:
 herr_t
 H5O_msg_reset_share(unsigned H5_ATTR_NDEBUG_UNUSED type_id, void *mesg)
 {
-    const H5O_msg_class_t *type;        /* Actual H5O class type for the ID */
-
     FUNC_ENTER_NOAPI_NOINIT_NOERR
 
     /* Check args */
     HDassert(type_id < NELMTS(H5O_msg_class_g));
-    type = H5O_msg_class_g[type_id];    /* map the type ID to the actual type object */
-    HDassert(type);
-    HDassert(type->share_flags & H5O_SHARE_IS_SHARABLE);
+    HDassert(H5O_msg_class_g[type_id]);  /* map the type ID to the actual type object */
+    HDassert(H5O_msg_class_g[type_id]->share_flags & H5O_SHARE_IS_SHARABLE);
     HDassert(mesg);
 
     /* Reset the shared component in the message to zero. */
@@ -1737,6 +1756,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Raymond Lu
+ *		slu@ncsa.uiuc.edu
  *		July 13, 2004
  *
  *-------------------------------------------------------------------------
@@ -1776,7 +1796,13 @@ done:
  *		Failure:	NULL
  *
  * Programmer:	Raymond Lu
+ *		slu@ncsa.uiuc.edu
  *		July 14, 2004
+ *
+ * Modifications: Neil Fortner
+ *              Feb 4 2009
+ *              Added open_oh parameter.  This parameter is optional and
+ *              contains this message's protected object header
  *
  *-------------------------------------------------------------------------
  */
@@ -2041,6 +2067,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		September 26 2003
  *
  *-------------------------------------------------------------------------
@@ -2080,6 +2107,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		May 14 2007
  *
  *-------------------------------------------------------------------------
@@ -2173,25 +2201,26 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5O_flush_msgs
+ * Function:	H5O__flush_msgs
  *
  * Purpose:	Flushes messages for object header.
  *
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Nov 21 2005
  *
  *-------------------------------------------------------------------------
  */
 herr_t
-H5O_flush_msgs(H5F_t *f, H5O_t *oh)
+H5O__flush_msgs(H5F_t *f, H5O_t *oh)
 {
     H5O_mesg_t *curr_msg;       /* Pointer to current message being operated on */
     unsigned	u;              /* Local index variable */
     herr_t      ret_value = SUCCEED;       /* Return value */
 
-    FUNC_ENTER_NOAPI(FAIL)
+    FUNC_ENTER_PACKAGE
 
     /* check args */
     HDassert(f);
@@ -2215,7 +2244,7 @@ H5O_flush_msgs(H5F_t *f, H5O_t *oh)
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5O_flush_msgs() */
+} /* end H5O__flush_msgs() */
 
 
 /*-------------------------------------------------------------------------

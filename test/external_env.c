@@ -17,7 +17,7 @@
 #include "external_common.h"
 
 static const char *EXT_ENV_FNAME[] = {
-    "extern_env_dir/file_2",
+    "extern_env_dir/env_file_1",
     NULL
 };
 
@@ -61,6 +61,9 @@ test_path_env(hid_t fapl)
 
     TESTING("prefix in HDF5_EXTFILE_PREFIX");
 
+    if(HDmkdir("extern_env_dir", (mode_t)0755) < 0 && errno != EEXIST)
+        TEST_ERROR;
+
     h5_fixname(EXT_ENV_FNAME[0], fapl, filename, sizeof(filename));
     if((file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, fapl)) < 0)
         FAIL_STACK_ERROR
@@ -75,7 +78,7 @@ test_path_env(hid_t fapl)
     if(NULL == HDgetcwd(cwdpath, sizeof(cwdpath)))
         TEST_ERROR
     for(i = 0; i < N_EXT_FILES; i++) {
-        HDsnprintf(filename, sizeof(filename), "extern_env_%dr.raw", (int) i + 1);
+        HDsnprintf(filename, sizeof(filename), "..%sextern_env_%dr.raw", H5_DIR_SEPS, (int) i + 1);
         if(H5Pset_external(dcpl, filename, (off_t)(i * GARBAGE_PER_FILE), (hsize_t)sizeof(part)) < 0)
             FAIL_STACK_ERROR
     } /* end for */
@@ -160,9 +163,6 @@ main(void)
     if(H5Pset_libver_bounds(fapl_id_new, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST) < 0)
         FAIL_STACK_ERROR
 
-    if(HDmkdir("extern_env_dir", (mode_t)0755) < 0 && errno != EEXIST)
-        TEST_ERROR;
-
     /* Test with old & new format groups */
     for(latest_format = FALSE; latest_format <= TRUE; latest_format++) {
         hid_t current_fapl_id = -1;
@@ -189,15 +189,15 @@ main(void)
 
     /* Clean up files used by file set tests */
     if(h5_cleanup(EXT_ENV_FNAME, fapl_id_old)) {
-        char	filename[1024];		/* file name                            */
-        int     i;
+        HDremove("extern_env_1r.raw");
+        HDremove("extern_env_2r.raw");
+        HDremove("extern_env_3r.raw");
+        HDremove("extern_env_4r.raw");
 
-        for(i = 0; i < N_EXT_FILES; i++) {
-            HDsnprintf(filename, sizeof(filename), "extern_env_dir%sextern_env_%dr.raw", H5_DIR_SEPS, i + 1);
-            HDremove(filename);
-            HDsnprintf(filename, sizeof(filename), "extern_env_dir%sextern_env_%dw.raw", H5_DIR_SEPS, i + 1);
-            HDremove(filename);
-        }
+        HDremove("extern_env_1w.raw");
+        HDremove("extern_env_2w.raw");
+        HDremove("extern_env_3w.raw");
+        HDremove("extern_env_4w.raw");
 
         HDrmdir("extern_env_dir");
     } /* end if */

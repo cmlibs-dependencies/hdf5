@@ -70,14 +70,14 @@ public class TestH5Fbasic {
     }
 
     @Test
-    public void testH5Fis_hdf5() {
+    public void testH5Fis_accessible() {
         boolean isH5 = false;
 
         try {
-            isH5 = H5.H5Fis_hdf5(H5_FILE);
+            isH5 = H5.H5Fis_accessible(H5_FILE, HDF5Constants.H5P_DEFAULT);
         }
         catch (Throwable err) {
-            fail("H5.H5Fis_hdf5 failed on " + H5_FILE + ": " + err);
+            fail("H5.H5Fis_accessible failed on " + H5_FILE + ": " + err);
         }
         assertTrue(isH5 == true);
     }

@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Quincey Koziol
+ * Programmer:  Quincey Koziol <koziol@hdfgroup.org>
  *              Wednesday, July 20, 2011
  *
  * Purpose:	Query routines for global heaps.

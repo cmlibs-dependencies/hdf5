@@ -41,6 +41,7 @@
 #include "H5MMprivate.h"        /* Memory management                        */
 #include "H5Pprivate.h"         /* Property lists                           */
 #include "H5Tpkg.h"             /* Datatypes                                */
+#include "H5VLprivate.h"        /* Virtual Object Layer                     */
 
 
 /****************/
@@ -225,18 +226,35 @@
 #define H5T_INIT_TYPE_REF_COMMON {                          \
     H5T_INIT_TYPE_ALLOC_COMMON(H5T_REFERENCE)               \
     H5T_INIT_TYPE_NUM_COMMON(H5T_ORDER_NONE)                \
+    dt->shared->force_conv = TRUE;                          \
+    dt->shared->u.atomic.u.r.file = NULL;                   \
+    dt->shared->u.atomic.u.r.loc = H5T_LOC_BADLOC;          \
+    dt->shared->u.atomic.u.r.cls = NULL;                    \
 }
 
 #define H5T_INIT_TYPE_OBJREF_CORE {                         \
     H5T_INIT_TYPE_REF_COMMON                                \
-    dt->shared->force_conv = TRUE;                          \
-    dt->shared->u.atomic.u.r.rtype = H5R_OBJECT;            \
-    dt->shared->u.atomic.u.r.loc = H5T_LOC_MEMORY;          \
+    dt->shared->u.atomic.u.r.rtype = H5R_OBJECT1;           \
+    dt->shared->u.atomic.u.r.opaque = FALSE;                \
+    dt->shared->u.atomic.u.r.version = 0;                   \
 }
 
 #define H5T_INIT_TYPE_REGREF_CORE {                         \
     H5T_INIT_TYPE_REF_COMMON                                \
-    dt->shared->u.atomic.u.r.rtype = H5R_DATASET_REGION;    \
+    dt->shared->u.atomic.u.r.rtype = H5R_DATASET_REGION1;   \
+    dt->shared->u.atomic.u.r.opaque = FALSE;                \
+    dt->shared->u.atomic.u.r.version = 0;                   \
+}
+
+/* rtype value is only used as a placeholder to differentiate the type from
+ * other types, any opaque (i.e. "new") reference type could be used.
+ */
+#define H5T_INIT_TYPE_REF_CORE {                            \
+    H5T_INIT_TYPE_REF_COMMON                                \
+    dt->shared->u.atomic.u.r.rtype = H5R_OBJECT2;           \
+    dt->shared->u.atomic.u.r.opaque = TRUE;                 \
+    dt->shared->u.atomic.u.r.version = H5R_ENCODE_VERSION;  \
+    dt->shared->version = H5O_DTYPE_VERSION_4;              \
 }
 
 /* Define the code templates for the "SIZE_TMPL" in the H5T_INIT_TYPE macro */
@@ -297,7 +315,7 @@ static htri_t H5T__compiler_conv(H5T_t *src, H5T_t *dst);
 static herr_t H5T__set_size(H5T_t *dt, size_t size);
 static herr_t H5T__close_cb(H5T_t *dt);
 static H5T_path_t *H5T__path_find_real(const H5T_t *src, const H5T_t *dst, const char *name, H5T_conv_func_t *conv);
-static hbool_t H5T__detect_reg_ref(const H5T_t *dt);
+static hbool_t H5T__detect_vlen_ref(const H5T_t *dt);
 static H5T_t *H5T__initiate_copy(const H5T_t *old_dt);
 static H5T_t *H5T__copy_transient(H5T_t *old_dt);
 static H5T_t *H5T__copy_all(H5T_t *old_dt);
@@ -361,6 +379,7 @@ hid_t H5T_STD_B64BE_g           = FAIL;
 hid_t H5T_STD_B64LE_g           = FAIL;
 hid_t H5T_STD_REF_OBJ_g         = FAIL;
 hid_t H5T_STD_REF_DSETREG_g     = FAIL;
+hid_t H5T_STD_REF_g             = FAIL;
 
 hid_t H5T_UNIX_D32BE_g          = FAIL;
 hid_t H5T_UNIX_D32LE_g          = FAIL;
@@ -451,6 +470,7 @@ size_t H5T_POINTER_COMP_ALIGN_g             = 0;
 size_t H5T_HVL_COMP_ALIGN_g                 = 0;
 size_t H5T_HOBJREF_COMP_ALIGN_g             = 0;
 size_t H5T_HDSETREGREF_COMP_ALIGN_g         = 0;
+size_t H5T_REF_COMP_ALIGN_g                 = 0;
 
 /*
  * Alignment constraints for native types. These are initialized at run time
@@ -520,6 +540,7 @@ H5FL_DEFINE(H5T_shared_t);
 const unsigned H5O_dtype_ver_bounds[] = {
     H5O_DTYPE_VERSION_1,        /* H5F_LIBVER_EARLIEST */
     H5O_DTYPE_VERSION_3,        /* H5F_LIBVER_V18 */
+    H5O_DTYPE_VERSION_3,        /* H5F_LIBVER_V110 */
     H5O_DTYPE_VERSION_LATEST    /* H5F_LIBVER_LATEST */
 };
 
@@ -742,7 +763,9 @@ H5T__init_package(void)
     H5T_t       *enum_type=NULL;        /* Datatype structure for enum objects */
     H5T_t       *vlen=NULL;             /* Datatype structure for vlen objects */
     H5T_t       *array=NULL;            /* Datatype structure for array objects */
-    H5T_t       *objref=NULL;           /* Datatype structure for object reference objects */
+    H5T_t       *objref=NULL;           /* Datatype structure for deprecated reference objects */
+    H5T_t       *regref=NULL;           /* Datatype structure for deprecated region references */
+    H5T_t       *ref=NULL;              /* Datatype structure for opaque references */
     hsize_t     dim[1]={1};             /* Dimension info for array datatype */
     herr_t      status;
     hbool_t     copied_dtype = TRUE;    /* Flag to indicate whether datatype was copied or allocated (for error cleanup) */
@@ -994,12 +1017,23 @@ H5T__init_package(void)
      *------------------------------------------------------------
      */
 
-    /* Object reference (i.e. object header address in file) */
-    H5T_INIT_TYPE(OBJREF, H5T_STD_REF_OBJ_g, ALLOC, -, SET, H5R_OBJ_REF_BUF_SIZE)
+    /* Deprecated object reference type */
+    H5T_INIT_TYPE(OBJREF, H5T_STD_REF_OBJ_g, ALLOC, -, NOSET, -)
+    if(H5T_set_loc(dt, NULL, H5T_LOC_MEMORY) < 0)
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "invalid datatype location")
     objref = dt;    /* Keep type for later */
 
-    /* Dataset Region reference (i.e. selection inside a dataset) */
-    H5T_INIT_TYPE(REGREF, H5T_STD_REF_DSETREG_g, ALLOC, -, SET, H5R_DSET_REG_REF_BUF_SIZE)
+    /* Deprecated region reference type */
+    H5T_INIT_TYPE(REGREF, H5T_STD_REF_DSETREG_g, ALLOC, -, NOSET, -)
+    if(H5T_set_loc(dt, NULL, H5T_LOC_MEMORY) < 0)
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "invalid datatype location")
+    regref = dt;    /* Keep type for later */
+
+    /* Opaque reference type */
+    H5T_INIT_TYPE(REF, H5T_STD_REF_g, ALLOC, -, NOSET, -)
+    if(H5T_set_loc(dt, NULL, H5T_LOC_MEMORY) < 0)
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "invalid datatype location")
+    ref = dt;       /* Keep type for later */
 
     /*
      * Register conversion functions beginning with the most general and
@@ -1034,7 +1068,11 @@ H5T__init_package(void)
     status |= H5T__register_int(H5T_PERS_SOFT, "enum_f", enum_type, floatpt, H5T__conv_enum_numeric);
     status |= H5T__register_int(H5T_PERS_SOFT, "vlen", vlen, vlen, H5T__conv_vlen);
     status |= H5T__register_int(H5T_PERS_SOFT, "array", array, array, H5T__conv_array);
-    status |= H5T__register_int(H5T_PERS_SOFT, "objref", objref, objref, H5T__conv_order_opt);
+    status |= H5T__register_int(H5T_PERS_SOFT, "objref", objref, objref, H5T__conv_noop);
+    status |= H5T__register_int(H5T_PERS_SOFT, "regref", regref, regref, H5T__conv_noop);
+    status |= H5T__register_int(H5T_PERS_SOFT, "ref", ref, ref, H5T__conv_ref);
+    status |= H5T__register_int(H5T_PERS_SOFT, "objref_ref", objref, ref, H5T__conv_ref);
+    status |= H5T__register_int(H5T_PERS_SOFT, "regref_ref", regref, ref, H5T__conv_ref);
 
     /*
      * Native conversions should be listed last since we can use hardware to
@@ -1478,6 +1516,7 @@ H5T_top_term_package(void)
             H5T_STD_B64LE_g             = FAIL;
             H5T_STD_REF_OBJ_g           = FAIL;
             H5T_STD_REF_DSETREG_g       = FAIL;
+            H5T_STD_REF_g               = FAIL;
 
             H5T_UNIX_D32BE_g            = FAIL;
             H5T_UNIX_D32LE_g            = FAIL;
@@ -1597,6 +1636,49 @@ H5T_term_package(void)
 
 
 /*-------------------------------------------------------------------------
+ * Function:    H5T__close_cb
+ *
+ * Purpose:     Called when the ref count reaches zero on the datatype's ID
+ *
+ * Return:      SUCCEED/FAIL
+ *
+ *-------------------------------------------------------------------------
+ */
+static herr_t
+H5T__close_cb(H5T_t *dt)
+{
+    herr_t  ret_value = SUCCEED;                /* Return value */
+
+    FUNC_ENTER_STATIC
+
+    /* Sanity check */
+    HDassert(dt);
+    HDassert(dt->shared);
+
+    /* If this datatype is VOL-managed (i.e.: has a VOL object),
+     * close it through the VOL connector.
+     */
+    if(NULL != dt->vol_obj) {
+        /* Close the connector-managed datatype data */
+        if(H5VL_datatype_close(dt->vol_obj, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL) < 0)
+            HGOTO_ERROR(H5E_DATATYPE, H5E_CLOSEERROR, FAIL, "unable to close datatype")
+
+        /* Free the VOL object */
+        if(H5VL_free_object(dt->vol_obj) < 0)
+            HGOTO_ERROR(H5E_ATTR, H5E_CANTDEC, FAIL, "unable to free VOL object")
+        dt->vol_obj = NULL;
+    } /* end if */
+
+    /* Close the datatype */
+    if(H5T_close(dt) < 0)
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CLOSEERROR, FAIL, "unable to close datatype")
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5T__close_cb() */
+
+
+/*-------------------------------------------------------------------------
  * Function:   H5Tcreate
  *
  * Purpose:    Create a new type and initialize it to reasonable values.
@@ -1664,6 +1746,7 @@ H5Tcopy(hid_t obj_id)
 {
     H5T_t  *dt          = NULL;     /* Pointer to the datatype to copy */
     H5T_t  *new_dt      = NULL;     /* Pointer to the new datatype */
+    hid_t   dset_tid    = H5I_INVALID_HID;  /* Datatype ID from dataset */
     hid_t   ret_value   = H5I_INVALID_HID;  /* Return value */
 
     FUNC_ENTER_API(H5I_INVALID_HID)
@@ -1671,24 +1754,30 @@ H5Tcopy(hid_t obj_id)
 
     switch(H5I_get_type(obj_id)) {
         case H5I_DATATYPE:
-            /* The argument is a datatype handle */
             if(NULL == (dt = (H5T_t *)H5I_object(obj_id)))
-                HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "obj_id is not a datatype ID")
+                HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "type_id is not a datatype ID")
             break;
 
         case H5I_DATASET:
         {
-            H5D_t    *dset;          /* Dataset structure */
+            H5VL_object_t  *vol_obj     = NULL;             /* Dataset structure */
 
-            /* The argument is a dataset handle */
-            if(NULL == (dset = (H5D_t *)H5I_object(obj_id)))
-                HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "not a dataset")
+            /* Check args */
+            if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(obj_id, H5I_DATASET)))
+                HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "type_id is not a dataset ID")
 
-            /* Get the datatype from the dataset */
-            if(NULL == (dt = H5D_typeof(dset)))
-                HGOTO_ERROR(H5E_DATATYPE, H5E_CANTGET, H5I_INVALID_HID, "unable to get the dataset datatype")
+            /* Get the datatype from the dataset
+             * NOTE: This will have to be closed after we're done with it.
+             */
+            if(H5VL_dataset_get(vol_obj, H5VL_DATASET_GET_TYPE, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, &dset_tid) < 0)
+                HGOTO_ERROR(H5E_DATATYPE, H5E_CANTGET, H5I_INVALID_HID, "unable to get datatype from the dataset")
+
+            /* Unwrap the type ID */
+            if(NULL == (dt = (H5T_t *)H5I_object(dset_tid)))
+                HGOTO_ERROR(H5E_DATATYPE, H5E_BADTYPE, H5I_INVALID_HID, "received invalid datatype from the dataset")
+
+            break;
         }
-        break;
 
         case H5I_UNINIT:
         case H5I_BADID:
@@ -1696,13 +1785,15 @@ H5Tcopy(hid_t obj_id)
         case H5I_GROUP:
         case H5I_DATASPACE:
         case H5I_ATTR:
-        case H5I_REFERENCE:
+        case H5I_MAP:
         case H5I_VFL:
+        case H5I_VOL:
         case H5I_GENPROP_CLS:
         case H5I_GENPROP_LST:
         case H5I_ERROR_CLASS:
         case H5I_ERROR_MSG:
         case H5I_ERROR_STACK:
+        case H5I_SPACE_SEL_ITER:
         case H5I_NTYPES:
         default:
             HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "not a datatype or dataset")
@@ -1710,13 +1801,19 @@ H5Tcopy(hid_t obj_id)
 
     /* Copy datatype */
     if(NULL == (new_dt = H5T_copy(dt, H5T_COPY_TRANSIENT)))
-        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, H5I_INVALID_HID, "unable to copy");
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, H5I_INVALID_HID, "unable to copy")
 
     /* Get an ID for the copied datatype */
     if((ret_value = H5I_register(H5I_DATATYPE, new_dt, TRUE)) < 0)
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTREGISTER, H5I_INVALID_HID, "unable to register datatype atom")
 
 done:
+
+    /* If we got a type ID from a passed-in dataset, we need to close that */
+    if(dset_tid != H5I_INVALID_HID)
+        if(H5I_dec_app_ref(dset_tid) < 0)
+            HGOTO_ERROR(H5E_DATATYPE, H5E_BADATOM, FAIL, "problem freeing temporary dataset type ID")
+
     /* Close the new datatype on errors */
     if(H5I_INVALID_HID == ret_value)
         if(new_dt && H5T_close_real(new_dt) < 0)
@@ -1814,6 +1911,12 @@ done:
  * Programmer:    Robb Matzke
  *        Friday, January     9, 1998
  *
+ * Modifications:
+ *
+ *     Robb Matzke, 1 Jun 1998
+ *    It is illegal to lock a named datatype since we must allow named
+ *    types to be closed (to release file resources) but locking a type
+ *    prevents that.
  *-------------------------------------------------------------------------
  */
 herr_t
@@ -1885,6 +1988,9 @@ done:
  *
  * Programmer:    Robb Matzke
  *        Monday, December  8, 1997
+ *
+ * Modifications:
+ *      Broke out from H5Tget_class - QAK - 6/4/99
  *
  *-------------------------------------------------------------------------
  */
@@ -2238,9 +2344,9 @@ H5T_get_super(const H5T_t *dt)
     HDassert(dt);
 
     if(!dt->shared->parent)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, NULL, "not a derived data type");
+        HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, NULL, "not a derived data type")
     if(NULL == (ret_value = H5T_copy(dt->shared->parent, H5T_COPY_ALL)))
-        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, NULL, "unable to copy parent data type");
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, NULL, "unable to copy parent data type")
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
@@ -2821,6 +2927,56 @@ done:
 
 
 /*-------------------------------------------------------------------------
+ * Function:    H5Treclaim
+ *
+ * Purpose: Frees the buffers allocated for storing variable-length data
+ *      in memory.  Only frees the VL data in the selection defined in the
+ *      dataspace.  The dataset transfer property list is required to find the
+ *      correct allocation/free methods for the VL data in the buffer.
+ *
+ * Return:  Non-negative on success, negative on failure
+ *
+ * Programmer:  Quincey Koziol
+ *              Thursday, June 10, 1999
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5Treclaim(hid_t type_id, hid_t space_id, hid_t dxpl_id, void *buf)
+{
+    H5S_t *space;               /* Dataspace for iteration */
+    herr_t ret_value;           /* Return value */
+
+    FUNC_ENTER_API(FAIL)
+    H5TRACE4("e", "iii*x", type_id, space_id, dxpl_id, buf);
+
+    /* Check args */
+    if(H5I_DATATYPE != H5I_get_type(type_id) || buf == NULL)
+        HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "invalid argument")
+    if(NULL == (space = (H5S_t *)H5I_object_verify(space_id, H5I_DATASPACE)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid dataspace")
+    if(!(H5S_has_extent(space)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "dataspace does not have extent set")
+
+    /* Get the default dataset transfer property list if the user didn't provide one */
+    if(H5P_DEFAULT == dxpl_id)
+        dxpl_id = H5P_DATASET_XFER_DEFAULT;
+    else
+        if(TRUE != H5P_isa_class(dxpl_id, H5P_DATASET_XFER))
+            HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not xfer parms")
+
+    /* Set DXPL for operation */
+    H5CX_set_dxpl(dxpl_id);
+
+    /* Call internal routine */
+    ret_value = H5T_reclaim(type_id, space, buf);
+
+done:
+    FUNC_LEAVE_API(ret_value)
+}   /* end H5Treclaim() */
+
+
+/*-------------------------------------------------------------------------
  * Function:  H5Tencode
  *
  * Purpose:   Given an datatype ID, converts the object description into
@@ -2872,6 +3028,10 @@ done:
  * Programmer:    Raymond Lu
  *              July 14, 2004
  *
+ * Modification:Raymond Lu
+ *              17 February 2011
+ *              I changed the value for the APP_REF parameter of H5I_register
+ *              from FALSE to TRUE.
  *-------------------------------------------------------------------------
  */
 hid_t
@@ -3009,6 +3169,8 @@ H5T_decode(size_t buf_size, const unsigned char *buf)
     if(H5T_set_loc(ret_value, NULL, H5T_LOC_MEMORY) < 0)
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, NULL, "invalid datatype location")
 
+    /* No VOL object */
+    ret_value->vol_obj = NULL;
 done:
     /* Release fake file structure */
     if(f && H5F_fake_free(f) < 0)
@@ -3032,6 +3194,10 @@ done:
  * Programmer:    Robb Matzke
  *        Friday, December  5, 1997
  *
+ * Modifications:
+ *              Raymond Lu
+ *              19 May 2011
+ *              We support fixed size or variable-length string now.
  *-------------------------------------------------------------------------
  */
 H5T_t *
@@ -3055,7 +3221,7 @@ H5T__create(H5T_class_t type, size_t size)
 
                 /* Copy the default string datatype */
                 if(NULL == (dt = H5T_copy(origin_dt, H5T_COPY_TRANSIENT)))
-                    HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, NULL, "unable to copy");
+                    HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, NULL, "unable to copy")
 
                 /* Modify the datatype */
                 if(H5T__set_size(dt, size) < 0)
@@ -3128,6 +3294,9 @@ H5T__create(H5T_class_t type, size_t size)
     if(H5T_STRING != type || H5T_VARIABLE != size)
         dt->shared->size = size;
 
+    /* No VOL object */
+    dt->vol_obj = NULL;
+
     /* Set return value */
     ret_value = dt;
 
@@ -3176,6 +3345,10 @@ H5T__initiate_copy(const H5T_t *old_dt)
 
     /* Copy shared information */
     *(new_dt->shared) = *(old_dt->shared);
+
+    /* Reset VOL fields */
+    new_dt->vol_obj = NULL;
+    new_dt->shared->owned_vol_obj = NULL;
 
     /* Set return value */
     ret_value = new_dt;
@@ -3695,6 +3868,9 @@ H5T__alloc(void)
         HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, NULL, "memory allocation failed")
     dt->shared->version = H5O_DTYPE_VERSION_1;
 
+    /* No VOL object initially */
+    dt->vol_obj = NULL;
+
     /* Assign return value */
     ret_value = dt;
 
@@ -3785,6 +3961,11 @@ H5T__free(H5T_t *dt)
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTCLOSEOBJ, FAIL, "unable to close parent data type")
     dt->shared->parent = NULL;
 
+    /* Close the owned VOL object */
+    if(dt->shared->owned_vol_obj && H5VL_free_object(dt->shared->owned_vol_obj) < 0)
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTCLOSEOBJ, FAIL, "unable to close owned VOL object")
+    dt->shared->owned_vol_obj = NULL;
+
 done:
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5T__free() */
@@ -3795,7 +3976,8 @@ done:
  *
  * Purpose:   Frees a datatype and all associated memory.
  *
- * Note:      Does _not_ deal with open named datatypes, etc.
+ * Note:      Does _not_ deal with open named datatypes, etc. so this
+ *            should never see a type managed by a VOL connector.
  *
  * Return:    Non-negative on success/Negative on failure
  *
@@ -3817,7 +3999,7 @@ H5T_close_real(H5T_t *dt)
     /* Clean up resources, depending on shared state */
     if(dt->shared->state != H5T_STATE_OPEN) {
         if(H5T__free(dt) < 0)
-            HGOTO_ERROR(H5E_DATATYPE, H5E_CANTFREE, FAIL, "unable to free datatype");
+            HGOTO_ERROR(H5E_DATATYPE, H5E_CANTFREE, FAIL, "unable to free datatype")
 
         dt->shared = H5FL_FREE(H5T_shared_t, dt->shared);
     } /* end if */
@@ -3831,35 +4013,6 @@ H5T_close_real(H5T_t *dt)
 done:
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5T_close_real() */
-
-
-/*-------------------------------------------------------------------------
- * Function: H5T__close_cb
- *
- * Purpose:  Callback routine for closing a datatype ID.  Closes the datatype
- *           object that was attached to the ID.
- *
- * Return:   Non-negative on success/Negative on failure
- *
- *-------------------------------------------------------------------------
- */
-static herr_t
-H5T__close_cb(H5T_t *dt)
-{
-    herr_t ret_value = SUCCEED;                 /* Return value */
-
-    FUNC_ENTER_STATIC
-
-    /* check args */
-    HDassert(dt && dt->shared);
-
-    /* Call actual datatype close routine */
-    if(H5T_close(dt) < 0)
-        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTCLOSEOBJ, FAIL, "can't close datatype");
-
-done:
-    FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5T__close_cb() */
 
 
 /*-------------------------------------------------------------------------
@@ -3940,7 +4093,7 @@ H5T_close(H5T_t *dt)
 
     /* Clean up resources */
     if(H5T_close_real(dt) < 0)
-        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTRELEASE, FAIL, "unable to free datatype");
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTRELEASE, FAIL, "unable to free datatype")
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
@@ -3989,7 +4142,7 @@ H5T__set_size(H5T_t *dt, size_t size)
 
     if(dt->shared->parent) {
         if(H5T__set_size(dt->shared->parent, size) < 0)
-            HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "unable to set size for parent data type");
+            HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "unable to set size for parent data type")
 
         /* Adjust size of datatype appropriately */
         if(dt->shared->type==H5T_ARRAY)
@@ -4031,7 +4184,7 @@ H5T__set_size(H5T_t *dt, size_t size)
                     size_t      max_size;
 
                     if((num_membs = H5T_get_nmembers(dt)) < 0)
-                        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "unable to get number of members");
+                        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "unable to get number of members")
 
                     if(num_membs) {
                         for(i = 0; i < (unsigned)num_membs; i++) {
@@ -4045,7 +4198,7 @@ H5T__set_size(H5T_t *dt, size_t size)
                         max_size = H5T__get_member_size(dt, max_index);
 
                         if(size < (max_offset + max_size))
-                            HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "size shrinking will cut off last member ");
+                            HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "size shrinking will cut off last member ")
                     } /* end if */
 
                     /* Compound must not have been packed previously */
@@ -4065,7 +4218,7 @@ H5T__set_size(H5T_t *dt, size_t size)
 
                     /* Get a copy of unsigned char type as the base/parent type */
                     if(NULL == (base = (H5T_t *)H5I_object(H5T_NATIVE_UCHAR)))
-                        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid base datatype");
+                        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid base datatype")
                     dt->shared->parent=H5T_copy(base,H5T_COPY_ALL);
 
                     /* change this datatype into a VL string */
@@ -4091,7 +4244,7 @@ H5T__set_size(H5T_t *dt, size_t size)
 
                     /* Set up VL information */
                     if (H5T_set_loc(dt, NULL, H5T_LOC_MEMORY)<0)
-                        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "invalid datatype location");
+                        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "invalid datatype location")
                 } /* end if */
                 else {
                     prec = 8 * size;
@@ -4107,7 +4260,7 @@ H5T__set_size(H5T_t *dt, size_t size)
                 if(dt->shared->u.atomic.u.f.sign >= prec+offset ||
                         dt->shared->u.atomic.u.f.epos + dt->shared->u.atomic.u.f.esize > prec+offset ||
                         dt->shared->u.atomic.u.f.mpos + dt->shared->u.atomic.u.f.msize > prec+offset) {
-                    HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "adjust sign, mantissa, and exponent fields first");
+                    HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "adjust sign, mantissa, and exponent fields first")
                 }
                 break;
 
@@ -4247,7 +4400,7 @@ H5T_cmp(const H5T_t *dt1, const H5T_t *dt2, hbool_t superset)
             /* Build an index for each type so the names are sorted */
             if(NULL == (idx1 = (unsigned *)H5MM_malloc(dt1->shared->u.compnd.nmembs * sizeof(unsigned))) ||
                     NULL == (idx2 = (unsigned *)H5MM_malloc(dt2->shared->u.compnd.nmembs * sizeof(unsigned))))
-                HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, 0, "memory allocation failed");
+                HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, 0, "memory allocation failed")
             for(u = 0; u < dt1->shared->u.compnd.nmembs; u++)
                 idx1[u] = idx2[u] = u;
             if(dt1->shared->u.enumer.nmembs > 1) {
@@ -4333,7 +4486,7 @@ H5T_cmp(const H5T_t *dt1, const H5T_t *dt2, hbool_t superset)
             /* Build an index for each type so the names are sorted */
             if(NULL == (idx1 = (unsigned *)H5MM_malloc(dt1->shared->u.enumer.nmembs * sizeof(unsigned))) ||
                     NULL == (idx2 = (unsigned *)H5MM_malloc(dt2->shared->u.enumer.nmembs * sizeof(unsigned))))
-                HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, 0, "memory allocation failed");
+                HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, 0, "memory allocation failed")
             for(u=0; u<dt1->shared->u.enumer.nmembs; u++)
                 idx1[u] = u;
             if(dt1->shared->u.enumer.nmembs > 1) {
@@ -4460,9 +4613,9 @@ H5T_cmp(const H5T_t *dt1, const H5T_t *dt2, hbool_t superset)
             }
 
             /* Don't allow VL types in different files to compare as equal */
-            if(dt1->shared->u.vlen.f < dt2->shared->u.vlen.f)
+            if(dt1->shared->u.vlen.file < dt2->shared->u.vlen.file)
                 HGOTO_DONE(-1);
-            if(dt1->shared->u.vlen.f > dt2->shared->u.vlen.f)
+            if(dt1->shared->u.vlen.file > dt2->shared->u.vlen.file)
                 HGOTO_DONE(1);
             break;
 
@@ -4589,28 +4742,10 @@ H5T_cmp(const H5T_t *dt1, const H5T_t *dt2, hbool_t superset)
                         HGOTO_DONE(-1);
                     if(dt1->shared->u.atomic.u.r.rtype > dt2->shared->u.atomic.u.r.rtype)
                         HGOTO_DONE(1);
-
-                    switch(dt1->shared->u.atomic.u.r.rtype) {
-                        case H5R_OBJECT:
-                            if(dt1->shared->u.atomic.u.r.loc < dt2->shared->u.atomic.u.r.loc)
-                                HGOTO_DONE(-1);
-                            if(dt1->shared->u.atomic.u.r.loc > dt2->shared->u.atomic.u.r.loc)
-                                HGOTO_DONE(1);
-                            break;
-
-                        case H5R_DATASET_REGION:
-                    /* Does this need more to distinguish it? -QAK 11/30/98 */
-                            /*void */
-                            break;
-
-                        case H5R_BADTYPE:
-                        case H5R_MAXTYPE:
-                            HDassert("invalid type" && 0);
-                            break;
-                        default:
-                            HDassert("not implemented yet" && 0);
-                            break;
-                    }
+                    if(dt1->shared->u.atomic.u.r.loc < dt2->shared->u.atomic.u.r.loc)
+                        HGOTO_DONE(-1);
+                    if(dt1->shared->u.atomic.u.r.loc > dt2->shared->u.atomic.u.r.loc)
+                        HGOTO_DONE(1);
                     break;
 
                 case H5T_NO_CLASS:
@@ -5037,6 +5172,11 @@ H5T_path_noop(const H5T_path_t *p)
  * Programmer:    Raymond Lu
  *        8 June 2007
  *
+ * Modifications:  Neil Fortner
+ *      19 September 2008
+ *      Changed return value to H5T_subset_info_t
+ *      (to allow it to return copy_size)
+ *
  *-------------------------------------------------------------------------
  */
 H5T_subset_info_t *
@@ -5131,21 +5271,16 @@ H5T_convert(H5T_path_t *tpath, hid_t src_id, hid_t dst_id, size_t nelmts,
     size_t buf_stride, size_t bkg_stride, void *buf, void *bkg)
 {
 #ifdef H5T_DEBUG
-    H5_timer_t  timer;                  /* Timer for conversion */
+    H5_timer_t        timer;
 #endif
     herr_t ret_value = SUCCEED;         /* Return value */
 
     FUNC_ENTER_NOAPI(FAIL)
 
 #ifdef H5T_DEBUG
-    if(H5DEBUG(T)) {
-        /* Initialize and start timer */
-        H5_timer_init(&timer);
-        H5_timer_start(&timer);
-    } /* end if */
+    if(H5DEBUG(T))
+        H5_timer_begin(&timer);
 #endif
-
-    /* Call the appropriate conversion callback */
     tpath->cdata.command = H5T_CONV_CONV;
     if(tpath->conv.is_app) {
         if((tpath->conv.u.app_func)(src_id, dst_id, &(tpath->cdata), nelmts, buf_stride, bkg_stride, buf, bkg, H5CX_get_dxpl()) < 0)
@@ -5156,16 +5291,10 @@ H5T_convert(H5T_path_t *tpath, hid_t src_id, hid_t dst_id, size_t nelmts,
             HGOTO_ERROR(H5E_DATATYPE, H5E_CANTCONVERT, FAIL, "datatype conversion failed")
 #ifdef H5T_DEBUG
     if(H5DEBUG(T)) {
-        /* Stop timer */
-        H5_timer_stop(&timer);
-
-        /* Record elapsed timer info */
-        H5_timer_get_times(timer, &tpath->stats.times);
-
-        /* Increment # of calls and # of elements converted */
+        H5_timer_end(&(tpath->stats.timer), &timer);
         tpath->stats.ncalls++;
         tpath->stats.nelmts += nelmts;
-    } /* end if */
+    }
 #endif
 
 done:
@@ -5302,7 +5431,10 @@ H5T_is_named(const H5T_t *dt)
 
     HDassert(dt);
 
-    ret_value = (H5T_STATE_OPEN == dt->shared->state || H5T_STATE_NAMED == dt->shared->state);
+    if(dt->vol_obj)
+        ret_value = TRUE;
+    else
+        ret_value = (H5T_STATE_OPEN == dt->shared->state || H5T_STATE_NAMED == dt->shared->state);
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
@@ -5343,6 +5475,20 @@ H5T_convert_committed_datatype(H5T_t *dt, H5F_t *f)
             HGOTO_ERROR(H5E_DATATYPE, H5E_CANTRESET, FAIL, "unable to initialize location")
         if(H5G_name_free(&dt->path) < 0)
             HGOTO_ERROR(H5E_DATATYPE, H5E_CANTOPENOBJ, FAIL, "unable to reset path")
+
+        /* If the datatype is committed through the VOL, close it */
+        if(NULL != dt->vol_obj) {
+            H5VL_object_t *vol_obj = dt->vol_obj;
+
+            /* Close the datatype through the VOL*/
+            if(H5VL_datatype_close(vol_obj, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL) < 0)
+                HGOTO_ERROR(H5E_DATATYPE, H5E_CLOSEERROR, FAIL, "unable to close datatype")
+
+            /* Free the datatype and set the VOL object pointer to NULL */
+            if(H5VL_free_object(vol_obj) < 0)
+                HGOTO_ERROR(H5E_ATTR, H5E_CANTDEC, FAIL, "unable to free VOL object")
+            dt->vol_obj = NULL;
+        } /* end if */
 
         dt->shared->state = H5T_STATE_TRANSIENT;
     } /* end if */
@@ -5452,7 +5598,7 @@ done:
     htri_t H5T_set_loc(dt,f,loc)
         H5T_t *dt;              IN/OUT: Pointer to the datatype to mark
         H5F_t *f;               IN: Pointer to the file the datatype is in
-        H5T_vlen_type_t loc     IN: location of type
+        H5T_loc_t loc           IN: location of type
 
  RETURNS
     One of two values on success:
@@ -5465,7 +5611,7 @@ done:
  --------------------------------------------------------------------------
  */
 htri_t
-H5T_set_loc(H5T_t *dt, H5F_t *file, H5T_loc_t loc)
+H5T_set_loc(H5T_t *dt, H5VL_object_t *file, H5T_loc_t loc)
 {
     htri_t      changed;         /* Whether H5T_set_loc changed the type (even if the size didn't change) */
     htri_t      ret_value = 0;   /* Indicate that success, but no location change */
@@ -5514,7 +5660,7 @@ H5T_set_loc(H5T_t *dt, H5F_t *file, H5T_loc_t loc)
 
                         /* Range check against compound member's offset */
                         if ((accum_change < 0) && ((ssize_t) dt->shared->u.compnd.memb[i].offset < accum_change))
-                            HGOTO_ERROR(H5E_DATATYPE, H5E_BADVALUE, FAIL, "invalid field size in datatype");
+                            HGOTO_ERROR(H5E_DATATYPE, H5E_BADVALUE, FAIL, "invalid field size in datatype")
 
                         /* Apply the accumulated size change to the offset of the field */
                         dt->shared->u.compnd.memb[i].offset += (size_t) accum_change;
@@ -5530,7 +5676,7 @@ H5T_set_loc(H5T_t *dt, H5F_t *file, H5T_loc_t loc)
 
                             /* Mark the VL, compound, enum or array type */
                             if((changed = H5T_set_loc(memb_type, file, loc)) < 0)
-                                HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "Unable to set VL location");
+                                HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "Unable to set VL location")
                             if(changed > 0)
                                 ret_value = changed;
 
@@ -5539,7 +5685,7 @@ H5T_set_loc(H5T_t *dt, H5F_t *file, H5T_loc_t loc)
 
                                 /* Fail if the old_size is zero */
                                 if (0 == old_size)
-                                    HGOTO_ERROR(H5E_DATATYPE, H5E_BADVALUE, FAIL, "old_size of zero would cause division by zero");
+                                    HGOTO_ERROR(H5E_DATATYPE, H5E_BADVALUE, FAIL, "old_size of zero would cause division by zero")
 
                                 /* Adjust the size of the member */
                                 dt->shared->u.compnd.memb[i].size = (dt->shared->u.compnd.memb[i].size*memb_type->shared->size)/old_size;
@@ -5552,7 +5698,7 @@ H5T_set_loc(H5T_t *dt, H5F_t *file, H5T_loc_t loc)
 
                     /* Range check against datatype size */
                     if ((accum_change < 0) && ((ssize_t) dt->shared->size < accum_change))
-                        HGOTO_ERROR(H5E_DATATYPE, H5E_BADVALUE, FAIL, "invalid field size in datatype");
+                        HGOTO_ERROR(H5E_DATATYPE, H5E_BADVALUE, FAIL, "invalid field size in datatype")
 
                     /* Apply the accumulated size change to the datatype */
                     dt->shared->size += (size_t) accum_change;
@@ -5564,30 +5710,22 @@ H5T_set_loc(H5T_t *dt, H5F_t *file, H5T_loc_t loc)
                 /* (If the force_conv flag is _not_ set, the type cannot change in size, so don't recurse) */
                 if(dt->shared->parent->shared->force_conv && H5T_IS_COMPLEX(dt->shared->parent->shared->type)) {
                     if((changed = H5T_set_loc(dt->shared->parent, file, loc)) < 0)
-                        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "Unable to set VL location");
+                        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "Unable to set VL location")
                     if(changed > 0)
                         ret_value = changed;
                 } /* end if */
 
                 /* Mark this VL sequence */
                 if((changed = H5T__vlen_set_loc(dt, file, loc)) < 0)
-                    HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "Unable to set VL location");
+                    HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "Unable to set VL location")
                 if(changed > 0)
                     ret_value = changed;
                 break;
 
             case H5T_REFERENCE:
-                /* Only need to change location of object references */
-                if(dt->shared->u.atomic.u.r.rtype == H5R_OBJECT) {
-                    /* Mark this reference */
-                    if(loc != dt->shared->u.atomic.u.r.loc) {
-                        /* Set the location */
-                        dt->shared->u.atomic.u.r.loc = loc;
-
-                        /* Indicate that the location changed */
-                        ret_value = TRUE;
-                    } /* end if */
-                } /* end if */
+                /* Reference types go through type conversion */
+                if((ret_value = H5T__ref_set_loc(dt, file, loc)) < 0)
+                    HGOTO_ERROR(H5E_DATATYPE, H5E_CANTSET, FAIL, "Unable to set reference location");
                 break;
 
             case H5T_NO_CLASS:
@@ -5614,7 +5752,7 @@ done:
  *
  * Purpose:     Check if a datatype will change between disk and memory.
  *
- * Notes:       Currently, only variable-length and object references change
+ * Notes:       Currently, only variable-length and references change
  *              between disk & memory (see cases where things are changed in
  *              the H5T_set_loc() code above).
  *
@@ -5649,9 +5787,9 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:   H5T_detect_reg_ref
+ * Function:   H5T__detect_vlen_ref
  *
- * Purpose:    Check whether a datatype contains (or is) a region reference
+ * Purpose:    Check whether a datatype contains (or is) a vlen reference
  *             datatype.
  *
  * Return:      TRUE (1) or FALSE (0) on success
@@ -5663,7 +5801,7 @@ done:
  *-------------------------------------------------------------------------
  */
 static hbool_t
-H5T__detect_reg_ref(const H5T_t *dt)
+H5T__detect_vlen_ref(const H5T_t *dt)
 {
     unsigned    u;                      /* Local index variable */
     hbool_t     ret_value = FALSE;      /* Return value */
@@ -5673,8 +5811,9 @@ H5T__detect_reg_ref(const H5T_t *dt)
     /* Sanity checks */
     HDassert(dt);
 
-    /* Check if this datatype is a region reference */
-    if(H5T_REFERENCE == dt->shared->type && H5R_DATASET_REGION == dt->shared->u.atomic.u.r.rtype)
+    /* Check if this datatype is a vlen reference */
+    /* TODO currently H5T_STD_REF is always considered as a vlen type */
+    if(H5T_REFERENCE == dt->shared->type && !dt->shared->u.atomic.u.r.opaque)
         HGOTO_DONE(TRUE);
 
     /* Check for types that might have the correct type as a component */
@@ -5683,14 +5822,14 @@ H5T__detect_reg_ref(const H5T_t *dt)
             /* Iterate over all the compound datatype's fields */
             for(u = 0; u < dt->shared->u.compnd.nmembs; u++)
                 /* Recurse on field's datatype */
-                if(H5T__detect_reg_ref(dt->shared->u.compnd.memb[u].type))
+                if(H5T__detect_vlen_ref(dt->shared->u.compnd.memb[u].type))
                     HGOTO_DONE(TRUE);
             break;
 
         case H5T_ARRAY:
         case H5T_VLEN:
         case H5T_ENUM:
-            HGOTO_DONE(H5T__detect_reg_ref(dt->shared->parent));
+            HGOTO_DONE(H5T__detect_vlen_ref(dt->shared->parent));
             break;
 
         case H5T_NO_CLASS:
@@ -5708,7 +5847,7 @@ H5T__detect_reg_ref(const H5T_t *dt)
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5T__detect_reg_ref() */
+} /* end H5T__detect_vlen_ref() */
 
 
 /*-------------------------------------------------------------------------
@@ -5744,7 +5883,7 @@ H5T_is_vl_storage(const H5T_t *dt)
     if(H5T_detect_class(dt, H5T_VLEN, FALSE))
         ret_value = TRUE;
     else if(H5T_detect_class(dt, H5T_REFERENCE, FALSE))
-        ret_value = H5T__detect_reg_ref(dt);
+        ret_value = H5T__detect_vlen_ref(dt);
     else
         ret_value = FALSE;
 
@@ -5771,9 +5910,9 @@ done:
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5T__upgrade_version_cb(H5T_t *dt, void *op_value)
+H5T_upgrade_version_cb(H5T_t *dt, void *op_value)
 {
-    FUNC_ENTER_STATIC_NOERR
+    FUNC_ENTER_NOAPI_NOINIT_NOERR
 
     /* Sanity check */
     HDassert(dt);
@@ -5808,7 +5947,7 @@ H5T__upgrade_version_cb(H5T_t *dt, void *op_value)
     } /* end switch */
 
     FUNC_LEAVE_NOAPI(SUCCEED)
-} /* end H5T__upgrade_version_cb() */
+} /* end H5T_upgrade_version_cb() */
 
 
 /*-------------------------------------------------------------------------
@@ -5836,7 +5975,7 @@ H5T__upgrade_version(H5T_t *dt, unsigned new_version)
     HDassert(dt);
 
     /* Iterate over entire datatype, upgrading the version of components, if it's useful */
-    if(H5T__visit(dt, (H5T_VISIT_SIMPLE | H5T_VISIT_COMPLEX_LAST), H5T__upgrade_version_cb, &new_version) < 0)
+    if(H5T__visit(dt, (H5T_VISIT_SIMPLE | H5T_VISIT_COMPLEX_LAST), H5T_upgrade_version_cb, &new_version) < 0)
         HGOTO_ERROR(H5E_DATATYPE, H5E_BADITER, FAIL, "iteration to upgrade datatype encoding version failed")
 
 done:
@@ -5934,7 +6073,7 @@ done:
  *-------------------------------------------------------------------------
  */
 herr_t
-H5T_patch_vlen_file(H5T_t *dt, H5F_t *file)
+H5T_patch_vlen_file(H5T_t *dt, H5VL_object_t *file)
 {
     FUNC_ENTER_NOAPI_NOINIT_NOERR
 
@@ -5943,9 +6082,47 @@ H5T_patch_vlen_file(H5T_t *dt, H5F_t *file)
     HDassert(dt->shared);
     HDassert(file);
 
-    if((dt->shared->type == H5T_VLEN) && dt->shared->u.vlen.f != file)
-        dt->shared->u.vlen.f = file;
+    if((dt->shared->type == H5T_VLEN) && dt->shared->u.vlen.file != file)
+        dt->shared->u.vlen.file = file;
 
     FUNC_LEAVE_NOAPI(SUCCEED)
 } /* end H5T_patch_vlen_file() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5T_own_vol_obj
+ *
+ * Purpose:     Transfers ownership of the supplied VOL object to the
+ *              datatype, the VOL object will be freed when the datatype
+ *              is closed.
+ *
+ * Return:      Non-negative on success/Negative on failure
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5T_own_vol_obj(H5T_t *dt, H5VL_object_t *vol_obj)
+{
+    herr_t ret_value = SUCCEED;
+
+    FUNC_ENTER_NOAPI(FAIL)
+
+    /* Sanity check */
+    HDassert(dt);
+    HDassert(dt->shared);
+    HDassert(vol_obj);
+
+    /* Currently no support for owning multiple VOL objects, free the previous
+     * owned object.  Currently this is only used for holding open VOL objects
+     * used in the "loc" for vlens and references, so if this is being
+     * overwritten we don't need the old one anyways. */
+    if(dt->shared->owned_vol_obj && H5VL_free_object(dt->shared->owned_vol_obj) < 0)
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTCLOSEOBJ, FAIL, "unable to close owned VOL object")
+
+    /* Take ownership */
+    dt->shared->owned_vol_obj = vol_obj;
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5T_own_vol_obj() */
 

@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Quincey Koziol
+ * Programmer:  Quincey Koziol <koziol@hdfgroup.org>
  *              Tuesday, January 8, 2008
  *
  * Purpose:     This file contains declarations which are visible only within
@@ -179,8 +179,7 @@ H5_DLL herr_t H5MF__open_fstype(H5F_t *f, H5F_mem_page_t type);
 H5_DLL herr_t H5MF__start_fstype(H5F_t *f, H5F_mem_page_t type);
 H5_DLL htri_t H5MF__find_sect(H5F_t *f, H5FD_mem_t alloc_type, hsize_t size, H5FS_t *fspace, haddr_t *addr);
 H5_DLL herr_t H5MF__add_sect(H5F_t *f, H5FD_mem_t alloc_type, H5FS_t *fspace, H5MF_free_section_t *node);
-H5_DLL herr_t H5MF__sects_dump(H5F_t *f, FILE *stream);
-H5_DLL void H5MF__alloc_to_fs_type(H5F_t *f, H5FD_mem_t alloc_type,
+H5_DLL void H5MF__alloc_to_fs_type(H5F_shared_t *f_sh, H5FD_mem_t alloc_type,
     hsize_t size, H5F_mem_page_t *fs_type);
 
 /* 'simple/small/large' section routines */
@@ -198,6 +197,11 @@ H5_DLL herr_t H5MF__aggr_absorb(const H5F_t *f, H5F_blk_aggr_t *aggr,
     H5MF_free_section_t *sect, hbool_t allow_sect_absorb);
 H5_DLL herr_t H5MF__aggr_query(const H5F_t *f, const H5F_blk_aggr_t *aggr,
     haddr_t *addr, hsize_t *size);
+
+/* Debugging routines */
+#ifdef H5MF_ALLOC_DEBUG_DUMP
+H5_DLL herr_t H5MF__sects_dump(H5F_t *f, FILE *stream);
+#endif /* H5MF_ALLOC_DEBUG_DUMP */
 
 /* Testing routines */
 #ifdef H5MF_TESTING

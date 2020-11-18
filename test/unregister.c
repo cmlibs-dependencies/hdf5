@@ -55,7 +55,7 @@ const H5Z_class2_t H5Z_DUMMY[1] = {{
  * Function:    do_nothing
  *
  * Purpose:     A dummy compression method that doesn't do anything. This
- *              filter is only for test_unregister_filters. Please don't
+ *              filter is only for test_unregister_filters. Please don't 
  *              use it for other tests because it may mess up this test.
  *
  * Return:      Data chunk size
@@ -95,19 +95,10 @@ test_unregister_filters(hid_t fapl_id)
     char        filename[FILENAME_BUF_SIZE];
     const hsize_t chunk_dims[2] = {FILTER_CHUNK_DIM1, FILTER_CHUNK_DIM2};  /* Chunk dimensions */
     hsize_t     dims[2];
-    int         **buf = NULL;
-    int         *buf_data = NULL;
+    int	        data[DSET_DIM1][DSET_DIM2];
     herr_t      ret;
 
     TESTING("Unregistering filter");
-
-    /* Set up data array */
-    if(NULL == (buf_data = (int *)HDcalloc(DSET_DIM1 * DSET_DIM2, sizeof(int))))
-        TEST_ERROR;
-    if(NULL == (buf = (int **)HDcalloc(DSET_DIM1, sizeof(buf_data))))
-        TEST_ERROR;
-    for (i = 0; i < DSET_DIM1; i++)
-        buf[i] = buf_data + (i * DSET_DIM2);
 
     /* Create first file */
     h5_fixname(FILENAME[0], fapl_id, filename, sizeof(filename));
@@ -124,12 +115,12 @@ test_unregister_filters(hid_t fapl_id)
         goto error;
     if (H5Zfilter_avail(H5Z_FILTER_DUMMY) != TRUE)
         goto error;
-
+ 
     /*******************
      * PART 1 - GROUPS *
      *******************/
 
-    /* Use DUMMY filter for creating groups */
+    /* Use DUMMY filter for creating groups */ 
     if((gcpl_id = H5Pcreate(H5P_GROUP_CREATE)) < 0)
         goto error;
     if(H5Pset_filter(gcpl_id, H5Z_FILTER_DUMMY, H5Z_FLAG_MANDATORY, (size_t)0, NULL) < 0)
@@ -145,7 +136,7 @@ test_unregister_filters(hid_t fapl_id)
         if((gid_loop = H5Gcreate2(gid, group_name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT)) < 0)
             goto error;
         if(H5Gclose(gid_loop) < 0)
-            goto error;
+            goto error; 
     }
 
     /* Flush the file containing the groups */
@@ -174,7 +165,7 @@ test_unregister_filters(hid_t fapl_id)
      * PART 2 - DATASETS *
      *********************/
 
-    /* Use DUMMY filter for creating datasets */
+    /* Use DUMMY filter for creating datasets */ 
     if((dcpl_id = H5Pcreate(H5P_DATASET_CREATE)) < 0)
         goto error;
     if(H5Pset_chunk(dcpl_id, 2, chunk_dims) < 0)
@@ -185,7 +176,7 @@ test_unregister_filters(hid_t fapl_id)
     /* Initialize the data for writing */
     for(i = n = 0; i < DSET_DIM1; i++)
         for(j = 0; j < DSET_DIM2; j++)
-            buf[i][j] = n++;
+            data[i][j] = n++;
 
     /* Create the dataspace */
     dims[0] = DSET_DIM1;
@@ -198,7 +189,7 @@ test_unregister_filters(hid_t fapl_id)
         goto error;
 
     /* Write the data to the dataset */
-    if(H5Dwrite(did, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf_data) < 0)
+    if(H5Dwrite(did, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data) < 0)
         goto error;
 
     /* Unregister the filter before closing the dataset.  It should fail */
@@ -220,14 +211,14 @@ test_unregister_filters(hid_t fapl_id)
         goto error;
 
     /* Write the data to the dataset */
-    if(H5Dwrite(did, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, buf_data) < 0)
+    if(H5Dwrite(did, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data) < 0)
         goto error;
 
     /* Close the dataset in the second file */
     if(H5Dclose(did) < 0)
         goto error;
 
-    /* Unregister the filter after closing all objects but before closing files.
+    /* Unregister the filter after closing all objects but before closing files. 
      * It should flush all files.
      */
     if(H5Zunregister(H5Z_FILTER_DUMMY) < 0)
@@ -240,9 +231,6 @@ test_unregister_filters(hid_t fapl_id)
         goto error;
     if(H5Fclose(fid2) < 0)
         goto error;
-
-    HDfree(buf);
-    HDfree(buf_data);
 
     PASSED();
     return SUCCEED;
@@ -258,9 +246,6 @@ error:
         H5Dclose(did);
         H5Sclose(sid);
     } H5E_END_TRY;
-
-    HDfree(buf);
-    HDfree(buf_data);
 
     return FAIL;
 }

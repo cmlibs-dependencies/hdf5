@@ -13,12 +13,14 @@
 
 /*-------------------------------------------------------------------------
  *
- * Created:             H5MMpublic.h
+ * Created:             H5MMproto.h
  *                      Jul 10 1997
- *                      Robb Matzke
+ *                      Robb Matzke <matzke@llnl.gov>
  *
  * Purpose:             Public declarations for the H5MM (memory management)
  *                      package.
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */

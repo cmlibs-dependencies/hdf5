@@ -10,7 +10,7 @@
 # If you do not have access to either file, you may request a copy from
 # help@hdfgroup.org.
 #
-#
+# 
 # This makefile mostly just reinvokes make in the various subdirectories
 # but does so in the correct order.  You can alternatively invoke make from
 # each subdirectory manually.
@@ -38,6 +38,11 @@ if BUILD_JAVA_CONDITIONAL
 JAVA_API=yes
 
 SUBDIRS=src $(TESTSERIAL_DIR) $(TESTEXAMPLES_DIR)
+
+# Test with just the native connector, with a single pass-through connector
+# and with a doubly-stacked pass-through.
+VOL_LIST = native "pass_through under_vol=0;under_info={}" \
+           "pass_through under_vol=505;under_info={under_vol=0;under_info={}}"
 
 endif
 

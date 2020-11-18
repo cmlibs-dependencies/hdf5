@@ -15,7 +15,7 @@
  *
  * Created:     H5FSprivate.h
  *              May  2 2006
- *              Quincey Koziol
+ *              Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:     Private header for library accessible file free space routines.
  *

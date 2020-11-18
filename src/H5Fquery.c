@@ -15,7 +15,7 @@
  *
  * Created:             H5Fquery.c
  *                      Jan 10 2008
- *                      Quincey Koziol
+ *                      Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:             File structure query routines.
  *
@@ -229,9 +229,9 @@ H5F_get_extpath(const H5F_t *f)
     FUNC_ENTER_NOAPI_NOINIT_NOERR
 
     HDassert(f);
-    HDassert(f->extpath);
+    HDassert(f->shared->extpath);
 
-    FUNC_LEAVE_NOAPI(f->extpath)
+    FUNC_LEAVE_NOAPI(f->shared->extpath)
 } /* end H5F_get_extpath() */
 
 
@@ -299,23 +299,23 @@ H5F_get_nopen_objs(const H5F_t *f)
 
 
 /*-------------------------------------------------------------------------
- * Function:    H5F_get_file_id
+ * Function:    H5F_file_id_exists
  *
- * Purpose:     Retrieve the file's 'file_id' value
+ * Purpose:     Determines if a file ID exists for this file struct
  *
- * Return:      'file_id' on success/abort on failure (shouldn't fail)
+ * Return:      TRUE/FALSE
  *-------------------------------------------------------------------------
  */
-hid_t
-H5F_get_file_id(const H5F_t *f)
+hbool_t
+H5F_file_id_exists(const H5F_t *f)
 {
     /* Use FUNC_ENTER_NOAPI_NOINIT_NOERR here to avoid performance issues */
     FUNC_ENTER_NOAPI_NOINIT_NOERR
 
     HDassert(f);
 
-    FUNC_LEAVE_NOAPI(f->file_id)
-} /* end H5F_get_file_id() */
+    FUNC_LEAVE_NOAPI(f->id_exists)
+} /* end H5F_file_id_exists() */
 
 
 /*-------------------------------------------------------------------------
@@ -762,6 +762,7 @@ H5F_sieve_buf_size(const H5F_t *f)
  *          Failure:    (should not happen)
  *
  * Programmer:  Quincey Koziol
+ *              koziol@ncsa.uiuc.edu
  *              Jul  8 2005
  *
  *-------------------------------------------------------------------------
@@ -1094,7 +1095,7 @@ H5F_coll_md_read(const H5F_t *f)
 
     HDassert(f);
 
-    FUNC_LEAVE_NOAPI(f->coll_md_read)
+    FUNC_LEAVE_NOAPI(f->shared->coll_md_read)
 } /* end H5F_coll_md_read() */
 #endif /* H5_HAVE_PARALLEL */
 
@@ -1258,18 +1259,17 @@ H5F_get_point_of_no_return(const H5F_t *f)
     FUNC_LEAVE_NOAPI(f->shared->point_of_no_return)
 } /* end H5F_get_point_of_no_return() */
 
-
 /*-------------------------------------------------------------------------
- * Function: H5F_get_first_alloc_dealloc
+ * Function: H5F_get_null_fsm_addr
  *
- * Purpose:  Retrieve the 'first alloc / dealloc' value for the file.
+ * Purpose:  Retrieve the 'null_fsm_addr' value for the file.
  *
- * Return:   Success:    Non-negative, the 'first_alloc_dealloc'
+ * Return:   Success:    Non-negative, the 'null_fsm_addr'
  *           Failure:    (can't happen)
  *-------------------------------------------------------------------------
  */
 hbool_t
-H5F_get_first_alloc_dealloc(const H5F_t *f)
+H5F_get_null_fsm_addr(const H5F_t *f)
 {
     /* Use FUNC_ENTER_NOAPI_NOINIT_NOERR here to avoid performance issues */
     FUNC_ENTER_NOAPI_NOINIT_NOERR
@@ -1277,49 +1277,88 @@ H5F_get_first_alloc_dealloc(const H5F_t *f)
     HDassert(f);
     HDassert(f->shared);
 
-    FUNC_LEAVE_NOAPI(f->shared->first_alloc_dealloc)
-} /* end H5F_get_first_alloc_dealloc() */
+    FUNC_LEAVE_NOAPI(f->shared->null_fsm_addr)
+} /* end H5F_get_null_fsm_addr() */
 
 
 /*-------------------------------------------------------------------------
- * Function: H5F_get_eoa_pre_fsm_fsalloc
+ * Function: H5F_get_vol_cls
  *
- * Purpose:  Retrieve the 'EOA pre-FSM fsalloc' value for the file.
+ * Purpose:  Get the VOL class for the file
  *
- * Return:   Success:    Non-negative, the 'EOA pre-FSM fsalloc'
- *           Failure:    (can't happen)
- *-------------------------------------------------------------------------
- */
-haddr_t
-H5F_get_eoa_pre_fsm_fsalloc(const H5F_t *f)
-{
-    /* Use FUNC_ENTER_NOAPI_NOINIT_NOERR here to avoid performance issues */
-    FUNC_ENTER_NOAPI_NOINIT_NOERR
-
-    HDassert(f);
-    HDassert(f->shared);
-
-    FUNC_LEAVE_NOAPI(f->shared->eoa_pre_fsm_fsalloc)
-} /* end H5F_get_eoa_pre_fsm_fsalloc() */
-
-
-/*-------------------------------------------------------------------------
- * Function: H5F_get_file_locking
+ * Return:   VOL class pointer for file, can't fail
  *
- * Purpose:  Get the file locking flag for the file
- *
- * Return:   TRUE/FALSE
+ * Programmer:	Quincey Koziol
+ *		Saturday, August 17, 2019
  *
  *-------------------------------------------------------------------------
  */
-hbool_t
-H5F_get_file_locking(const H5F_t *f)
+const H5VL_class_t *
+H5F_get_vol_cls(const H5F_t *f)
 {
     FUNC_ENTER_NOAPI_NOINIT_NOERR
 
     HDassert(f);
     HDassert(f->shared);
 
-    FUNC_LEAVE_NOAPI(f->shared->use_file_locking)
-} /* end H5F_get_file_locking */
+    FUNC_LEAVE_NOAPI(f->shared->vol_cls)
+} /* end H5F_get_vol_cls */
+
+
+/*-------------------------------------------------------------------------
+ * Function: H5F_get_vol_obj
+ *
+ * Purpose:  Get the VOL object for the file
+ *
+ * Return:   VOL object pointer for file, can't fail
+ *
+ *-------------------------------------------------------------------------
+ */
+H5VL_object_t *
+H5F_get_vol_obj(const H5F_t *f)
+{
+    FUNC_ENTER_NOAPI_NOINIT_NOERR
+
+    HDassert(f);
+
+    FUNC_LEAVE_NOAPI(f->vol_obj)
+} /* end H5F_get_vol_obj */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5F_get_cont_info
+ *
+ * Purpose:     Get the VOL container info for the file
+ *
+ * Return:      Success:        Non-negative
+ *              Failure:        Negative
+ *
+ * Programmer:	Quincey Koziol
+ *		Saturday, August 17, 2019
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5F__get_cont_info(const H5F_t *f, H5VL_file_cont_info_t *info)
+{
+    herr_t ret_value = SUCCEED;         /* Return value */
+
+    FUNC_ENTER_PACKAGE
+
+    /* Sanity checks */
+    HDassert(f);
+    HDassert(f->shared);
+
+    /* Verify structure version */
+    if(info->version != H5VL_CONTAINER_INFO_VERSION)
+        HGOTO_ERROR(H5E_FILE, H5E_VERSION, FAIL, "wrong container info version #")
+
+    /* Set the container info fields */
+    info->feature_flags = 0;            /* None currently defined */
+    info->token_size = H5F_SIZEOF_ADDR(f);
+    info->blob_id_size = H5HG_HEAP_ID_SIZE(f);
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5F_get_cont_info */
 

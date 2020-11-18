@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:	Raymond Lu
+ * Programmer:	Raymond Lu <slu@ncsa.uiuc.edu>
  *		Friday, Oct 3, 2004
  *
  * Purpose:	Tests performance of metadata

@@ -15,7 +15,7 @@
  *
  * Created:		H5Gname.c
  *			Sep 12 2005
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@ncsa.uiuc.edu>
  *
  * Purpose:		Functions for handling group hierarchy paths.
  *
@@ -41,6 +41,8 @@
 #include "H5Iprivate.h"		/* IDs			  		*/
 #include "H5Lprivate.h"		/* Links                                */
 #include "H5MMprivate.h"	/* Memory wrappers			*/
+
+#include "H5VLnative_private.h" /* Native VOL connector                     */
 
 
 /****************/
@@ -121,6 +123,7 @@ H5FL_BLK_EXTERN(str_buf);
  *		Failure:	Ptr to the null terminator of NAME.
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Aug 11 1997
  *
  *-------------------------------------------------------------------------
@@ -213,7 +216,7 @@ done:
  * Return: TRUE for valid prefix, FALSE for not a valid prefix, FAIL
  *              on error
  *
- * Programmer: Quincey Koziol
+ * Programmer: Quincey Koziol, koziol@ncsa.uiuc.edu
  *
  * Date: September 24, 2002
  *
@@ -278,7 +281,7 @@ done:
  *
  * Return: Pointer to reference counted string on success, NULL on error
  *
- * Programmer: Quincey Koziol
+ * Programmer: Quincey Koziol, koziol@ncsa.uiuc.edu
  *
  * Date: August 19, 2005
  *
@@ -340,7 +343,7 @@ done:
  * Return:	Success:	Non-NULL, combined path
  *		Failure:	NULL
  *
- * Programmer:	Quincey Koziol
+ * Programmer:	Quincey Koziol, koziol@ncsa.uiuc.edu
  *              Tuesday, October 11, 2005
  *
  *-------------------------------------------------------------------------
@@ -376,7 +379,7 @@ H5G_build_fullpath_refstr_str(H5RS_str_t *prefix_r, const char *name)
  *
  * Return: Pointer to reference counted string on success, NULL on error
  *
- * Programmer: Quincey Koziol
+ * Programmer: Quincey Koziol, koziol@ncsa.uiuc.edu
  *
  * Date: August 19, 2005
  *
@@ -445,7 +448,7 @@ H5G__name_init(H5G_name_t *name, const char *path)
  * Return:	Success:	Non-negative
  *		Failure:	Negative
  *
- * Programmer:	Pedro Vicente
+ * Programmer:	Pedro Vicente, pvn@ncsa.uiuc.edu
  *              Thursday, August 22, 2002
  *
  *-------------------------------------------------------------------------
@@ -549,6 +552,10 @@ H5G_name_copy(H5G_name_t *dst, const H5G_name_t *src, H5_copy_depth_t depth)
  * Programmer:	Quincey Koziol
  *              Tuesday, December 13, 2005
  *
+ * Modifications: Leon Arber
+ * 		  Oct. 18, 2006
+ * 		  Added functionality to get the name for a reference.
+ *
  *-------------------------------------------------------------------------
  */
 ssize_t
@@ -579,21 +586,9 @@ H5G_get_name(const H5G_loc_t *loc, char *name/*out*/, size_t size,
             *cached = TRUE;
     } /* end if */
     else if(!loc->path->obj_hidden) {
-        hid_t	  file;
-
-        /* Retrieve file ID for name search */
-        if((file = H5F_get_id(loc->oloc->file, FALSE)) < 0)
-            HGOTO_ERROR(H5E_SYM, H5E_CANTGET, FAIL, "can't get file ID")
-
         /* Search for name of object */
-        if((len = H5G_get_name_by_addr(file, loc->oloc, name, size)) < 0) {
-            H5I_dec_ref(file);
+        if((len = H5G_get_name_by_addr(loc->oloc->file, loc->oloc, name, size)) < 0)
             HGOTO_ERROR(H5E_SYM, H5E_CANTGET, FAIL, "can't determine name")
-        } /* end if */
-
-        /* Close file ID used for search */
-        if(H5I_dec_ref(file) < 0)
-            HGOTO_ERROR(H5E_SYM, H5E_CANTCLOSEFILE, FAIL, "can't determine name")
 
         /* Indicate that the name is _not_ cached, if requested */
         /* (Currently only used for testing - QAK, 2010/07/26) */
@@ -644,7 +639,7 @@ H5G_name_reset(H5G_name_t *name)
  *
  * Return:	Success
  *
- * Programmer: Pedro Vicente
+ * Programmer: Pedro Vicente, pvn@ncsa.uiuc.edu
  *
  * Date: August 22, 2002
  *
@@ -782,7 +777,7 @@ done:
  *
  * Return: Success: 0, Failure: -1
  *
- * Programmer: Pedro Vicente
+ * Programmer: Pedro Vicente, pvn@ncsa.uiuc.edu
  *
  * Date: June 5, 2002
  *
@@ -823,18 +818,22 @@ H5G_name_replace_cb(void *obj_ptr, hid_t obj_id, void *key)
             obj_path = H5T_nameof((H5T_t *)obj_ptr);
             break;
 
+        case H5I_MAP:
+            HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "maps not supported in native VOL connector")
+
         case H5I_UNINIT:
         case H5I_BADID:
         case H5I_FILE:
         case H5I_DATASPACE:
         case H5I_ATTR:
-        case H5I_REFERENCE:
         case H5I_VFL:
+        case H5I_VOL:
         case H5I_GENPROP_CLS:
         case H5I_GENPROP_LST:
         case H5I_ERROR_CLASS:
         case H5I_ERROR_MSG:
         case H5I_ERROR_STACK:
+        case H5I_SPACE_SEL_ITER:
         case H5I_NTYPES:
         default:
             HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "unknown data object")
@@ -1061,7 +1060,7 @@ done:
  *
  * Return: Success: 0, Failure: -1
  *
- * Programmer: Pedro Vicente
+ * Programmer: Pedro Vicente, pvn@ncsa.uiuc.edu
  *
  * Date: June 11, 2002
  *
@@ -1117,6 +1116,9 @@ H5G_name_replace(const H5O_link_t *lnk, H5G_names_op_t op, H5F_t *src_file,
                                 /* Search and replace names through datatype IDs */
                                 search_datatype = TRUE;
                                 break;
+
+                            case H5O_TYPE_MAP:
+                                HGOTO_ERROR(H5E_SYM, H5E_BADTYPE, FAIL, "maps not supported in native VOL connector")
 
                             case H5O_TYPE_UNKNOWN:
                             case H5O_TYPE_NTYPES:
@@ -1204,7 +1206,7 @@ done:
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5G_get_name_by_addr_cb(hid_t gid, const char *path, const H5L_info_t *linfo,
+H5G_get_name_by_addr_cb(hid_t gid, const char *path, const H5L_info2_t *linfo,
     void *_udata)
 {
     H5G_gnba_iter_t *udata = (H5G_gnba_iter_t *)_udata; /* User data for iteration */
@@ -1223,31 +1225,39 @@ H5G_get_name_by_addr_cb(hid_t gid, const char *path, const H5L_info_t *linfo,
     HDassert(udata->path == NULL);
 
     /* Check for hard link with correct address */
-    if(linfo->type == H5L_TYPE_HARD && udata->loc->addr == linfo->u.address) {
-        H5G_loc_t	grp_loc;                /* Location of group */
+    if(linfo->type == H5L_TYPE_HARD) {
+        haddr_t link_addr;
 
-        /* Get group's location */
-        if(H5G_loc(gid, &grp_loc) < 0)
-            HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5_ITER_ERROR, "bad group location")
+        /* Retrieve hard link address from VOL token */
+        if(H5VL_native_token_to_addr(udata->loc->file, H5I_FILE, linfo->u.token, &link_addr) < 0)
+            HGOTO_ERROR(H5E_SYM, H5E_CANTUNSERIALIZE, FAIL, "can't deserialize object token into address")
 
-        /* Set up opened object location to fill in */
-        obj_loc.oloc = &obj_oloc;
-        obj_loc.path = &obj_path;
-        H5G_loc_reset(&obj_loc);
+        if(udata->loc->addr == link_addr) {
+            H5G_loc_t   grp_loc;                /* Location of group */
 
-        /* Find the object */
-        if(H5G_loc_find(&grp_loc, path, &obj_loc/*out*/) < 0)
-            HGOTO_ERROR(H5E_SYM, H5E_NOTFOUND, H5_ITER_ERROR, "object not found")
-        obj_found = TRUE;
+            /* Get group's location */
+            if(H5G_loc(gid, &grp_loc) < 0)
+                HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5_ITER_ERROR, "bad group location")
 
-        /* Check for object in same file (handles mounted files) */
-        /* (re-verify address, in case we traversed a file mount) */
-        if(udata->loc->addr == obj_loc.oloc->addr && udata->loc->file == obj_loc.oloc->file) {
-            if(NULL == (udata->path = H5MM_strdup(path)))
-                HGOTO_ERROR(H5E_SYM, H5E_CANTALLOC, H5_ITER_ERROR, "can't duplicate path string")
+            /* Set up opened object location to fill in */
+            obj_loc.oloc = &obj_oloc;
+            obj_loc.path = &obj_path;
+            H5G_loc_reset(&obj_loc);
 
-            /* We found a match so we return immediately */
-            HGOTO_DONE(H5_ITER_STOP)
+            /* Find the object */
+            if(H5G_loc_find(&grp_loc, path, &obj_loc/*out*/) < 0)
+                HGOTO_ERROR(H5E_SYM, H5E_NOTFOUND, H5_ITER_ERROR, "object not found")
+            obj_found = TRUE;
+
+            /* Check for object in same file (handles mounted files) */
+            /* (re-verify address, in case we traversed a file mount) */
+            if(udata->loc->addr == obj_loc.oloc->addr && udata->loc->file == obj_loc.oloc->file) {
+                if(NULL == (udata->path = H5MM_strdup(path)))
+                    HGOTO_ERROR(H5E_SYM, H5E_CANTALLOC, H5_ITER_ERROR, "can't duplicate path string")
+
+                /* We found a match so we return immediately */
+                HGOTO_DONE(H5_ITER_STOP)
+            } /* end if */
         } /* end if */
     } /* end if */
 
@@ -1276,7 +1286,7 @@ done:
  *-------------------------------------------------------------------------
  */
 ssize_t
-H5G_get_name_by_addr(hid_t file, const H5O_loc_t *loc, char *name, size_t size)
+H5G_get_name_by_addr(H5F_t *f, const H5O_loc_t *loc, char *name, size_t size)
 {
     H5G_gnba_iter_t udata;                  /* User data for iteration  */
     H5G_loc_t       root_loc;               /* Root group's location    */
@@ -1290,7 +1300,7 @@ H5G_get_name_by_addr(hid_t file, const H5O_loc_t *loc, char *name, size_t size)
     FUNC_ENTER_NOAPI((-1))
 
     /* Construct a group location for root group of the file */
-    if(H5G_loc(file, &root_loc) < 0)
+    if(H5G_root_loc(f, &root_loc) < 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTGET, (-1), "can't get root group's location")
 
     /* Check for root group being the object looked for */
@@ -1305,7 +1315,7 @@ H5G_get_name_by_addr(hid_t file, const H5O_loc_t *loc, char *name, size_t size)
         udata.path = NULL;
 
         /* Visit all the links in the file */
-        if((status = H5G_visit(file, "/", H5_INDEX_NAME, H5_ITER_NATIVE, H5G_get_name_by_addr_cb, &udata)) < 0)
+        if((status = H5G_visit(&root_loc, "/", H5_INDEX_NAME, H5_ITER_NATIVE, H5G_get_name_by_addr_cb, &udata)) < 0)
             HGOTO_ERROR(H5E_SYM, H5E_BADITER, (-1), "group traversal failed while looking for object name")
         else if(status > 0)
             found_obj = TRUE;

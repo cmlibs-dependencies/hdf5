@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer: Robb Matzke
+ * Programmer: Robb Matzke <matzke@llnl.gov>
  *	       Friday, October 10, 1997
  */
 
@@ -34,21 +34,21 @@ typedef struct H5VM_memcpy_ud_t {
 
 /* Local prototypes */
 static void
-H5VM__stride_optimize1(unsigned *np/*in,out*/, hsize_t *elmt_size/*in,out*/,
+H5VM_stride_optimize1(unsigned *np/*in,out*/, hsize_t *elmt_size/*in,out*/,
 		     const hsize_t *size, hsize_t *stride1);
 static void
-H5VM__stride_optimize2(unsigned *np/*in,out*/, hsize_t *elmt_size/*in,out*/,
+H5VM_stride_optimize2(unsigned *np/*in,out*/, hsize_t *elmt_size/*in,out*/,
 		     const hsize_t *size, hsize_t *stride1, hsize_t *stride2);
 #ifdef LATER
 static void
-H5VM__stride_copy2(hsize_t nelmts, hsize_t elmt_size,
+H5VM_stride_copy2(hsize_t nelmts, hsize_t elmt_size,
      unsigned dst_n, const hsize_t *dst_size, const ssize_t *dst_stride, void *_dst,
      unsigned src_n, const hsize_t *src_size, const ssize_t *src_stride, const void *_src);
 #endif /* LATER */
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5VM__stride_optimize1
+ * Function:	H5VM_stride_optimize1
  *
  * Purpose:	Given a stride vector which references elements of the
  *		specified size, optimize the dimensionality, the stride
@@ -63,13 +63,15 @@ H5VM__stride_copy2(hsize_t nelmts, hsize_t elmt_size,
  * Programmer:	Robb Matzke
  *		Saturday, October 11, 1997
  *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static void
-H5VM__stride_optimize1(unsigned *np/*in,out*/, hsize_t *elmt_size/*in,out*/,
+H5VM_stride_optimize1(unsigned *np/*in,out*/, hsize_t *elmt_size/*in,out*/,
 		     const hsize_t *size, hsize_t *stride1)
 {
-    FUNC_ENTER_STATIC_NOERR
+    FUNC_ENTER_NOAPI_NOINIT_NOERR
 
     /*
      * This has to be true because if we optimize the dimensionality down to
@@ -92,7 +94,7 @@ H5VM__stride_optimize1(unsigned *np/*in,out*/, hsize_t *elmt_size/*in,out*/,
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5VM__stride_optimize2
+ * Function:	H5VM_stride_optimize2
  *
  * Purpose:	Given two stride vectors which reference elements of the
  *		specified size, optimize the dimensionality, the stride
@@ -107,13 +109,18 @@ H5VM__stride_optimize1(unsigned *np/*in,out*/, hsize_t *elmt_size/*in,out*/,
  * Programmer:	Robb Matzke
  *		Saturday, October 11, 1997
  *
+ * Modifications:
+ *              Unrolled loops for common cases
+ *              Quincey Koziol
+ *		?, ? ?, 2001?
+ *
  *-------------------------------------------------------------------------
  */
 static void
-H5VM__stride_optimize2(unsigned *np/*in,out*/, hsize_t *elmt_size/*in,out*/,
+H5VM_stride_optimize2(unsigned *np/*in,out*/, hsize_t *elmt_size/*in,out*/,
 		     const hsize_t *size, hsize_t *stride1, hsize_t *stride2)
 {
-    FUNC_ENTER_STATIC_NOERR
+    FUNC_ENTER_NOAPI_NOINIT_NOERR
 
     /*
      * This has to be true because if we optimize the dimensionality down to
@@ -240,6 +247,11 @@ H5VM__stride_optimize2(unsigned *np/*in,out*/, hsize_t *elmt_size/*in,out*/,
  * Programmer:	Robb Matzke
  *		Saturday, October 11, 1997
  *
+ * Modifications:
+ *              Unrolled loops for common cases
+ *              Quincey Koziol
+ *		?, ? ?, 2001?
+ *
  *-------------------------------------------------------------------------
  */
 hsize_t
@@ -338,6 +350,8 @@ H5VM_hyper_stride(unsigned n, const hsize_t *size,
  * Programmer:	Robb Matzke
  *		Friday, October 17, 1997
  *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 htri_t
@@ -387,6 +401,8 @@ done:
  * Programmer:	Robb Matzke
  *		Friday, October 10, 1997
  *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 herr_t
@@ -423,7 +439,7 @@ H5VM_hyper_fill(unsigned n, const hsize_t *_size,
 
     /* Compute an optimal destination stride vector */
     dst_start = H5VM_hyper_stride(n, size, total_size, offset, dst_stride);
-    H5VM__stride_optimize1(&n, &elmt_size, size, dst_stride);
+    H5VM_stride_optimize1(&n, &elmt_size, size, dst_stride);
 
     /* Copy */
     ret_value = H5VM_stride_fill(n, elmt_size, size, dst_stride, dst+dst_start,
@@ -459,6 +475,11 @@ H5VM_hyper_fill(unsigned n, const hsize_t *_size,
  *
  * Programmer:	Robb Matzke
  *		Friday, October 10, 1997
+ *
+ * Modifications:
+ *              Unrolled loops for common cases
+ *              Quincey Koziol
+ *		?, ? ?, 2001?
  *
  *-------------------------------------------------------------------------
  */
@@ -603,7 +624,7 @@ H5VM_hyper_copy(unsigned n, const hsize_t *_size,
 #endif /* NO_INLINED_CODE */
 
     /* Optimize the strides as a pair */
-    H5VM__stride_optimize2(&n, &elmt_size, size, dst_stride, src_stride);
+    H5VM_stride_optimize2(&n, &elmt_size, size, dst_stride, src_stride);
 
     /* Perform the copy in terms of stride */
     ret_value = H5VM_stride_copy(n, elmt_size, size,
@@ -623,6 +644,8 @@ H5VM_hyper_copy(unsigned n, const hsize_t *_size,
  *
  * Programmer:	Robb Matzke
  *		Saturday, October 11, 1997
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -681,6 +704,8 @@ H5VM_stride_fill(unsigned n, hsize_t elmt_size, const hsize_t *size,
  *
  * Programmer:	Robb Matzke
  *		Saturday, October 11, 1997
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -749,6 +774,8 @@ H5VM_stride_copy(unsigned n, hsize_t elmt_size, const hsize_t *size,
  * Programmer:	Robb Matzke
  *		Saturday, October 11, 1997
  *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 herr_t
@@ -801,7 +828,7 @@ H5VM_stride_copy_s(unsigned n, hsize_t elmt_size, const hsize_t *size,
 #ifdef LATER
 
 /*-------------------------------------------------------------------------
- * Function:	H5VM__stride_copy2
+ * Function:	H5VM_stride_copy2
  *
  * Purpose:	Similar to H5VM_stride_copy() except the source and
  *		destination each have their own dimensionality and size and
@@ -813,10 +840,12 @@ H5VM_stride_copy_s(unsigned n, hsize_t elmt_size, const hsize_t *size,
  * Programmer:	Robb Matzke
  *		Saturday, October 11, 1997
  *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 static void
-H5VM__stride_copy2(hsize_t nelmts, hsize_t elmt_size,
+H5VM_stride_copy2(hsize_t nelmts, hsize_t elmt_size,
 
 		 /* destination */
 		 unsigned dst_n, const hsize_t *dst_size,
@@ -836,7 +865,7 @@ H5VM__stride_copy2(hsize_t nelmts, hsize_t elmt_size,
     int		j;              /* Local index variable */
     hbool_t	carry;
 
-    FUNC_ENTER_STATIC_NOERR
+    FUNC_ENTER_NOAPI_NOINIT_NOERR
 
     HDassert(elmt_size < SIZET_MAX);
     HDassert(dst_n>0);
@@ -888,6 +917,8 @@ H5VM__stride_copy2(hsize_t nelmts, hsize_t elmt_size,
  *
  * Programmer:	Quincey Koziol
  *		Thursday, June 18, 1998
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -943,6 +974,8 @@ H5VM_array_fill(void *_dst, const void *src, size_t size, size_t count)
  *
  * Programmer:	Quincey Koziol
  *		Monday, April 28, 2003
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -1022,6 +1055,8 @@ H5VM_array_offset_pre(unsigned n, const hsize_t *acc, const hsize_t *offset)
  *
  * Programmer:	Quincey Koziol
  *		Tuesday, June 22, 1999
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -1104,6 +1139,8 @@ H5VM_array_calc_pre(hsize_t offset, unsigned n, const hsize_t *down,
  *
  * Programmer:	Quincey Koziol
  *		Wednesday, April 16, 2003
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -1190,7 +1227,7 @@ H5VM_chunk_index(unsigned ndims, const hsize_t *coord, const uint32_t *chunk,
 
     /* Defer to H5VM_chunk_index_scaled */
     chunk_idx = H5VM_chunk_index_scaled(ndims, coord, chunk, down_nchunks, scaled_coord);
-
+    
     FUNC_LEAVE_NOAPI(chunk_idx)
 } /* end H5VM_chunk_index() */
 

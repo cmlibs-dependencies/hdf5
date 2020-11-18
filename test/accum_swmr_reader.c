@@ -20,22 +20,28 @@
 
 #include "H5CXprivate.h"        /* API Contexts                         */
 #include "H5Iprivate.h"
+#include "H5VLprivate.h"        /* Virtual Object Layer                     */
 
 /* Filename: this is the same as the define in accum.c used by test_swmr_write_big() */
-#define SWMR_FILENAME "accum_swmr_big.h5"
+const char *FILENAME[] = {
+    "accum",
+    "accum_swmr_big",
+    NULL
+};
+
 
 
 /*-------------------------------------------------------------------------
  * Function:    main
- *
- * Purpose:     This is the reader forked/execved by "test_swmr_write_big()"
+ * 
+ * Purpose:     This is the reader forked/execved by "test_swmr_write_big()" 
  *		        test in accum.c.  The reader reads at address 1024 from the file
  *		        and verifies that the metadata in the accumulator at address
  * 		        1024 does get written to disk.
- *
+ * 
  * Return:      Success: EXIT_SUCCESS
  *              Failure: EXIT_FAILURE
- *
+ * 
  * Programmer:  Vailin Choi; June 2013
  *
  *-------------------------------------------------------------------------
@@ -46,6 +52,7 @@ main(void)
     hid_t fid = -1;	        /* File ID */
     hid_t fapl = -1;        /* file access property list ID */
     H5F_t *f = NULL;	    /* File pointer */
+    char  filename[1024];
     unsigned u;		        /* Local index variable */
     uint8_t rbuf[1024];	    /* Buffer for reading */
     uint8_t buf[1024];	    /* Buffer for holding the expected data */
@@ -67,9 +74,10 @@ main(void)
 
     if((fapl = h5_fileaccess()) < 0)
         FAIL_STACK_ERROR
+    h5_fixname(FILENAME[1], fapl, filename, sizeof filename);
 
     /* Open the file with SWMR_READ */
-    if((fid = H5Fopen(SWMR_FILENAME, H5F_ACC_RDONLY | H5F_ACC_SWMR_READ, fapl)) < 0)
+    if((fid = H5Fopen(filename, H5F_ACC_RDONLY | H5F_ACC_SWMR_READ, fapl)) < 0)
         FAIL_STACK_ERROR
 
     /* Push API context */
@@ -77,7 +85,7 @@ main(void)
     api_ctx_pushed = TRUE;
 
     /* Get H5F_t * to internal file structure */
-    if(NULL == (f = (H5F_t *)H5I_object(fid)))
+    if(NULL == (f = (H5F_t *)H5VL_object(fid))) 
         FAIL_STACK_ERROR
 
     /* Should read in [1024, 2024] with buf data */
@@ -85,7 +93,7 @@ main(void)
         FAIL_STACK_ERROR;
 
     /* Verify the data read is correct */
-    if(HDmemcmp(buf, rbuf, (size_t)1024) != 0)
+    if(HDmemcmp(buf, rbuf, (size_t)1024) != 0) 
         TEST_ERROR;
 
     /* CLose the file */

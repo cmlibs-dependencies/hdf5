@@ -15,7 +15,7 @@
  *
  * Created:		H5WBprivate.h
  *			Jun 26 2007
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		Private header for library accessible wrapped buffer routines.
  *

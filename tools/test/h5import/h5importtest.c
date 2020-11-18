@@ -68,12 +68,13 @@ main(void)
     double    rowi8 = 1.0F, coli8 = 2.0F, plni8 = 5.0F;
 
     /* Initialize machine endian */
-    volatile uint32_t ibyte = 0x01234567;
+    volatile uint32_t ibyte=0x01234567;
     /* 0 for big endian, 1 for little endian. */
-    if ((*((volatile uint8_t *)(&ibyte))) == 0x67)
-        HDstrcpy(machine_order, "LE");
+    if ((*((uint8_t*)(&ibyte))) == 0x67)
+        HDstrncpy(machine_order, "LE", 2);
     else
-        HDstrcpy(machine_order, "BE");
+        HDstrncpy(machine_order, "BE", 2);
+
 
     /*
     * initialize the row, column, and plane vectors

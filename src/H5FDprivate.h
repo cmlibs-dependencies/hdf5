@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Robb Matzke
+ * Programmer:  Robb Matzke <matzke@llnl.gov>
  *              Monday, July 26, 1999
  */
 #ifndef _H5FDprivate_H
@@ -51,6 +51,7 @@ typedef struct H5FD_class_mpi_t {
     int  (*get_rank)(const H5FD_t *file);     /* Get the MPI rank of a process */
     int  (*get_size)(const H5FD_t *file);     /* Get the MPI size of a communicator */
     MPI_Comm (*get_comm)(const H5FD_t *file); /* Get the communicator for a file */
+    herr_t (*get_mpi_info)(H5FD_t *file, void** mpi_info); /* get MPI_Info for a file */
 } H5FD_class_mpi_t;
 #endif
 
@@ -94,14 +95,6 @@ typedef struct {
     const void *driver_info;    /* Driver info, for open callbacks */
 } H5FD_driver_prop_t;
 
-#ifdef H5_HAVE_PARALLEL
-/* MPIO-specific file access properties */
-typedef struct H5FD_mpio_fapl_t {
-    MPI_Comm		comm;		/*communicator			*/
-    MPI_Info		info;		/*file information		*/
-} H5FD_mpio_fapl_t;
-#endif /* H5_HAVE_PARALLEL */
-
 
 /*****************************/
 /* Library Private Variables */
@@ -122,7 +115,7 @@ H5_DLL hsize_t H5FD_sb_size(H5FD_t *file);
 H5_DLL herr_t H5FD_sb_encode(H5FD_t *file, char *name/*out*/, uint8_t *buf);
 H5_DLL herr_t H5FD_sb_load(H5FD_t *file, const char *name, const uint8_t *buf);
 H5_DLL void *H5FD_fapl_get(H5FD_t *file);
-H5_DLL herr_t H5FD_free_driver_info(hid_t driver_id, const void *driver_info);
+H5_DLL herr_t H5FD_fapl_close(hid_t driver_id, const void *fapl);
 H5_DLL hid_t H5FD_register(const void *cls, size_t size, hbool_t app_ref);
 H5_DLL H5FD_t *H5FD_open(const char *name, unsigned flags, hid_t fapl_id,
 		  haddr_t maxaddr);
@@ -159,9 +152,6 @@ H5_DLL herr_t H5FD_set_paged_aggr(H5FD_t *file, hbool_t paged);
 /* General routines */
 H5_DLL haddr_t H5FD_mpi_MPIOff_to_haddr(MPI_Offset mpi_off);
 H5_DLL herr_t H5FD_mpi_haddr_to_MPIOff(haddr_t addr, MPI_Offset *mpi_off/*out*/);
-H5_DLL herr_t H5FD_mpi_comm_info_dup(MPI_Comm comm, MPI_Info info,
-				MPI_Comm *comm_new, MPI_Info *info_new);
-H5_DLL herr_t H5FD_mpi_comm_info_free(MPI_Comm *comm, MPI_Info *info);
 #ifdef NOT_YET
 H5_DLL herr_t H5FD_mpio_wait_for_left_neighbor(H5FD_t *file);
 H5_DLL herr_t H5FD_mpio_signal_right_neighbor(H5FD_t *file);
@@ -173,6 +163,7 @@ H5_DLL herr_t H5FD_get_mpio_atomicity(H5FD_t *file, hbool_t *flag);
 H5_DLL int H5FD_mpi_get_rank(const H5FD_t *file);
 H5_DLL int H5FD_mpi_get_size(const H5FD_t *file);
 H5_DLL MPI_Comm H5FD_mpi_get_comm(const H5FD_t *_file);
+H5_DLL herr_t H5FD_get_mpi_info(H5FD_t *file, void** file_info);
 #endif /* H5_HAVE_PARALLEL */
 
 #endif /* !_H5FDprivate_H */

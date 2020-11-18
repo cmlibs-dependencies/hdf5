@@ -11,7 +11,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Quincey Koziol
+ * Programmer:  Quincey Koziol <koziol@lbl.gov>
  *              Monday, February 19, 2018
  *
  * Purpose:
@@ -33,11 +33,11 @@
 /***********/
 #include "H5private.h"          /* Generic Functions                    */
 #include "H5CXprivate.h"        /* API Contexts                         */
-#include "H5Dprivate.h"         /* Datasets                             */
+#include "H5Dprivate.h"		/* Datasets				*/
 #include "H5Eprivate.h"         /* Error handling                       */
 #include "H5FLprivate.h"        /* Free Lists                           */
 #include "H5Iprivate.h"         /* IDs                                  */
-#include "H5Lprivate.h"         /* Links                                */
+#include "H5Lprivate.h"		/* Links		  		*/
 #include "H5MMprivate.h"        /* Memory management                    */
 #include "H5Pprivate.h"         /* Property lists                       */
 
@@ -295,8 +295,8 @@ typedef struct H5CX_t {
     hbool_t nlinks_valid;       /* Whether number of soft / UD links to traverse is valid */
 
     /* Cached DCPL properties */
-    hbool_t do_min_dset_ohdr;   /* Whether to minimize dataset object header */
-    hbool_t do_min_dset_ohdr_valid;   /* Whether minimize dataset object header flag is valid */
+    hbool_t   do_min_dset_ohdr;   /* Whether to minimize dataset object header */
+    hbool_t   do_min_dset_ohdr_valid;   /* Whether minimize dataset object header flag is valid */
     uint8_t ohdr_flags;  /* Object header flags */
     hbool_t ohdr_flags_valid;  /* Whether the object headers flags are valid */
 
@@ -311,6 +311,12 @@ typedef struct H5CX_t {
     hbool_t low_bound_valid;    /* Whether low_bound property is valid */
     H5F_libver_t high_bound;    /* high_bound property for H5Pset_libver_bounds */
     hbool_t high_bound_valid;   /* Whether high_bound property is valid */
+
+    /* Cached VOL settings */
+    H5VL_connector_prop_t vol_connector_prop;  /* Property for VOL connector ID & info */
+    hbool_t vol_connector_prop_valid; /* Whether property for VOL connector ID & info is valid */
+    void *vol_wrap_ctx;         /* VOL connector's "wrap context" for creating IDs */
+    hbool_t vol_wrap_ctx_valid; /* Whether VOL connector's "wrap context" for creating IDs is valid */
 } H5CX_t;
 
 /* Typedef for nodes on the API context stack */
@@ -434,6 +440,9 @@ static H5CX_fapl_cache_t H5CX_def_fapl_cache;
 
 /* Declare a static free list to manage H5CX_node_t structs */
 H5FL_DEFINE_STATIC(H5CX_node_t);
+
+/* Declare a static free list to manage H5CX_state_t structs */
+H5FL_DEFINE_STATIC(H5CX_state_t);
 
 
 
@@ -572,6 +581,7 @@ H5CX__init_package(void)
     if(H5P_get(la_plist, H5L_ACS_NLINKS_NAME, &H5CX_def_lapl_cache.nlinks) < 0)
         HGOTO_ERROR(H5E_CONTEXT, H5E_CANTGET, FAIL, "Can't retrieve number of soft / UD links to traverse")
 
+
     /* Reset the "default DCPL cache" information */
     HDmemset(&H5CX_def_dcpl_cache, 0, sizeof(H5CX_dcpl_cache_t));
 
@@ -696,7 +706,7 @@ H5CX__get_context(void)
         /* No associated value with current thread - create one */
 #ifdef H5_HAVE_WIN_THREADS
         /* Win32 has to use LocalAlloc to match the LocalFree in DllMain */
-        ctx = (H5CX_node_t **)LocalAlloc(LPTR, sizeof(H5CX_node_t *));
+        ctx = (H5CX_node_t **)LocalAlloc(LPTR, sizeof(H5CX_node_t *)); 
 #else
         /* Use HDmalloc here since this has to match the HDfree in the
          * destructor and we want to avoid the codestack there.
@@ -826,6 +836,259 @@ H5CX_push_special(void)
 
 
 /*-------------------------------------------------------------------------
+ * Function:    H5CX_retrieve_state
+ *
+ * Purpose:     Retrieve the state of an API context, for later resumption.
+ *
+ * Note:	This routine _only_ tracks the state of API context information
+ *		set before the VOL callback is invoked, not values that are
+ *		set internal to the library.  It's main purpose is to provide
+ *		API context state to VOL connectors.
+ *
+ * Return:      Non-negative on success / Negative on failure
+ *
+ * Programmer:  Quincey Koziol
+ *              January 8, 2019
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5CX_retrieve_state(H5CX_state_t **api_state)
+{
+    H5CX_node_t **head = H5CX_get_my_context();  /* Get the pointer to the head of the API context, for this thread */
+    herr_t ret_value = SUCCEED;         /* Return value */
+
+    FUNC_ENTER_NOAPI(FAIL)
+
+    /* Sanity check */
+    HDassert(head && *head);
+    HDassert(api_state);
+
+    /* Allocate & clear API context state */
+    if(NULL == (*api_state = H5FL_CALLOC(H5CX_state_t)))
+        HGOTO_ERROR(H5E_CONTEXT, H5E_CANTALLOC, FAIL, "unable to allocate new API context state")
+
+    /* Check for non-default DCPL */
+    if(H5P_DATASET_CREATE_DEFAULT != (*head)->ctx.dcpl_id) {
+        /* Retrieve the DCPL property list */
+        H5CX_RETRIEVE_PLIST(dcpl, FAIL)
+
+        /* Copy the DCPL ID */
+        if(((*api_state)->dcpl_id = H5P_copy_plist((H5P_genplist_t *)(*head)->ctx.dcpl, FALSE)) < 0)
+            HGOTO_ERROR(H5E_CONTEXT, H5E_CANTCOPY, FAIL, "can't copy property list")
+    } /* end if */
+    else
+        (*api_state)->dcpl_id = H5P_DATASET_CREATE_DEFAULT;
+
+    /* Check for non-default DXPL */
+    if(H5P_DATASET_XFER_DEFAULT != (*head)->ctx.dxpl_id) {
+        /* Retrieve the DXPL property list */
+        H5CX_RETRIEVE_PLIST(dxpl, FAIL)
+
+        /* Copy the DXPL ID */
+        if(((*api_state)->dxpl_id = H5P_copy_plist((H5P_genplist_t *)(*head)->ctx.dxpl, FALSE)) < 0)
+            HGOTO_ERROR(H5E_CONTEXT, H5E_CANTCOPY, FAIL, "can't copy property list")
+    } /* end if */
+    else
+        (*api_state)->dxpl_id = H5P_DATASET_XFER_DEFAULT;
+
+    /* Check for non-default LAPL */
+    if(H5P_LINK_ACCESS_DEFAULT != (*head)->ctx.lapl_id) {
+        /* Retrieve the LAPL property list */
+        H5CX_RETRIEVE_PLIST(lapl, FAIL)
+
+        /* Copy the LAPL ID */
+        if(((*api_state)->lapl_id = H5P_copy_plist((H5P_genplist_t *)(*head)->ctx.lapl, FALSE)) < 0)
+            HGOTO_ERROR(H5E_CONTEXT, H5E_CANTCOPY, FAIL, "can't copy property list")
+    } /* end if */
+    else
+        (*api_state)->lapl_id = H5P_LINK_ACCESS_DEFAULT;
+
+    /* Check for non-default LCPL */
+    if(H5P_LINK_CREATE_DEFAULT != (*head)->ctx.lcpl_id) {
+        /* Retrieve the LCPL property list */
+        H5CX_RETRIEVE_PLIST(lcpl, FAIL)
+
+        /* Copy the LCPL ID */
+        if(((*api_state)->lcpl_id = H5P_copy_plist((H5P_genplist_t *)(*head)->ctx.lcpl, FALSE)) < 0)
+            HGOTO_ERROR(H5E_CONTEXT, H5E_CANTCOPY, FAIL, "can't copy property list")
+    } /* end if */
+    else
+        (*api_state)->lcpl_id = H5P_LINK_CREATE_DEFAULT;
+
+    /* Keep a reference to the current VOL wrapping context */
+    (*api_state)->vol_wrap_ctx = (*head)->ctx.vol_wrap_ctx;
+    if(NULL != (*api_state)->vol_wrap_ctx)
+        if(H5VL_inc_vol_wrapper((*api_state)->vol_wrap_ctx) < 0)
+            HGOTO_ERROR(H5E_CONTEXT, H5E_CANTINC, FAIL, "can't increment refcount on VOL wrapping context")
+
+    /* Keep a copy of the VOL connector property, if there is one */
+    if((*head)->ctx.vol_connector_prop_valid && (*head)->ctx.vol_connector_prop.connector_id > 0) {
+        /* Get the connector property */
+        H5MM_memcpy(&(*api_state)->vol_connector_prop, &(*head)->ctx.vol_connector_prop, sizeof(H5VL_connector_prop_t));
+
+        /* Check for actual VOL connector property */
+        if((*api_state)->vol_connector_prop.connector_id) {
+            /* Copy connector info, if it exists */
+            if((*api_state)->vol_connector_prop.connector_info) {
+                H5VL_class_t *connector;           /* Pointer to connector */
+                void *new_connector_info = NULL;    /* Copy of connector info */
+
+                /* Retrieve the connector for the ID */
+                if(NULL == (connector = (H5VL_class_t *)H5I_object((*api_state)->vol_connector_prop.connector_id)))
+                    HGOTO_ERROR(H5E_CONTEXT, H5E_BADTYPE, FAIL, "not a VOL connector ID")
+
+                /* Allocate and copy connector info */
+                if(H5VL_copy_connector_info(connector, &new_connector_info, (*api_state)->vol_connector_prop.connector_info) < 0)
+                    HGOTO_ERROR(H5E_CONTEXT, H5E_CANTCOPY, FAIL, "connector info copy failed")
+                (*api_state)->vol_connector_prop.connector_info = new_connector_info;
+            } /* end if */
+
+            /* Increment the refcount on the connector ID */
+            if(H5I_inc_ref((*api_state)->vol_connector_prop.connector_id, FALSE) < 0)
+                HGOTO_ERROR(H5E_CONTEXT, H5E_CANTINC, FAIL, "incrementing VOL connector ID failed")
+        } /* end if */
+    } /* end if */
+
+#ifdef H5_HAVE_PARALLEL
+    /* Save parallel I/O settings */
+    (*api_state)->coll_metadata_read = (*head)->ctx.coll_metadata_read;
+#endif /* H5_HAVE_PARALLEL */
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5CX_retrieve_state() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5CX_restore_state
+ *
+ * Purpose:     Restore an API context, from a previously retrieved state.
+ *
+ * Note:	This routine _only_ resets the state of API context information
+ *		set before the VOL callback is invoked, not values that are
+ *		set internal to the library.  It's main purpose is to restore
+ *		API context state from VOL connectors.
+ *
+ * Return:      Non-negative on success / Negative on failure
+ *
+ * Programmer:  Quincey Koziol
+ *              January 9, 2019
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5CX_restore_state(const H5CX_state_t *api_state)
+{
+    H5CX_node_t **head = H5CX_get_my_context();  /* Get the pointer to the head of the API context, for this thread */
+
+    FUNC_ENTER_NOAPI_NOINIT_NOERR
+
+    /* Sanity check */
+    HDassert(head && *head);
+    HDassert(api_state);
+
+    /* Restore the DCPL info */
+    (*head)->ctx.dcpl_id = api_state->dcpl_id;
+    (*head)->ctx.dcpl = NULL;
+
+    /* Restore the DXPL info */
+    (*head)->ctx.dxpl_id = api_state->dxpl_id;
+    (*head)->ctx.dxpl = NULL;
+
+    /* Restore the LAPL info */
+    (*head)->ctx.lapl_id = api_state->lapl_id;
+    (*head)->ctx.lapl = NULL;
+
+    /* Restore the LCPL info */
+    (*head)->ctx.lcpl_id = api_state->lcpl_id;
+    (*head)->ctx.lcpl = NULL;
+
+    /* Restore the VOL wrapper context */
+    (*head)->ctx.vol_wrap_ctx = api_state->vol_wrap_ctx;
+
+    /* Restore the VOL connector info */
+    if(api_state->vol_connector_prop.connector_id) {
+        H5MM_memcpy(&(*head)->ctx.vol_connector_prop, &api_state->vol_connector_prop, sizeof(H5VL_connector_prop_t));
+        (*head)->ctx.vol_connector_prop_valid = TRUE;
+    } /* end if */
+
+#ifdef H5_HAVE_PARALLEL
+    /* Restore parallel I/O settings */
+    (*head)->ctx.coll_metadata_read = api_state->coll_metadata_read;
+#endif /* H5_HAVE_PARALLEL */
+
+    FUNC_LEAVE_NOAPI(SUCCEED)
+} /* end H5CX_restore_state() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5CX_free_state
+ *
+ * Purpose:     Free a previously retrievedAPI context state
+ *
+ * Return:      Non-negative on success / Negative on failure
+ *
+ * Programmer:  Quincey Koziol
+ *              January 9, 2019
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5CX_free_state(H5CX_state_t *api_state)
+{
+    herr_t ret_value = SUCCEED;         /* Return value */
+
+    FUNC_ENTER_NOAPI(FAIL)
+
+    /* Sanity check */
+    HDassert(api_state);
+
+    /* Release the DCPL */
+    if(api_state->dcpl_id != H5P_DATASET_CREATE_DEFAULT)
+        if(H5I_dec_ref(api_state->dcpl_id) < 0)
+            HGOTO_ERROR(H5E_CONTEXT, H5E_CANTDEC, FAIL, "can't decrement refcount on DCPL")
+
+    /* Release the DXPL */
+    if(api_state->dxpl_id != H5P_DATASET_XFER_DEFAULT)
+        if(H5I_dec_ref(api_state->dxpl_id) < 0)
+            HGOTO_ERROR(H5E_CONTEXT, H5E_CANTDEC, FAIL, "can't decrement refcount on DXPL")
+
+    /* Release the LAPL */
+    if(api_state->lapl_id != H5P_LINK_ACCESS_DEFAULT)
+        if(H5I_dec_ref(api_state->lapl_id) < 0)
+            HGOTO_ERROR(H5E_CONTEXT, H5E_CANTDEC, FAIL, "can't decrement refcount on LAPL")
+
+    /* Release the LCPL */
+    if(api_state->lcpl_id != H5P_LINK_CREATE_DEFAULT)
+        if(H5I_dec_ref(api_state->lcpl_id) < 0)
+            HGOTO_ERROR(H5E_CONTEXT, H5E_CANTDEC, FAIL, "can't decrement refcount on LCPL")
+
+    /* Release the VOL wrapper context */
+    if(api_state->vol_wrap_ctx)
+        if(H5VL_dec_vol_wrapper(api_state->vol_wrap_ctx) < 0)
+            HGOTO_ERROR(H5E_CONTEXT, H5E_CANTDEC, FAIL, "can't decrement refcount on VOL wrapping context")
+
+    /* Release the VOL connector property, if it was set */
+    if(api_state->vol_connector_prop.connector_id) {
+        /* Clean up any VOL connector info */
+        if(api_state->vol_connector_prop.connector_info)
+            if(H5VL_free_connector_info(api_state->vol_connector_prop.connector_id, api_state->vol_connector_prop.connector_info) < 0)
+                HGOTO_ERROR(H5E_CONTEXT, H5E_CANTRELEASE, FAIL, "unable to release VOL connector info object")
+        /* Decrement connector ID */
+        if(H5I_dec_ref(api_state->vol_connector_prop.connector_id) < 0)
+            HDONE_ERROR(H5E_CONTEXT, H5E_CANTDEC, FAIL, "can't close VOL connector ID")
+    } /* end if */
+
+    /* Free the state */
+    api_state = H5FL_FREE(H5CX_state_t, api_state);
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5CX_free_state() */
+
+
+/*-------------------------------------------------------------------------
  * Function:    H5CX_is_def_dxpl
  *
  * Purpose:     Checks if the API context is using the library's default DXPL
@@ -908,7 +1171,6 @@ H5CX_set_dcpl(hid_t dcpl_id)
     FUNC_LEAVE_NOAPI_VOID
 } /* end H5CX_set_dcpl() */
 
-
 /*-------------------------------------------------------------------------
  * Function:    H5CX_set_libver_bounds
  *
@@ -1189,6 +1451,74 @@ done:
 
 
 /*-------------------------------------------------------------------------
+ * Function:    H5CX_set_vol_wrap_ctx
+ *
+ * Purpose:     Sets the VOL object wrapping context for an operation.
+ *
+ * Return:      Non-negative on success / Negative on failure
+ *
+ * Programmer:  Quincey Koziol
+ *              October 14, 2018
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5CX_set_vol_wrap_ctx(void *vol_wrap_ctx)
+{
+    H5CX_node_t **head = H5CX_get_my_context();  /* Get the pointer to the head of the API context, for this thread */
+    herr_t ret_value = SUCCEED;         /* Return value */
+
+    FUNC_ENTER_NOAPI(FAIL)
+
+    /* Sanity check */
+    HDassert(head && *head);
+
+    /* Set the API context value */
+    (*head)->ctx.vol_wrap_ctx = vol_wrap_ctx;
+
+    /* Mark the value as valid */
+    (*head)->ctx.vol_wrap_ctx_valid = TRUE;
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5CX_set_vol_wrap_ctx() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5CX_set_vol_connector_prop
+ *
+ * Purpose:     Sets the VOL connector ID & info for an operation.
+ *
+ * Return:      Non-negative on success / Negative on failure
+ *
+ * Programmer:  Quincey Koziol
+ *              January 3, 2019
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5CX_set_vol_connector_prop(const H5VL_connector_prop_t *vol_connector_prop)
+{
+    H5CX_node_t **head = H5CX_get_my_context();  /* Get the pointer to the head of the API context, for this thread */
+    herr_t ret_value = SUCCEED;         /* Return value */
+
+    FUNC_ENTER_NOAPI(FAIL)
+
+    /* Sanity check */
+    HDassert(head && *head);
+
+    /* Set the API context value */
+    H5MM_memcpy(&(*head)->ctx.vol_connector_prop, vol_connector_prop, sizeof(H5VL_connector_prop_t));
+
+    /* Mark the value as valid */
+    (*head)->ctx.vol_connector_prop_valid = TRUE;
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5CX_set_vol_connector_prop() */
+
+
+/*-------------------------------------------------------------------------
  * Function:    H5CX_get_dxpl
  *
  * Purpose:     Retrieves the DXPL ID for the current API call context.
@@ -1238,6 +1568,78 @@ H5CX_get_lapl(void)
 
     FUNC_LEAVE_NOAPI((*head)->ctx.lapl_id)
 } /* end H5CX_get_lapl() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5CX_get_vol_wrap_ctx
+ *
+ * Purpose:     Retrieves the VOL object wrapping context for an operation.
+ *
+ * Return:      Non-negative on success / Negative on failure
+ *
+ * Programmer:  Quincey Koziol
+ *              October 14, 2018
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5CX_get_vol_wrap_ctx(void **vol_wrap_ctx)
+{
+    H5CX_node_t **head = H5CX_get_my_context();  /* Get the pointer to the head of the API context, for this thread */
+    herr_t ret_value = SUCCEED;         /* Return value */
+
+    FUNC_ENTER_NOAPI(FAIL)
+
+    /* Sanity check */
+    HDassert(vol_wrap_ctx);
+    HDassert(head && *head);
+
+    /* Check for value that was set */
+    if((*head)->ctx.vol_wrap_ctx_valid)
+        /* Get the value */
+        *vol_wrap_ctx = (*head)->ctx.vol_wrap_ctx;
+    else
+        *vol_wrap_ctx = NULL;
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5CX_get_vol_wrap_ctx() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5CX_get_vol_connector_prop
+ *
+ * Purpose:     Retrieves the VOL connector ID & info for an operation.
+ *
+ * Return:      Non-negative on success / Negative on failure
+ *
+ * Programmer:  Quincey Koziol
+ *              January 3, 2019
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5CX_get_vol_connector_prop(H5VL_connector_prop_t *vol_connector_prop)
+{
+    H5CX_node_t **head = H5CX_get_my_context();  /* Get the pointer to the head of the API context, for this thread */
+    herr_t ret_value = SUCCEED;         /* Return value */
+
+    FUNC_ENTER_NOAPI(FAIL)
+
+    /* Sanity check */
+    HDassert(vol_connector_prop);
+    HDassert(head && *head);
+
+    /* Check for value that was set */
+    if((*head)->ctx.vol_connector_prop_valid)
+        /* Get the value */
+        H5MM_memcpy(vol_connector_prop, &(*head)->ctx.vol_connector_prop, sizeof(H5VL_connector_prop_t));
+    else
+        HDmemset(vol_connector_prop, 0, sizeof(H5VL_connector_prop_t));
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5CX_get_vol_connector_prop() */
 
 
 /*-------------------------------------------------------------------------
@@ -1382,7 +1784,7 @@ H5CX_get_mpi_file_flushing(void)
 
 
 /*-------------------------------------------------------------------------
- * Function:    H5CX_get_mpio_rank0_bcast
+ * Function:    H5CX_get_mpio_rank0_bcast 
  *
  * Purpose:     Retrieves if the dataset meets read-with-rank0-and-bcast requirements for the current API call context.
  *
@@ -2191,43 +2593,6 @@ done:
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5CX_get_nlinks() */
 
-
-/*-------------------------------------------------------------------------
- * Function:    H5CX_get_dset_min_ohdr_flag
- *
- * Purpose:     Retrieves the flag that indicates whether the dataset object
- *		header should be minimized
- *
- * Return:      Non-negative on success / Negative on failure
- *
- * Programmer:  Quincey Koziol
- *              March 6, 2019
- *
- *-------------------------------------------------------------------------
- */
-herr_t
-H5CX_get_dset_min_ohdr_flag(hbool_t *dset_min_ohdr_flag)
-{
-    H5CX_node_t **head = H5CX_get_my_context();  /* Get the pointer to the head of the API context, for this thread */
-    herr_t ret_value = SUCCEED;         /* Return value */
-
-    FUNC_ENTER_NOAPI(FAIL)
-
-    /* Sanity check */
-    HDassert(dset_min_ohdr_flag);
-    HDassert(head && *head);
-    HDassert(H5P_DEFAULT != (*head)->ctx.dcpl_id);
-
-    H5CX_RETRIEVE_PROP_VALID(dcpl, H5P_DATASET_CREATE_DEFAULT, H5D_CRT_MIN_DSET_HDR_SIZE_NAME, do_min_dset_ohdr)
-
-    /* Get the value */
-    *dset_min_ohdr_flag = (*head)->ctx.do_min_dset_ohdr;
-
-done:
-    FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5CX_get_dset_min_ohdr_flag() */
-
-
 /*-------------------------------------------------------------------------
  * Function:    H5CX_get_libver_bounds
  *
@@ -2264,6 +2629,42 @@ H5CX_get_libver_bounds(H5F_libver_t *low_bound, H5F_libver_t *high_bound)
 done:
     FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5CX_get_libver_bounds() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5CX_get_dset_min_ohdr_flag
+ *
+ * Purpose:     Retrieves the flag that indicates whether the dataset object
+ *		header should be minimized
+ *
+ * Return:      Non-negative on success / Negative on failure
+ *
+ * Programmer:  Quincey Koziol
+ *              March 6, 2019
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5CX_get_dset_min_ohdr_flag(hbool_t *dset_min_ohdr_flag)
+{
+    H5CX_node_t **head = H5CX_get_my_context();  /* Get the pointer to the head of the API context, for this thread */
+    herr_t ret_value = SUCCEED;         /* Return value */
+
+    FUNC_ENTER_NOAPI(FAIL)
+
+    /* Sanity check */
+    HDassert(dset_min_ohdr_flag);
+    HDassert(head && *head);
+    HDassert(H5P_DEFAULT != (*head)->ctx.dcpl_id);
+
+    H5CX_RETRIEVE_PROP_VALID(dcpl, H5P_DATASET_CREATE_DEFAULT, H5D_CRT_MIN_DSET_HDR_SIZE_NAME, do_min_dset_ohdr)
+
+    /* Get the value */
+    *dset_min_ohdr_flag = (*head)->ctx.do_min_dset_ohdr;
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5CX_get_dset_min_ohdr_flag() */
 
 
 /*-------------------------------------------------------------------------
@@ -2719,7 +3120,7 @@ H5CX_set_mpio_actual_chunk_opt(H5D_mpio_actual_chunk_opt_mode_t mpio_actual_chun
 
     /* Sanity checks */
     HDassert(head && *head);
-    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT ||
+    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT || 
             (*head)->ctx.dxpl_id == H5P_DATASET_XFER_DEFAULT));
 
     /* Cache the value for later, marking it to set in DXPL when context popped */
@@ -2751,7 +3152,7 @@ H5CX_set_mpio_actual_io_mode(H5D_mpio_actual_io_mode_t mpio_actual_io_mode)
 
     /* Sanity checks */
     HDassert(head && *head);
-    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT ||
+    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT || 
             (*head)->ctx.dxpl_id == H5P_DATASET_XFER_DEFAULT));
 
     /* Cache the value for later, marking it to set in DXPL when context popped */
@@ -2855,7 +3256,7 @@ H5CX_test_set_mpio_coll_chunk_link_hard(int mpio_coll_chunk_link_hard)
 
     /* Sanity checks */
     HDassert(head && *head);
-    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT ||
+    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT || 
             (*head)->ctx.dxpl_id == H5P_DATASET_XFER_DEFAULT));
 
     H5CX_TEST_SET_PROP(H5D_XFER_COLL_CHUNK_LINK_HARD_NAME, mpio_coll_chunk_link_hard)
@@ -2889,7 +3290,7 @@ H5CX_test_set_mpio_coll_chunk_multi_hard(int mpio_coll_chunk_multi_hard)
 
     /* Sanity checks */
     HDassert(head && *head);
-    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT ||
+    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT || 
             (*head)->ctx.dxpl_id == H5P_DATASET_XFER_DEFAULT));
 
     H5CX_TEST_SET_PROP(H5D_XFER_COLL_CHUNK_MULTI_HARD_NAME, mpio_coll_chunk_multi_hard)
@@ -2923,7 +3324,7 @@ H5CX_test_set_mpio_coll_chunk_link_num_true(int mpio_coll_chunk_link_num_true)
 
     /* Sanity checks */
     HDassert(head && *head);
-    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT ||
+    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT || 
             (*head)->ctx.dxpl_id == H5P_DATASET_XFER_DEFAULT));
 
     H5CX_TEST_SET_PROP(H5D_XFER_COLL_CHUNK_LINK_NUM_TRUE_NAME, mpio_coll_chunk_link_num_true)
@@ -2957,7 +3358,7 @@ H5CX_test_set_mpio_coll_chunk_link_num_false(int mpio_coll_chunk_link_num_false)
 
     /* Sanity checks */
     HDassert(head && *head);
-    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT ||
+    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT || 
             (*head)->ctx.dxpl_id == H5P_DATASET_XFER_DEFAULT));
 
     H5CX_TEST_SET_PROP(H5D_XFER_COLL_CHUNK_LINK_NUM_FALSE_NAME, mpio_coll_chunk_link_num_false)
@@ -2991,7 +3392,7 @@ H5CX_test_set_mpio_coll_chunk_multi_ratio_coll(int mpio_coll_chunk_multi_ratio_c
 
     /* Sanity checks */
     HDassert(head && *head);
-    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT ||
+    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT || 
             (*head)->ctx.dxpl_id == H5P_DATASET_XFER_DEFAULT));
 
     H5CX_TEST_SET_PROP(H5D_XFER_COLL_CHUNK_MULTI_RATIO_COLL_NAME, mpio_coll_chunk_multi_ratio_coll)
@@ -3025,7 +3426,7 @@ H5CX_test_set_mpio_coll_chunk_multi_ratio_ind(int mpio_coll_chunk_multi_ratio_in
 
     /* Sanity checks */
     HDassert(head && *head);
-    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT ||
+    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT || 
             (*head)->ctx.dxpl_id == H5P_DATASET_XFER_DEFAULT));
 
     H5CX_TEST_SET_PROP(H5D_XFER_COLL_CHUNK_MULTI_RATIO_IND_NAME, mpio_coll_chunk_multi_ratio_ind)
@@ -3059,7 +3460,7 @@ H5CX_test_set_mpio_coll_rank0_bcast(hbool_t mpio_coll_rank0_bcast)
 
     /* Sanity checks */
     HDassert(head && *head);
-    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT ||
+    HDassert(!((*head)->ctx.dxpl_id == H5P_DEFAULT || 
             (*head)->ctx.dxpl_id == H5P_DATASET_XFER_DEFAULT));
 
     H5CX_TEST_SET_PROP(H5D_XFER_COLL_RANK0_BCAST_NAME, mpio_coll_rank0_bcast)

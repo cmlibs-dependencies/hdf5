@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Quincey Koziol
+ * Programmer:  Quincey Koziol <koziol@ncsa.uiuc.edu>
  *              Friday, April 28, 2006
  *
  * Purpose:     Test support stuff.

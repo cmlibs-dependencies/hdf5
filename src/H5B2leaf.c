@@ -15,7 +15,7 @@
  *
  * Created:		H5B2leaf.c
  *			Dec 01 2016
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@lbl.gov>
  *
  * Purpose:		Routines for managing v2 B-tree leaf ndoes.
  *
@@ -88,6 +88,7 @@ H5FL_DEFINE(H5B2_leaf_t);
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb  2 2005
  *
  *-------------------------------------------------------------------------
@@ -173,6 +174,7 @@ done:
  * Return:	Pointer to leaf node on success/NULL on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		May  5 2010
  *
  *-------------------------------------------------------------------------
@@ -264,6 +266,7 @@ done:
  * Return:	Non-negative on success, negative on failure.
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar  9 2005
  *
  *-------------------------------------------------------------------------
@@ -337,6 +340,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar  3 2005
  *
  *-------------------------------------------------------------------------
@@ -449,6 +453,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Dec 23 2015
  *
  *-------------------------------------------------------------------------
@@ -603,6 +608,7 @@ done:
  *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar  4 2005
  *
  *-------------------------------------------------------------------------
@@ -759,14 +765,14 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar  3 2005
  *
  *-------------------------------------------------------------------------
  */
 herr_t
 H5B2__remove_leaf(H5B2_hdr_t *hdr, H5B2_node_ptr_t *curr_node_ptr,
-    H5B2_nodepos_t curr_pos, void *parent, void *udata, H5B2_remove_t op,
-    void *op_data)
+    H5B2_nodepos_t curr_pos, void *parent, void *udata, H5B2_remove_t op, void *op_data)
 {
     H5B2_leaf_t *leaf;                  /* Pointer to leaf node */
     haddr_t     leaf_addr = HADDR_UNDEF;  /* Leaf address on disk */
@@ -868,6 +874,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov 14 2006
  *
  *-------------------------------------------------------------------------
@@ -969,6 +976,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb 2 2005
  *
  *-------------------------------------------------------------------------
@@ -1013,12 +1021,13 @@ done:
  * Return:	Non-negative on success, negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb 19 2005
  *
  *-------------------------------------------------------------------------
  */
 H5_ATTR_PURE herr_t
-H5B2__assert_leaf(const H5B2_hdr_t H5_ATTR_NDEBUG_UNUSED *hdr,
+H5B2__assert_leaf(const H5B2_hdr_t H5_ATTR_NDEBUG_UNUSED *hdr, 
     const H5B2_leaf_t H5_ATTR_NDEBUG_UNUSED *leaf)
 {
     /* General sanity checking on node */
@@ -1036,12 +1045,13 @@ H5B2__assert_leaf(const H5B2_hdr_t H5_ATTR_NDEBUG_UNUSED *hdr,
  * Return:	Non-negative on success, negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb 19 2005
  *
  *-------------------------------------------------------------------------
  */
 H5_ATTR_PURE herr_t
-H5B2__assert_leaf2(const H5B2_hdr_t H5_ATTR_NDEBUG_UNUSED *hdr, const H5B2_leaf_t H5_ATTR_NDEBUG_UNUSED *leaf, const H5B2_leaf_t H5_ATTR_UNUSED *leaf2)
+H5B2__assert_leaf2(const H5B2_hdr_t *hdr, const H5B2_leaf_t *leaf, const H5B2_leaf_t H5_ATTR_UNUSED *leaf2)
 {
     /* General sanity checking on node */
     HDassert(leaf->nrec <= hdr->node_info->split_nrec);

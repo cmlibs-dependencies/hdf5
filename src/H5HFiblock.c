@@ -15,7 +15,7 @@
  *
  * Created:		H5HFiblock.c
  *			Apr 10 2006
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@ncsa.uiuc.edu>
  *
  * Purpose:		Indirect block routines for fractal heaps.
  *
@@ -99,6 +99,7 @@ H5FL_SEQ_DEFINE(H5HF_indirect_ptr_t);
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 17 2006
  *
  *-------------------------------------------------------------------------
@@ -165,6 +166,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 17 2006
  *
  *-------------------------------------------------------------------------
@@ -196,6 +198,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 27 2006
  *
  *-------------------------------------------------------------------------
@@ -232,6 +235,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 27 2006
  *
  *-------------------------------------------------------------------------
@@ -313,6 +317,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar 21 2006
  *
  *-------------------------------------------------------------------------
@@ -344,6 +349,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May  2 2006
  *
  *-------------------------------------------------------------------------
@@ -486,6 +492,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Apr 17 2006
  *
  *-------------------------------------------------------------------------
@@ -661,6 +668,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Jun 12 2006
  *
  *-------------------------------------------------------------------------
@@ -788,6 +796,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 31 2006
  *
  *-------------------------------------------------------------------------
@@ -877,6 +886,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July  6 2006
  *
  *-------------------------------------------------------------------------
@@ -943,6 +953,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar  6 2006
  *
  *-------------------------------------------------------------------------
@@ -1084,6 +1095,7 @@ done:
  * Return:	Pointer to indirect block on success, NULL on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Apr 17 2006
  *
  *-------------------------------------------------------------------------
@@ -1214,6 +1226,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 17 2006
  *
  *-------------------------------------------------------------------------
@@ -1267,6 +1280,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 30 2006
  *
  *-------------------------------------------------------------------------
@@ -1331,6 +1345,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 31 2006
  *
  *-------------------------------------------------------------------------
@@ -1543,6 +1558,7 @@ done:
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		July 10 2006
  *
  *-------------------------------------------------------------------------
@@ -1577,6 +1593,7 @@ H5HF_man_iblock_entry_addr(H5HF_indirect_t *iblock, unsigned entry, haddr_t *chi
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug  7 2006
  *
  *-------------------------------------------------------------------------
@@ -1757,6 +1774,7 @@ done:
  * Return:	Non-negative on success / Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@lbl.gov
  *		Jan 14 2018
  *
  *-------------------------------------------------------------------------
@@ -1787,7 +1805,7 @@ H5HF__man_iblock_parent_info(const H5HF_hdr_t *hdr, hsize_t block_off,
     /* Sanity check - first lookup must be an indirect block */
     HDassert(row >= hdr->man_dtable.max_direct_rows);
 
-    /* Traverse down, until a direct block at the offset is found, then
+    /* Traverse down, until a direct block at the offset is found, then 
      *	use previous (i.e. parent's) offset, row, and column.
      */
     prev_par_block_off = par_block_off = 0;
@@ -1830,6 +1848,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar  6 2006
  *
  *-------------------------------------------------------------------------

@@ -15,7 +15,7 @@
  *
  * Created:     H5HLprfx.c
  *              Summer 2012
- *              Dana Robinson
+ *              Dana Robinson <derobins@hdfgroup.org>
  *
  * Purpose:     Prefix routines for local heaps.
  *

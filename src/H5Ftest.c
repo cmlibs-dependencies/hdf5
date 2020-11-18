@@ -15,7 +15,7 @@
  *
  * Created:		H5Ftest.c
  *			Jan  3 2007
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		File testing routines.
  *
@@ -44,6 +44,7 @@
 #include "H5Gpkg.h"             /* Groups                                   */
 #include "H5Iprivate.h"         /* IDs                                      */
 #include "H5SMpkg.h"            /* Shared object header messages            */
+#include "H5VLprivate.h"        /* Virtual Object Layer                     */
 
 
 /****************/
@@ -103,7 +104,7 @@ H5F__get_sohm_mesg_count_test(hid_t file_id, unsigned type_id, size_t *mesg_coun
     FUNC_ENTER_PACKAGE
 
     /* Check arguments */
-    if(NULL == (file = (H5F_t *)H5I_object_verify(file_id, H5I_FILE)))
+    if(NULL == (file = (H5F_t *)H5VL_object_verify(file_id, H5I_FILE)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a file")
 
     /* Push API context */
@@ -148,7 +149,7 @@ H5F__check_cached_stab_test(hid_t file_id)
     FUNC_ENTER_PACKAGE
 
     /* Check arguments */
-    if(NULL == (file = (H5F_t *)H5I_object_verify(file_id, H5I_FILE)))
+    if(NULL == (file = (H5F_t *)H5VL_object_verify(file_id, H5I_FILE)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a file")
 
     /* Push API context */
@@ -189,7 +190,7 @@ H5F__get_maxaddr_test(hid_t file_id, haddr_t *maxaddr)
     FUNC_ENTER_PACKAGE
 
     /* Check arguments */
-    if(NULL == (file = (H5F_t *)H5I_object_verify(file_id, H5I_FILE)))
+    if(NULL == (file = (H5F_t *)H5VL_object_verify(file_id, H5I_FILE)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a file")
 
     /* Retrieve maxaddr for file */
@@ -222,7 +223,7 @@ H5F__get_sbe_addr_test(hid_t file_id, haddr_t *sbe_addr)
     FUNC_ENTER_PACKAGE
 
     /* Check arguments */
-    if(NULL == (file = (H5F_t *)H5I_object_verify(file_id, H5I_FILE)))
+    if(NULL == (file = (H5F_t *)H5VL_object_verify(file_id, H5I_FILE)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a file")
 
     /* Retrieve maxaddr for file */
@@ -234,34 +235,35 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:    H5F__reparse_file_lock_variable_test
+ * Function:    H5F__same_file_test
  *
- * Purpose:     Re-parse the file locking environment variable.
- *
- *              Since getenv(3) is fairly expensive, we only parse it once,
- *              when the library opens. This test function is used to
- *              re-parse the environment variable after we've changed it
- *              with setnev(3).
+ * Purpose:     Check if two file IDs refer to the same underlying file.
  *
  * Return:      SUCCEED/FAIL
  *
- * Programmer:	Dana Robinson
- *              Summer 2020
+ * Programmer:	Quincey Koziol
+ *	        Oct 13, 2018
  *
  *-------------------------------------------------------------------------
  */
-herr_t
-H5F__reparse_file_lock_variable_test(void)
+htri_t
+H5F__same_file_test(hid_t file_id1, hid_t file_id2)
 {
-    herr_t ret_value = SUCCEED;
+    H5F_t      *file1, *file2;          /* File info */
+    htri_t      ret_value = FAIL;       /* Return value */
 
     FUNC_ENTER_PACKAGE
 
-    /* Check the file locking environment variable */
-    if(H5F__parse_file_lock_env_var(&use_locks_env_g) < 0)
-        HGOTO_ERROR(H5E_FILE, H5E_CANTGET, FAIL, "unable to parse file locking environment variable")
+    /* Check arguments */
+    if(NULL == (file1 = (H5F_t *)H5VL_object_verify(file_id1, H5I_FILE)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a file")
+    if(NULL == (file2 = (H5F_t *)H5VL_object_verify(file_id2, H5I_FILE)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a file")
+
+    /* If they are using the same underlying "shared" file struct, they are the same file */
+    ret_value = (file1->shared == file2->shared);
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5F__reparse_file_lock_variable_test() */
+} /* end H5F__same_file_test() */
 

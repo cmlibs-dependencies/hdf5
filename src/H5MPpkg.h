@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:	Quincey Koziol
+ * Programmer:	Quincey Koziol <koziol@ncsa.uiuc.edu>
  *		Monday, May  2, 2005
  *
  * Purpose:	This file contains declarations which are visible only within

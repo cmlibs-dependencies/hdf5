@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Robb Matzke
+ * Programmer:  Robb Matzke <matzke@llnl.gov>
  *              Friday, March 27, 1998
  */
 #ifndef _H5HGprivate_H
@@ -48,6 +48,10 @@ typedef struct H5HG_heap_t H5HG_heap_t;
 #define H5HG_SIZE(H)            (H5HG_get_size(H))
 #define H5HG_FREE_SIZE(H)       (H5HG_get_free_size(H))
 #endif /* H5HG_MODULE */
+
+/* Size of encoded global heap ID */
+/* (size of file address + 32-bit integer) */
+#define H5HG_HEAP_ID_SIZE(F)    ((size_t)H5F_SIZEOF_ADDR(F) + H5_SIZEOF_UINT32_T)
 
 
 /* Main global heap routines */

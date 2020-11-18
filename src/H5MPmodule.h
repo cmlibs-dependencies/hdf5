@@ -11,7 +11,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:	Quincey Koziol
+ * Programmer:	Quincey Koziol <koziol@hdfgroup.org>
  *		Saturday, September 12, 2015
  *
  * Purpose:	This file contains declarations which define macros for the

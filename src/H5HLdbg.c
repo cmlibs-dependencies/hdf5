@@ -11,7 +11,7 @@
  * help@hdfgroup.org.                                                        *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/* Programmer:  Quincey Koziol
+/* Programmer:  Quincey Koziol <koziol@hdfgroup.org>
  *              Wednesday, July 9, 2003
  *
  * Purpose:     Local Heap object debugging functions.

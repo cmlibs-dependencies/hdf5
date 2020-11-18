@@ -19,6 +19,7 @@ set (VFD_LIST
     sec2
     stdio
     core
+    core_paged
     split
     multi
     family

@@ -15,7 +15,7 @@
  *
  * Created:		H5EAstat.c
  *			Sep 11 2008
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:	        Extensible array metadata statistics functions.
  *
@@ -87,6 +87,7 @@
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 21 2008
  *
  *-------------------------------------------------------------------------
@@ -96,6 +97,10 @@ herr_t, SUCCEED, -,
 H5EA_get_stats(const H5EA_t *ea, H5EA_stat_t *stats))
 
     /* Local variables */
+
+#ifdef QAK
+HDfprintf(stderr, "%s: Called\n", FUNC);
+#endif /* QAK */
 
     /*
      * Check arguments.

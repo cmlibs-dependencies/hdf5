@@ -15,7 +15,7 @@
  *
  * Created:		H5HFdbg.c
  *			Feb 24 2006
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@ncsa.uiuc.edu>
  *
  * Purpose:		Dump debugging information about a fractal heap
  *
@@ -78,7 +78,7 @@ typedef struct {
 /* Local Prototypes */
 /********************/
 
-static herr_t H5HF__dtable_debug(const H5HF_dtable_t *dtable, FILE *stream,
+static herr_t H5HF_dtable_debug(const H5HF_dtable_t *dtable, FILE *stream,
     int indent, int fwidth);
 
 
@@ -105,6 +105,7 @@ static herr_t H5HF__dtable_debug(const H5HF_dtable_t *dtable, FILE *stream,
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 20 2015
  *
  *-------------------------------------------------------------------------
@@ -171,21 +172,22 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5HF__dtable_debug
+ * Function:	H5HF_dtable_debug
  *
  * Purpose:	Prints debugging info about a doubling table
  *
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb 28 2006
  *
  *-------------------------------------------------------------------------
  */
 static herr_t
-H5HF__dtable_debug(const H5HF_dtable_t *dtable, FILE *stream, int indent, int fwidth)
+H5HF_dtable_debug(const H5HF_dtable_t *dtable, FILE *stream, int indent, int fwidth)
 {
-    FUNC_ENTER_STATIC_NOERR
+    FUNC_ENTER_NOAPI_NOINIT_NOERR
 
     /*
      * Check arguments.
@@ -238,7 +240,7 @@ H5HF__dtable_debug(const H5HF_dtable_t *dtable, FILE *stream, int indent, int fw
 	      dtable->num_id_first_row);
 
     FUNC_LEAVE_NOAPI(SUCCEED)
-} /* end H5HF__dtable_debug() */
+} /* end H5HF_dtable_debug() */
 
 
 /*-------------------------------------------------------------------------
@@ -249,6 +251,7 @@ H5HF__dtable_debug(const H5HF_dtable_t *dtable, FILE *stream, int indent, int fw
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Feb 23 2012
  *
  *-------------------------------------------------------------------------
@@ -325,7 +328,7 @@ H5HF_hdr_print(const H5HF_hdr_t *hdr, hbool_t dump_internal, FILE *stream, int i
 	      hdr->tiny_nobjs);
 
     HDfprintf(stream, "%*sManaged Objects Doubling-Table Info...\n", indent, "");
-    H5HF__dtable_debug(&hdr->man_dtable, stream, indent + 3, MAX(0, fwidth - 3));
+    H5HF_dtable_debug(&hdr->man_dtable, stream, indent + 3, MAX(0, fwidth - 3));
 
     /* Print information about I/O filters */
     if(hdr->filter_len > 0) {
@@ -368,6 +371,7 @@ H5HF_hdr_print(const H5HF_hdr_t *hdr, hbool_t dump_internal, FILE *stream, int i
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb 24 2006
  *
  *-------------------------------------------------------------------------
@@ -412,6 +416,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 13 2006
  *
  *-------------------------------------------------------------------------
@@ -495,6 +500,7 @@ H5HF_dblock_debug_cb(H5FS_section_info_t *_sect, void *_udata)
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Feb 28 2006
  *
  *-------------------------------------------------------------------------
@@ -621,6 +627,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Feb 23 2012
  *
  *-------------------------------------------------------------------------
@@ -752,6 +759,7 @@ H5HF_iblock_print(const H5HF_indirect_t *iblock,
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Mar  7 2006
  *
  *-------------------------------------------------------------------------
@@ -809,6 +817,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May 13 2006
  *
  *-------------------------------------------------------------------------
@@ -840,6 +849,11 @@ H5HF_sects_debug_cb(H5FS_section_info_t *_sect, void *_udata)
     HDfprintf(udata->stream, "%*s%-*s %Hu\n", udata->indent, "", udata->fwidth,
 	      "Section size:",
 	      sect->sect_info.size);
+#ifdef QAK
+    HDfprintf(udata->stream, "%*s%-*s %s\n", udata->indent, "", udata->fwidth,
+	      "Section state:",
+	      (sect->sect_info.state == H5FS_SECT_LIVE ? "live" : "serialized"));
+#endif /* QAK */
 
     /* Dump section-specific debugging information */
     if(H5FS_sect_debug(udata->fspace, _sect, udata->stream, udata->indent + 3, MAX(0, udata->fwidth - 3)) < 0)
@@ -858,6 +872,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		May  9 2006
  *
  *-------------------------------------------------------------------------

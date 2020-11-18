@@ -11,6 +11,9 @@
  * help@hdfgroup.org.                                                        *
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 #include "H5DSprivate.h"
 #include "H5LTprivate.h"
 #include "H5IMprivate.h"
@@ -22,24 +25,29 @@ static herr_t H5DS_is_reserved(hid_t did);
 static hid_t H5DS_get_REFLIST_type(void);
 
 /*-------------------------------------------------------------------------
- * Function: H5DSset_scale
- *
- * Purpose: The dataset DSID is converted to a Dimension Scale dataset.
- *   Creates the CLASS attribute, set to the value "DIMENSION_SCALE"
- *   and an empty REFERENCE_LIST attribute.
- *   If DIMNAME is specified, then an attribute called NAME is created,
- *   with the value DIMNAME.
- *
- * Return: Success: SUCCEED, Failure: FAIL
- *
- * Programmer: Pedro Vicente
- *
- * Date: January 04, 2005
- *
- *-------------------------------------------------------------------------
- */
-herr_t
-H5DSset_scale(hid_t dsid, const char *dimname)
+* Function: H5DSset_scale
+*
+* Purpose: The dataset DSID is converted to a Dimension Scale dataset.
+*   Creates the CLASS attribute, set to the value "DIMENSION_SCALE"
+*   and an empty REFERENCE_LIST attribute.
+*   If DIMNAME is specified, then an attribute called NAME is created,
+*   with the value DIMNAME.
+*
+* Return: Success: SUCCEED, Failure: FAIL
+*
+* Programmer: pvn@ncsa.uiuc.edu
+*
+* Date: January 04, 2005
+*
+* Comments:
+*
+* Modifications:
+*
+*-------------------------------------------------------------------------
+*/
+
+herr_t H5DSset_scale(hid_t dsid,
+                     const char *dimname)
 {
     int has_dimlist;
     H5I_type_t it;
@@ -87,28 +95,34 @@ H5DSset_scale(hid_t dsid, const char *dimname)
 
 
 /*-------------------------------------------------------------------------
- * Function: H5DSattach_scale
- *
- * Purpose: Define Dimension Scale DSID to be associated with dimension IDX
- *  of Dataset DID. Entries are created in the DIMENSION_LIST and
- *  REFERENCE_LIST attributes.
- *
- * Return:
- *   Success: SUCCEED
- *   Failure: FAIL
- *
- * Fails if: Bad arguments
- *           If DSID is not a Dimension Scale
- *           If DID is a Dimension Scale (A Dimension Scale cannot have scales)
- *
- * Programmer: Pedro Vicente
- *
- * Date: December 20, 2004
- *
- *-------------------------------------------------------------------------
- */
-herr_t
-H5DSattach_scale(hid_t did, hid_t dsid, unsigned int idx)
+* Function: H5DSattach_scale
+*
+* Purpose: Define Dimension Scale DSID to be associated with dimension IDX
+*  of Dataset DID. Entries are created in the DIMENSION_LIST and
+*  REFERENCE_LIST attributes.
+*
+* Return:
+*   Success: SUCCEED
+*   Failure: FAIL
+*
+* Fails if: Bad arguments
+*           If DSID is not a Dimension Scale
+*           If DID is a Dimension Scale (A Dimension Scale cannot have scales)
+*
+* Programmer: pvn@ncsa.uiuc.edu
+*
+* Date: December 20, 2004
+*
+* Comments:
+*
+* Modifications:
+*
+*-------------------------------------------------------------------------
+*/
+
+herr_t H5DSattach_scale(hid_t did,
+                        hid_t dsid,
+                        unsigned int idx)
 {
     int        has_dimlist;
     int        has_reflist;
@@ -126,7 +140,7 @@ H5DSattach_scale(hid_t did, hid_t dsid, unsigned int idx)
     hobj_ref_t ref_j;        /* iterator reference */
     hvl_t      *buf = NULL;  /* VL buffer to store in the attribute */
     hid_t      dsid_j;       /* DS dataset ID in DIMENSION_LIST */
-    H5O_info_t oi1, oi2;
+    H5O_info2_t oi1, oi2;
     H5I_type_t it1, it2;
     int        i;
     size_t     len;
@@ -146,16 +160,22 @@ H5DSattach_scale(hid_t did, hid_t dsid, unsigned int idx)
         return FAIL;
 
     /* get info for the dataset in the parameter list */
-    if(H5Oget_info2(did, &oi1, H5O_INFO_BASIC) < 0)
+    if(H5Oget_info3(did, &oi1, H5O_INFO_BASIC) < 0)
         return FAIL;
 
     /* get info for the scale in the parameter list */
-    if(H5Oget_info2(dsid, &oi2, H5O_INFO_BASIC) < 0)
+    if(H5Oget_info3(dsid, &oi2, H5O_INFO_BASIC) < 0)
         return FAIL;
 
     /* same object, not valid */
-    if(oi1.fileno == oi2.fileno && oi1.addr == oi2.addr)
-        return FAIL;
+    if(oi1.fileno == oi2.fileno) {
+        int token_cmp;
+
+        if(H5Otoken_cmp(did, &oi1.token, &oi2.token, &token_cmp) < 0)
+            return FAIL;
+        if(!token_cmp)
+            return FAIL;
+    } /* end if */
 
     /* get ID type */
     if ((it1 = H5Iget_type(did)) < 0)
@@ -261,7 +281,7 @@ H5DSattach_scale(hid_t did, hid_t dsid, unsigned int idx)
             goto out;
 
         /* close */
-        if(H5Dvlen_reclaim(tid, sid, H5P_DEFAULT, buf) < 0)
+        if(H5Treclaim(tid, sid, H5P_DEFAULT, buf) < 0)
             goto out;
         if(H5Sclose(sid) < 0)
             goto out;
@@ -310,16 +330,22 @@ H5DSattach_scale(hid_t did, hid_t dsid, unsigned int idx)
                 goto out;
 
             /* get info for DS in the parameter list */
-            if(H5Oget_info2(dsid, &oi1, H5O_INFO_BASIC) < 0)
+            if(H5Oget_info3(dsid, &oi1, H5O_INFO_BASIC) < 0)
                 goto out;
 
             /* get info for this DS */
-            if(H5Oget_info2(dsid_j, &oi2, H5O_INFO_BASIC) < 0)
+            if(H5Oget_info3(dsid_j, &oi2, H5O_INFO_BASIC) < 0)
                 goto out;
 
             /* same object, so this DS scale is already in this DIM IDX */
-            if(oi1.fileno == oi2.fileno && oi1.addr == oi2.addr)
-                found_ds = 1;
+            if(oi1.fileno == oi2.fileno) {
+                int token_cmp;
+
+                if(H5Otoken_cmp(did, &oi1.token, &oi2.token, &token_cmp) < 0)
+                    goto out;
+                if(!token_cmp)
+                    found_ds = 1;
+            } /* end if */
 
             /* close the dereferenced dataset */
             if(H5Dclose(dsid_j) < 0)
@@ -347,7 +373,7 @@ H5DSattach_scale(hid_t did, hid_t dsid, unsigned int idx)
             goto out;
 
         /* close */
-        if(H5Dvlen_reclaim(tid, sid, H5P_DEFAULT, buf) < 0)
+        if(H5Treclaim(tid, sid, H5P_DEFAULT, buf) < 0)
             goto out;
         if(H5Sclose(sid) < 0)
             goto out;
@@ -521,31 +547,39 @@ out:
 }
 
 /*-------------------------------------------------------------------------
- * Function: H5DSdetach_scale
- *
- * Purpose: If possible, deletes association of Dimension Scale DSID with
- *     dimension IDX of Dataset DID. This deletes the entries in the
- *     DIMENSION_LIST and REFERENCE_LIST attributes.
- *
- * Return:
- *   Success: SUCCEED
- *   Failure: FAIL
- *
- * Fails if: Bad arguments
- *           The dataset DID or DSID do not exist.
- *           The DSID is not a Dimension Scale
- *           DSID is not attached to DID.
- * Note that a scale may be associated with more than dimension of the same dataset.
- * If so, the detach operation only deletes one of the associations, for DID.
- *
- * Programmer: Pedro Vicente
- *
- * Date: December 20, 2004
- *
- *-------------------------------------------------------------------------
- */
-herr_t
-H5DSdetach_scale(hid_t did, hid_t dsid, unsigned int idx)
+* Function: H5DSdetach_scale
+*
+* Purpose: If possible, deletes association of Dimension Scale DSID with
+*     dimension IDX of Dataset DID. This deletes the entries in the
+*     DIMENSION_LIST and REFERENCE_LIST attributes.
+*
+* Return:
+*   Success: SUCCEED
+*   Failure: FAIL
+*
+* Fails if: Bad arguments
+*           The dataset DID or DSID do not exist.
+*           The DSID is not a Dimension Scale
+*           DSID is not attached to DID.
+* Note that a scale may be associated with more than dimension of the same dataset.
+* If so, the detach operation only deletes one of the associations, for DID.
+*
+* Programmer: pvn@ncsa.uiuc.edu
+*
+* Date: December 20, 2004
+*
+* Comments:
+*
+* Modifications: Function didn't delete DIMENSION_LIST attribute, when
+*                all dimension scales were detached from a dataset; added.
+*                                                           2010/05/13 EIP
+*
+*-------------------------------------------------------------------------
+*/
+
+herr_t H5DSdetach_scale(hid_t did,
+                        hid_t dsid,
+                        unsigned int idx)
 {
     int        has_dimlist;
     int        has_reflist;
@@ -564,7 +598,7 @@ H5DSdetach_scale(hid_t did, hid_t dsid, unsigned int idx)
     int        i;
     size_t     j;
     hssize_t   ii;
-    H5O_info_t did_oi, dsid_oi, tmp_oi;
+    H5O_info2_t did_oi, dsid_oi, tmp_oi;
     int        found_dset = 0, found_ds = 0;
     int        have_ds = 0;
     htri_t     is_scale;
@@ -587,16 +621,22 @@ H5DSdetach_scale(hid_t did, hid_t dsid, unsigned int idx)
         return FAIL;
 
     /* get info for the dataset in the parameter list */
-    if(H5Oget_info2(did, &did_oi, H5O_INFO_BASIC) < 0)
+    if(H5Oget_info3(did, &did_oi, H5O_INFO_BASIC) < 0)
         return FAIL;
 
     /* get info for the scale in the parameter list */
-    if(H5Oget_info2(dsid, &dsid_oi, H5O_INFO_BASIC) < 0)
+    if(H5Oget_info3(dsid, &dsid_oi, H5O_INFO_BASIC) < 0)
         return FAIL;
 
     /* same object, not valid */
-    if(did_oi.fileno == dsid_oi.fileno && did_oi.addr == dsid_oi.addr)
-        return FAIL;
+    if(did_oi.fileno == dsid_oi.fileno) {
+        int token_cmp;
+
+        if(H5Otoken_cmp(did, &did_oi.token, &dsid_oi.token, &token_cmp) < 0)
+            return FAIL;
+        if(!token_cmp)
+            return FAIL;
+    } /* end if */
 
 
     /*-------------------------------------------------------------------------
@@ -674,7 +714,7 @@ H5DSdetach_scale(hid_t did, hid_t dsid, unsigned int idx)
                 goto out;
 
             /* get info for this DS */
-            if(H5Oget_info2(dsid_j, &tmp_oi, H5O_INFO_BASIC) < 0)
+            if(H5Oget_info3(dsid_j, &tmp_oi, H5O_INFO_BASIC) < 0)
                 goto out;
 
             /* Close the dereferenced dataset */
@@ -682,28 +722,34 @@ H5DSdetach_scale(hid_t did, hid_t dsid, unsigned int idx)
                 goto out;
 
             /* same object, reset */
-            if(dsid_oi.fileno == tmp_oi.fileno && dsid_oi.addr == tmp_oi.addr) {
-                /* If there are more than one reference in the VL element
-                   and the reference we found is not the last one,
-                   copy the last one to replace the found one since the order
-                   of the references doesn't matter according to the spec;
-                   reduce the size of the VL element by 1;
-                   if the length of the element becomes 0, free the pointer
-                   and reset to NULL */
+            if(dsid_oi.fileno == tmp_oi.fileno) {
+                int token_cmp;
 
-                size_t len = buf[idx].len;
+                if(H5Otoken_cmp(did, &dsid_oi.token, &tmp_oi.token, &token_cmp) < 0)
+                    goto out;
+                if(!token_cmp) {
+                    /* If there are more than one reference in the VL element
+                       and the reference we found is not the last one,
+                       copy the last one to replace the found one since the order
+                       of the references doesn't matter according to the spec;
+                       reduce the size of the VL element by 1;
+                       if the length of the element becomes 0, free the pointer
+                       and reset to NULL */
 
-                if(j < len - 1)
-                    ((hobj_ref_t *)buf[idx].p)[j] = ((hobj_ref_t *)buf[idx].p)[len-1];
-                len = --buf[idx].len;
-                if(len == 0) {
-                    HDfree(buf[idx].p);
-                    buf[idx].p = NULL;
-                }
-                /* Since a reference to a dim. scale can be inserted only once,
-                   we do not need to continue the search if it is found */
-                found_ds = 1;
-                break;
+                    size_t len = buf[idx].len;
+
+                    if(j < len - 1)
+                        ((hobj_ref_t *)buf[idx].p)[j] = ((hobj_ref_t *)buf[idx].p)[len-1];
+                    len = --buf[idx].len;
+                    if(len == 0) {
+                        HDfree(buf[idx].p);
+                        buf[idx].p = NULL;
+                    }
+                    /* Since a reference to a dim. scale can be inserted only once,
+                       we do not need to continue the search if it is found */
+                    found_ds = 1;
+                    break;
+                } /* end if */
             } /* end if */
         } /* j */
     } /* if */
@@ -730,7 +776,7 @@ H5DSdetach_scale(hid_t did, hid_t dsid, unsigned int idx)
     }
 
     /* close */
-    if(H5Dvlen_reclaim(tid, sid, H5P_DEFAULT, buf) < 0)
+    if(H5Treclaim(tid, sid, H5P_DEFAULT, buf) < 0)
         goto out;
     if(H5Sclose(sid) < 0)
         goto out;
@@ -783,7 +829,7 @@ H5DSdetach_scale(hid_t did, hid_t dsid, unsigned int idx)
                 goto out;
 
             /* get info for this dataset */
-            if(H5Oget_info2(did_i, &tmp_oi, H5O_INFO_BASIC) < 0)
+            if(H5Oget_info3(did_i, &tmp_oi, H5O_INFO_BASIC) < 0)
                 goto out;
 
             /* close the dereferenced dataset */
@@ -791,12 +837,18 @@ H5DSdetach_scale(hid_t did, hid_t dsid, unsigned int idx)
                 goto out;
 
             /* same object, reset. we want to detach only for this DIM */
-            if(did_oi.fileno == tmp_oi.fileno && did_oi.addr == tmp_oi.addr) {
-                /* copy the last one to replace the one which is found */
-                dsbuf[ii] = dsbuf[nelmts-1];
-                nelmts--;
-                found_dset=1;
-                break;
+            if(did_oi.fileno == tmp_oi.fileno) {
+                int token_cmp;
+
+                if(H5Otoken_cmp(did, &did_oi.token, &tmp_oi.token, &token_cmp) < 0)
+                    goto out;
+                if(!token_cmp) {
+                    /* copy the last one to replace the one which is found */
+                    dsbuf[ii] = dsbuf[nelmts-1];
+                    nelmts--;
+                    found_dset=1;
+                    break;
+                } /* end if */
             } /* end if */
         } /* if we have the same dimension index */
     } /* ii */
@@ -873,7 +925,7 @@ out:
             dsbuf = NULL;
         }
         if(buf) {
-            /* Failure occured before H5Dvlen_reclaim was called;
+            /* Failure occured before H5Treclaim was called;
                free the pointers allocated when we read data in */
             for(i = 0; i < rank; i++) {
                 if(buf[i].p)
@@ -888,29 +940,35 @@ out:
 }
 
 /*-------------------------------------------------------------------------
- * Function: H5DSis_attached
- *
- * Purpose: Report if dimension scale DSID is currently attached to
- *  dimension IDX of dataset DID by checking if DID has a pointer in the REFERENCE_LIST
- *  attribute and DSID (scale ) has a pointer in the DIMENSION_LIST attribute
- *
- * Return:
- *   1: both the DS and the dataset pointers match
- *   0: one of them or both do not match
- *   FAIL (-1): error
- *
- * Fails if: Bad arguments
- *           If DSID is not a Dimension Scale
- *           If DID is a Dimension Scale (A Dimension Scale cannot have scales)
- *
- * Programmer: Pedro Vicente
- *
- * Date: February 18, 2005
- *
- *-------------------------------------------------------------------------
- */
-htri_t
-H5DSis_attached(hid_t did, hid_t dsid, unsigned int idx)
+* Function: H5DSis_attached
+*
+* Purpose: Report if dimension scale DSID is currently attached to
+*  dimension IDX of dataset DID by checking if DID has a pointer in the REFERENCE_LIST
+*  attribute and DSID (scale ) has a pointer in the DIMENSION_LIST attribute
+*
+* Return:
+*   1: both the DS and the dataset pointers match
+*   0: one of them or both do not match
+*   FAIL (-1): error
+*
+* Fails if: Bad arguments
+*           If DSID is not a Dimension Scale
+*           If DID is a Dimension Scale (A Dimension Scale cannot have scales)
+*
+* Programmer: pvn@ncsa.uiuc.edu
+*
+* Date: February 18, 2005
+*
+* Comments:
+*
+* Modifications:
+*
+*-------------------------------------------------------------------------
+*/
+
+htri_t H5DSis_attached(hid_t did,
+                       hid_t dsid,
+                       unsigned int idx)
 {
     int        has_dimlist;
     int        has_reflist;
@@ -925,7 +983,7 @@ H5DSis_attached(hid_t did, hid_t dsid, unsigned int idx)
     hvl_t      *buf = NULL;  /* VL buffer to store in the attribute */
     hid_t      dsid_j;       /* DS dataset ID in DIMENSION_LIST */
     hid_t      did_i;        /* dataset ID in REFERENCE_LIST */
-    H5O_info_t oi1, oi2, oi3, oi4;
+    H5O_info2_t oi1, oi2, oi3, oi4;
     H5I_type_t it1, it2;
     int        i;
     int        found_dset=0, found_ds=0;
@@ -944,16 +1002,22 @@ H5DSis_attached(hid_t did, hid_t dsid, unsigned int idx)
         return FAIL;
 
     /* get info for the dataset in the parameter list */
-    if(H5Oget_info2(did, &oi1, H5O_INFO_BASIC) < 0)
+    if(H5Oget_info3(did, &oi1, H5O_INFO_BASIC) < 0)
         return FAIL;
 
     /* get info for the scale in the parameter list */
-    if(H5Oget_info2(dsid, &oi2, H5O_INFO_BASIC) < 0)
+    if(H5Oget_info3(dsid, &oi2, H5O_INFO_BASIC) < 0)
         return FAIL;
 
     /* same object, not valid */
-    if(oi1.fileno == oi2.fileno && oi1.addr == oi2.addr)
-        return FAIL;
+    if(oi1.fileno == oi2.fileno) {
+        int token_cmp;
+
+        if(H5Otoken_cmp(did, &oi1.token, &oi2.token, &token_cmp) < 0)
+            return FAIL;
+        if(!token_cmp)
+            return FAIL;
+    } /* end if */
 
     /* get ID type */
     if ((it1 = H5Iget_type(did)) < 0)
@@ -1025,16 +1089,22 @@ H5DSis_attached(hid_t did, hid_t dsid, unsigned int idx)
                 goto out;
 
             /* get info for DS in the parameter list */
-            if(H5Oget_info2(dsid, &oi1, H5O_INFO_BASIC) < 0)
+            if(H5Oget_info3(dsid, &oi1, H5O_INFO_BASIC) < 0)
                 goto out;
 
             /* get info for this DS */
-            if(H5Oget_info2(dsid_j, &oi2, H5O_INFO_BASIC) < 0)
+            if(H5Oget_info3(dsid_j, &oi2, H5O_INFO_BASIC) < 0)
                 goto out;
 
             /* same object */
-            if(oi1.fileno == oi2.fileno && oi1.addr == oi2.addr)
-                found_ds = 1;
+            if(oi1.fileno == oi2.fileno) {
+                int token_cmp;
+
+                if(H5Otoken_cmp(did, &oi1.token, &oi2.token, &token_cmp) < 0)
+                    goto out;
+                if(!token_cmp)
+                    found_ds = 1;
+            } /* end if */
 
             /* close the dereferenced dataset */
             if (H5Dclose(dsid_j) < 0)
@@ -1044,7 +1114,7 @@ H5DSis_attached(hid_t did, hid_t dsid, unsigned int idx)
 
 
         /* close */
-        if (H5Dvlen_reclaim(tid, sid, H5P_DEFAULT, buf) < 0)
+        if (H5Treclaim(tid, sid, H5P_DEFAULT, buf) < 0)
             goto out;
         if (H5Sclose(sid) < 0)
             goto out;
@@ -1111,20 +1181,26 @@ H5DSis_attached(hid_t did, hid_t dsid, unsigned int idx)
             if (ref)
             {
                 /* get the dataset id */
-                if ((did_i = H5Rdereference2(did,H5P_DEFAULT,H5R_OBJECT,&ref)) < 0)
+                if ((did_i = H5Rdereference2(did, H5P_DEFAULT, H5R_OBJECT, &ref)) < 0)
                     goto out;
 
                 /* get info for dataset in the parameter list */
-                if(H5Oget_info2(did, &oi3, H5O_INFO_BASIC) < 0)
+                if(H5Oget_info3(did, &oi3, H5O_INFO_BASIC) < 0)
                     goto out;
 
                 /* get info for this dataset */
-                if(H5Oget_info2(did_i, &oi4, H5O_INFO_BASIC) < 0)
+                if(H5Oget_info3(did_i, &oi4, H5O_INFO_BASIC) < 0)
                     goto out;
 
                 /* same object */
-                if(oi3.fileno == oi4.fileno && oi3.addr == oi4.addr && idx==dsbuf[i].dim_idx)
-                    found_dset=1;
+                if(oi3.fileno == oi4.fileno) {
+                    int token_cmp;
+
+                    if(H5Otoken_cmp(did, &oi3.token, &oi4.token, &token_cmp) < 0)
+                        goto out;
+                    if(!token_cmp && (idx == dsbuf[i].dim_idx))
+                        found_dset=1;
+                } /* end if */
 
                 /* close the dereferenced dataset */
                 if (H5Dclose(did_i) < 0)
@@ -1173,47 +1249,54 @@ out:
 }
 
 /*-------------------------------------------------------------------------
- * Function: H5DSiterate_scales
- *
- * Purpose: H5DSiterate_scales iterates over the scales attached to dimension DIM
- *  of dataset DID. For each scale in the list, the visitor_data and some
- *  additional information, specified below, are passed to the visitor function.
- *  The iteration begins with the IDX object in the group and the next element
- *  to be processed by the operator is returned in IDX. If IDX is NULL, then the
- *  iterator starts at zero.
- *
- * Parameters:
- *
- *  hid_t DID;               IN: the dataset
- *  unsigned int DIM;        IN: the dimension of the dataset
- *  int *DS_IDX;             IN/OUT: on input the dimension scale index to start iterating,
- *                               on output the next index to visit. If NULL, start at
- *                               the first position.
- *  H5DS_iterate_t VISITOR;  IN: the visitor function
- *  void *VISITOR_DATA;      IN: arbitrary data to pass to the visitor function.
- *
- *  Iterate over all scales of DIM, calling an application callback
- *   with the item, key and any operator data.
- *
- *   The operator callback receives a pointer to the item ,
- *   and the pointer to the operator data passed
- *   in to H5SL_iterate ('op_data').  The return values from an operator are:
- *       A. Zero causes the iterator to continue, returning zero when all
- *           nodes of that type have been processed.
- *       B. Positive causes the iterator to immediately return that positive
- *           value, indicating short-circuit success.
- *       C. Negative causes the iterator to immediately return that value,
- *           indicating failure.
- *
- * Programmer: Pedro Vicente
- *
- * Date: January 31, 2005
- *
- *-------------------------------------------------------------------------
- */
-herr_t
-H5DSiterate_scales(hid_t did, unsigned int dim, int *ds_idx,
-    H5DS_iterate_t visitor, void *visitor_data )
+* Function: H5DSiterate_scales
+*
+* Purpose: H5DSiterate_scales iterates over the scales attached to dimension DIM
+*  of dataset DID. For each scale in the list, the visitor_data and some
+*  additional information, specified below, are passed to the visitor function.
+*  The iteration begins with the IDX object in the group and the next element
+*  to be processed by the operator is returned in IDX. If IDX is NULL, then the
+*  iterator starts at zero.
+*
+* Parameters:
+*
+*  hid_t DID;               IN: the dataset
+*  unsigned int DIM;        IN: the dimension of the dataset
+*  int *DS_IDX;             IN/OUT: on input the dimension scale index to start iterating,
+*                               on output the next index to visit. If NULL, start at
+*                               the first position.
+*  H5DS_iterate_t VISITOR;  IN: the visitor function
+*  void *VISITOR_DATA;      IN: arbitrary data to pass to the visitor function.
+*
+*  Iterate over all scales of DIM, calling an application callback
+*   with the item, key and any operator data.
+*
+*   The operator callback receives a pointer to the item ,
+*   and the pointer to the operator data passed
+*   in to H5SL_iterate ('op_data').  The return values from an operator are:
+*       A. Zero causes the iterator to continue, returning zero when all
+*           nodes of that type have been processed.
+*       B. Positive causes the iterator to immediately return that positive
+*           value, indicating short-circuit success.
+*       C. Negative causes the iterator to immediately return that value,
+*           indicating failure.
+*
+* Programmer: pvn@ncsa.uiuc.edu
+*
+* Date: January 31, 2005
+*
+* Comments:
+*
+* Modifications:
+*
+*-------------------------------------------------------------------------
+*/
+
+herr_t H5DSiterate_scales(hid_t did,
+                          unsigned int dim,
+                          int *ds_idx,
+                          H5DS_iterate_t visitor,
+                          void *visitor_data )
 {
     hid_t        scale_id;
     int          rank;
@@ -1337,7 +1420,7 @@ H5DSiterate_scales(hid_t did, unsigned int dim, int *ds_idx,
         } /* if */
 
         /* close */
-        if (H5Dvlen_reclaim(tid,sid,H5P_DEFAULT,buf) < 0)
+        if (H5Treclaim(tid,sid,H5P_DEFAULT,buf) < 0)
             goto out;
         if (H5Sclose(sid) < 0)
             goto out;
@@ -1355,7 +1438,7 @@ H5DSiterate_scales(hid_t did, unsigned int dim, int *ds_idx,
 out:
     H5E_BEGIN_TRY {
         if(buf) {
-            H5Dvlen_reclaim(tid,sid,H5P_DEFAULT,buf);
+            H5Treclaim(tid,sid,H5P_DEFAULT,buf);
             HDfree(buf);
         }
         H5Sclose(sid);
@@ -1367,20 +1450,24 @@ out:
 }
 
 /*-------------------------------------------------------------------------
- * Function: H5DSset_label
- *
- * Purpose: Set label for the dimension IDX of dataset DID to the value LABEL
- *
- * Return: Success: SUCCEED, Failure: FAIL
- *
- * Programmer: Pedro Vicente
- *
- * Date: January 11, 2005
- *
- *-------------------------------------------------------------------------
- */
-herr_t
-H5DSset_label(hid_t did, unsigned int idx, const char *label)
+* Function: H5DSset_label
+*
+* Purpose: Set label for the dimension IDX of dataset DID to the value LABEL
+*
+* Return: Success: SUCCEED, Failure: FAIL
+*
+* Programmer: pvn@ncsa.uiuc.edu
+*
+* Date: January 11, 2005
+*
+* Comments:
+*
+* Modifications:
+*
+*-------------------------------------------------------------------------
+*/
+
+herr_t H5DSset_label(hid_t did, unsigned int idx, const char *label)
 {
     int        has_labels;
     hid_t      sid = -1;      /* space ID */
@@ -1394,9 +1481,6 @@ H5DSset_label(hid_t did, unsigned int idx, const char *label)
       char  ** buf;            /* discarding the 'const' qualifier in the free */
       char const ** const_buf; /* buf calls */
     } u;
-
-    HDmemset(&u, 0, sizeof(u));
-
     /*-------------------------------------------------------------------------
     * parameter checking
     *-------------------------------------------------------------------------
@@ -1572,24 +1656,29 @@ out:
 }
 
 /*-------------------------------------------------------------------------
- * Function: H5DSget_label
- *
- * Purpose: Read the label LABEL for dimension IDX of dataset DID
- *   Up to 'size' characters are stored in 'label' followed by a '\0' string
- *   terminator.  If the label is longer than 'size'-1,
- *   the string terminator is stored in the last position of the buffer to
- *   properly terminate the string.
- *
- * Return: 0 if no label found, size of label if found, Failure: FAIL
- *
- * Programmer: Pedro Vicente
- *
- * Date: January 11, 2005
- *
- *-------------------------------------------------------------------------
- */
-ssize_t
-H5DSget_label(hid_t did, unsigned int idx, char *label, size_t size)
+* Function: H5DSget_label
+*
+* Purpose: Read the label LABEL for dimension IDX of dataset DID
+*   Up to 'size' characters are stored in 'label' followed by a '\0' string
+*   terminator.  If the label is longer than 'size'-1,
+*   the string terminator is stored in the last position of the buffer to
+*   properly terminate the string.
+*
+* Return: 0 if no label found, size of label if found, Failure: FAIL
+*
+* Programmer: pvn@ncsa.uiuc.edu
+*
+* Date: January 11, 2005
+*
+* Comments:
+*
+* Modifications:
+*     JIRA HDFFV-7673: Added a check to see if the label name exists,
+*     if not then returns zero. July 30, 2011. MSB
+*
+*-------------------------------------------------------------------------
+*/
+ssize_t H5DSget_label(hid_t did, unsigned int idx, char *label, size_t size)
 {
     int        has_labels;
     hid_t      sid = -1;     /* space ID */
@@ -1729,24 +1818,32 @@ out:
 }
 
 /*-------------------------------------------------------------------------
- * Function: H5DSget_scale_name
- *
- * Purpose: Read the name of dataset scale DID into buffer NAME
- *   Up to 'size' characters are stored in 'name' followed by a '\0' string
- *   terminator.  If the name is longer than 'size'-1,
- *   the string terminator is stored in the last position of the buffer to
- *   properly terminate the string.
- *
- * Return: size of name if found, zero if not found,  Failure: FAIL
- *
- * Programmer: Pedro Vicente
- *
- * Date: January 04, 2005
- *
- *-------------------------------------------------------------------------
- */
-ssize_t
-H5DSget_scale_name(hid_t did, char *name, size_t size)
+* Function: H5DSget_scale_name
+*
+* Purpose: Read the name of dataset scale DID into buffer NAME
+*   Up to 'size' characters are stored in 'name' followed by a '\0' string
+*   terminator.  If the name is longer than 'size'-1,
+*   the string terminator is stored in the last position of the buffer to
+*   properly terminate the string.
+*
+* Return: size of name if found, zero if not found,  Failure: FAIL
+*
+* Programmer: pvn@ncsa.uiuc.edu
+*
+* Date: January 04, 2005
+*
+* Comments:
+*
+* Modifications:
+*  The size of the name returned should not include the NULL termination
+*  in its value so as to be consistent with other HDF5 APIs.
+*
+*-------------------------------------------------------------------------
+*/
+
+ssize_t H5DSget_scale_name(hid_t did,
+                           char *name,
+                           size_t size)
 {
     hid_t      aid;      /* attribute ID  */
     hid_t      tid = -1; /* attribute type ID */
@@ -1848,49 +1945,51 @@ out:
 }
 
 /*-------------------------------------------------------------------------
- * Function: H5DSis_scale
- *
- * Purpose: check if the dataset DID is a dimension scale
- *
- * Return: 1, is, 0, not, FAIL, error
- *
- * Programmer: Pedro Vicente
- *
- * Date: January 04, 2005
- *
- *-------------------------------------------------------------------------
- */
+* Function: H5DSis_scale
+*
+* Purpose: check if the dataset DID is a dimension scale
+*
+* Return: 1, is, 0, not, FAIL, error
+*
+* Programmer: pvn@ncsa.uiuc.edu
+*
+* Date: January 04, 2005
+*
+* Comments:
+*
+* Modifications:
+*
+*-------------------------------------------------------------------------
+*/
+
 htri_t H5DSis_scale(hid_t did)
 {
-    hid_t      tid = -1;     /* attribute type ID */
-    hid_t      aid = -1;     /* attribute ID */
-    herr_t     attr_class;   /* has the "CLASS" attribute */
-    htri_t     is_ds = -1;   /* set to "not a dimension scale" */
-    H5I_type_t it;           /* type of identifier */
-    char       *buf = NULL;  /* buffer to read name of attribute */
-    size_t      string_size; /* size of storage for the attribute */
-    H5T_class_t type_class;
-    H5T_str_t   strpad;
+    hid_t      tid = -1;   /* attribute type ID */
+    hid_t      aid = -1;   /* attribute ID */
+    herr_t     has_class;  /* has the "CLASS" attribute */
+    htri_t     is_ds;      /* boolean return value */
+    H5I_type_t it;           /* ID type */
+    char       *buf;         /* Name of attribute */
+    hsize_t    storage_size; /* Size of storage for attribute */
 
-    /*------------------------------------------------------------------------
+    /*-------------------------------------------------------------------------
     * parameter checking
     *-------------------------------------------------------------------------
     */
     /* get ID type */
     if ((it = H5Iget_type(did)) < 0)
-        goto out;
+        return FAIL;
 
     if(H5I_DATASET != it)
-        goto out;
+        return FAIL;
 
     /* try to find the attribute "CLASS" on the dataset */
-    if((attr_class = H5LT_find_attribute(did, "CLASS")) < 0)
-        goto out;
+    if((has_class = H5LT_find_attribute(did, "CLASS")) < 0)
+        return FAIL;
 
-    if(attr_class == 0) {
+    if(has_class == 0)
         is_ds = 0;
-        goto out;
-    }
+
     else
     {
         if((aid = H5Aopen(did, "CLASS", H5P_DEFAULT)) < 0)
@@ -1899,33 +1998,19 @@ htri_t H5DSis_scale(hid_t did)
         if((tid = H5Aget_type(aid)) < 0)
             goto out;
 
-        /* check to make sure attribute is a string; 
-           if not, then it is not dimension scale  */
-        if((type_class = H5Tget_class(tid)) < 0)
+        /* check to make sure attribute is a string */
+        if(H5T_STRING != H5Tget_class(tid))
             goto out;
-        if(H5T_STRING != type_class) {
-            is_ds = 0;
-            goto out;
-        }
-        /* check to make sure string is null-terminated; 
-           if not, then it is not dimension scale */
-        if((strpad = H5Tget_strpad(tid)) < 0 )
-            goto out;
-        if(H5T_STR_NULLTERM != strpad) {
-            is_ds = 0;
-            goto out;
-        }
 
-        /* According to Spec string is ASCII and its size should be 16 to hold 
-           "DIMENSION_SCALE" string */
-        if((string_size = H5Tget_size(tid)) == 0)
-             goto out;
-        if(string_size != 16) {
-            is_ds = 0; 
+        /* check to make sure string is null-terminated */
+        if(H5T_STR_NULLTERM != H5Tget_strpad(tid))
             goto out;
-        }
 
-        buf = (char*)HDmalloc((size_t)string_size * sizeof(char));
+        /* allocate buffer large enough to hold string */
+        if((storage_size = H5Aget_storage_size(aid)) == 0)
+            goto out;
+
+        buf = (char*)HDmalloc( (size_t)storage_size * sizeof(char) + 1);
         if(buf == NULL)
             goto out;
 
@@ -1934,9 +2019,10 @@ htri_t H5DSis_scale(hid_t did)
             goto out;
 
         /* compare strings */
-        if(HDstrncmp(buf, DIMENSION_SCALE_CLASS, 
-                     MIN(HDstrlen(DIMENSION_SCALE_CLASS),HDstrlen(buf)))==0)
+        if(HDstrncmp(buf, DIMENSION_SCALE_CLASS, MIN(HDstrlen(DIMENSION_SCALE_CLASS),HDstrlen(buf)))==0)
             is_ds = 1;
+        else
+            is_ds = 0;
 
         HDfree(buf);
 
@@ -1945,35 +2031,44 @@ htri_t H5DSis_scale(hid_t did)
 
         if (H5Aclose(aid) < 0)
             goto out;
+
+
     }
-out:
-    if(is_ds < 0) {
-        HDfree(buf);
-        H5E_BEGIN_TRY {
-            H5Aclose(aid);
-            H5Tclose(tid);
-        } H5E_END_TRY;
-    }
+
     return is_ds;
+
+    /* error zone */
+out:
+    H5E_BEGIN_TRY {
+        H5Aclose(aid);
+        H5Tclose(tid);
+    } H5E_END_TRY;
+    return FAIL;
+
 }
 
 /*-------------------------------------------------------------------------
- * Function: H5DSget_num_scales
- *
- * Purpose: get the number of scales linked to the IDX dimension of dataset DID
- *
- * Return:
- *   Success: number of scales
- *   Failure: FAIL
- *
- * Programmer: Pedro Vicente
- *
- * Date: January 13, 2005
- *
- *-------------------------------------------------------------------------
- */
-int
-H5DSget_num_scales(hid_t did, unsigned int idx)
+* Function: H5DSget_num_scales
+*
+* Purpose: get the number of scales linked to the IDX dimension of dataset DID
+*
+* Return:
+*   Success: number of scales
+*   Failure: FAIL
+*
+* Programmer: pvn@ncsa.uiuc.edu
+*
+* Date: January 13, 2005
+*
+* Comments:
+*
+* Modifications:
+*
+*-------------------------------------------------------------------------
+*/
+
+int H5DSget_num_scales(hid_t did,
+                       unsigned int idx)
 {
     int        has_dimlist;
     hid_t      sid;          /* space ID */
@@ -2047,7 +2142,7 @@ H5DSget_num_scales(hid_t did, unsigned int idx)
         nscales = (int)buf[idx].len;
 
         /* close */
-        if(H5Dvlen_reclaim(tid, sid, H5P_DEFAULT, buf) < 0)
+        if(H5Treclaim(tid, sid, H5P_DEFAULT, buf) < 0)
             goto out;
         if(H5Sclose(sid) < 0)
             goto out;
@@ -2076,20 +2171,25 @@ out:
 }
 
 /*-------------------------------------------------------------------------
- * Function: H5DS_is_reserved
- *
- * Purpose: Verify that a dataset's CLASS is either an image, palette or table
- *
- * Return: true, false, fail
- *
- * Programmer: Pedro Vicente
- *
- * Date: March 19, 2005
- *
- *-------------------------------------------------------------------------
- */
-static herr_t
-H5DS_is_reserved(hid_t did)
+* Function: H5DS_is_reserved
+*
+* Purpose: Verify that a dataset's CLASS is either an image, palette or table
+*
+* Return: true, false, fail
+*
+* Programmer: pvn@ncsa.uiuc.edu
+*
+* Date: March 19, 2005
+*
+* Comments:
+*
+* Modifications:
+*
+*-------------------------------------------------------------------------
+*/
+
+static
+herr_t H5DS_is_reserved(hid_t did)
 {
     int    has_class;
     hid_t  tid = -1;
@@ -2162,21 +2262,26 @@ out:
 }
 
 /*-------------------------------------------------------------------------
- * Function: H5DS_get_REFLIST_type
- *
- * Purpose: This is a helper function to return a native type for
- *          the REFERENCE_LIST attribute.
- *
- * Return: Type identifier on success and negative on failure
- *
- * Programmer: Elena Pourmal
- *
- * Date: May 22, 2010
- *
- *-------------------------------------------------------------------------
- */
-static hid_t
-H5DS_get_REFLIST_type(void)
+* Function: H5DS_get_REFLIST_type
+*
+* Purpose: This is a helper function to return a native type for
+*          the REFERENCE_LIST attribute.
+*
+* Return: Type identifier on success and negative on failure
+*
+* Programmer: epourmal@hdfgroup.org
+*
+* Date: May 22, 2010
+*
+* Comments:
+*
+* Modifications:
+*
+*-------------------------------------------------------------------------
+*/
+
+static
+hid_t H5DS_get_REFLIST_type(void)
 {
     hid_t ntid_t = -1;
 

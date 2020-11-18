@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:	James Laird
+ * Programmer:	James Laird <jlaird@ncsa.uiuc.edu>
  *		Thursday, March 2, 2006
  *
  * Purpose:	This file contains private declarations for the H5SM

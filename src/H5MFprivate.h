@@ -15,7 +15,7 @@
  *
  * Created:             H5MFprivate.h
  *                      Jul 11 1997
- *                      Robb Matzke
+ *                      Robb Matzke <matzke@llnl.gov>
  *
  * Purpose:             Private header file for file memory management.
  *
@@ -48,7 +48,7 @@
 /***************************************/
 
 /* File space manager routines */
-H5_DLL herr_t H5MF_init_merge_flags(H5F_t *f);
+H5_DLL herr_t H5MF_init_merge_flags(H5F_shared_t *f_sh);
 H5_DLL herr_t H5MF_get_freespace(H5F_t *f, hsize_t *tot_space, hsize_t *meta_size);
 H5_DLL herr_t H5MF_close(H5F_t *f);
 H5_DLL herr_t H5MF_try_close(H5F_t *f);
@@ -60,8 +60,7 @@ H5_DLL herr_t H5MF_xfree(H5F_t *f, H5FD_mem_t type, haddr_t addr,
     hsize_t size);
 H5_DLL herr_t H5MF_try_extend(H5F_t *f, H5FD_mem_t type, haddr_t addr,
     hsize_t size, hsize_t extra_requested);
-H5_DLL htri_t H5MF_try_shrink(H5F_t *f, H5FD_mem_t alloc_type, haddr_t addr,
-    hsize_t size);
+H5_DLL htri_t H5MF_try_shrink(H5F_t *f, H5FD_mem_t alloc_type, haddr_t addr, hsize_t size);
 H5_DLL ssize_t H5MF_get_free_sections(H5F_t *f, H5FD_mem_t type, size_t nsects,
     H5F_sect_info_t *sect_info);
 
@@ -76,9 +75,9 @@ H5_DLL htri_t H5MF_aggrs_try_shrink_eoa(H5F_t *f);
 H5_DLL herr_t H5MF_settle_raw_data_fsm(H5F_t *f, hbool_t *fsm_settled);
 H5_DLL herr_t H5MF_settle_meta_data_fsm(H5F_t *f, hbool_t *fsm_settled);
 
-/* This function has to be declared in H5MFprivate.h as it is needed
- * in our test code to allow us to manually start a self referential
- * free space manager prior to the first file space allocations /
+/* This function has to be declared in H5MFprivate.h as it is needed 
+ * in our test code to allow us to manually start a self referential 
+ * free space manager prior to the first file space allocations / 
  * deallocation without causing assertion failures on the first
  * file space allocation / deallocation.
  */

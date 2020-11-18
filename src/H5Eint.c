@@ -15,7 +15,7 @@
  *
  * Created:	H5Eint.c
  *		April 11 2007
- *		Quincey Koziol
+ *		Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:	General use, "internal" routines for error handling.
  *
@@ -33,10 +33,10 @@
 /* Headers */
 /***********/
 #include "H5private.h"          /* Generic Functions                        */
+#include "H5CXprivate.h"        /* API Contexts                             */
 #include "H5Epkg.h"             /* Error handling                           */
 #include "H5Iprivate.h"         /* IDs                                      */
 #include "H5MMprivate.h"        /* Memory management                        */
-#include "H5TSprivate.h"        /* Thread stuff                             */
 
 
 /****************/
@@ -259,8 +259,10 @@ H5E__walk1_cb(int n, H5E_error1_t *err_desc, void *client_data)
             else
                 HDfprintf(stream, "thread 0");
         } /* end block */
+#elif defined(H5_HAVE_THREADSAFE)
+        HDfprintf(stream, "thread %lu", (unsigned long)HDpthread_self_ulong());
 #else
-        HDfprintf(stream, "thread %" PRIu64, H5TS_thread_id());
+        HDfprintf(stream, "thread 0");
 #endif
         HDfprintf(stream, ":\n");
     } /* end if */
@@ -389,8 +391,10 @@ H5E__walk2_cb(unsigned n, const H5E_error2_t *err_desc, void *client_data)
             else
                 HDfprintf(stream, "thread 0");
         } /* end block */
+#elif defined(H5_HAVE_THREADSAFE)
+        HDfprintf(stream, "thread %lu", (unsigned long)HDpthread_self_ulong());
 #else
-        HDfprintf(stream, "thread %" PRIu64, H5TS_thread_id());
+        HDfprintf(stream, "thread 0");
 #endif
         HDfprintf(stream, ":\n");
     } /* end if */
@@ -575,7 +579,7 @@ H5E__walk(const H5E_t *estack, H5E_direction_t direction, const H5E_walk_op_t *o
                     ret_value = (op->u.func2)((unsigned)(estack->nused - (size_t)(i + 1)), estack->slot + i, client_data);
             } /* end else */
 
-            if(ret_value < 0)
+            if(ret_value  < 0)
                 HERROR(H5E_ERROR, H5E_CANTLIST, "can't walk error stack");
         } /* end if */
     } /* end else */
@@ -879,12 +883,12 @@ H5E__clear_entries(H5E_t *estack, size_t nentries)
 
         /* Release strings */
         if(error->func_name)
-            error->func_name = (const char *) H5MM_xfree_const(error->func_name);
+            error->func_name = (const char *) H5MM_xfree((void *)error->func_name);        /* Casting away const OK - QAK */
         if(error->file_name)
-            error->file_name = (const char *) H5MM_xfree_const(error->file_name);
+            error->file_name = (const char *) H5MM_xfree((void *)error->file_name);        /* Casting away const OK - QAK */
         if(error->desc)
-            error->desc = (const char *) H5MM_xfree_const(error->desc);
-    }
+            error->desc = (const char *) H5MM_xfree((void *)error->desc);     /* Casting away const OK - QAK */
+    } /* end for */
 
     /* Decrement number of errors on stack */
     estack->nused -= u;
@@ -993,7 +997,7 @@ H5E_dump_api_stack(hbool_t is_api)
 #ifdef H5_NO_DEPRECATED_SYMBOLS
             if(estack->auto_op.func2)
                 (void)((estack->auto_op.func2)(H5E_DEFAULT, estack->auto_data));
-#else /* H5_NO_DEPRECATED_SYMBOLS */
+#else /* H5_NO_DEPRECATED_SYMBOLS */ 
         if(estack->auto_op.vers == 1) {
             if(estack->auto_op.func1)
                 (void)((estack->auto_op.func1)(estack->auto_data));

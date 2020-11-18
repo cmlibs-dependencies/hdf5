@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Quincey Koziol
+ * Programmer:  Quincey Koziol <koziol@hdfgroup.org>
  *              Thursday, October  8, 2009
  *
  * Purpose:	Create a file with a dataset who's raw data immediately follows
@@ -23,8 +23,8 @@
  *      the library on the trunk as of when this file is checked in.
  */
 
-
-#include "h5test.h"
+#include "hdf5.h"
+#include <assert.h>
 
 #define FILENAME        "specmetaread.h5"
 #define DIM             10
@@ -39,7 +39,7 @@ main(void)
     hsize_t     dim[1] = {DIM};
     unsigned    data[DIM];
     unsigned    u;
-    herr_t      H5_ATTR_NDEBUG_UNUSED ret;
+    herr_t      ret;         /* Generic return value */
 
     /* Initialize the data */
     for(u = 0; u < DIM; u++)

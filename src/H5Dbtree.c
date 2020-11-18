@@ -11,7 +11,7 @@
  * help@hdfgroup.org.                                                        *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/* Programmer: 	Robb Matzke
+/* Programmer: 	Robb Matzke <matzke@llnl.gov>
  *	       	Wednesday, October  8, 1997
  *
  * Purpose:	v1 B-tree indexed (chunked) I/O functions.  The chunks are
@@ -620,7 +620,8 @@ done:
  *
  * Return:	Non-negative on success/Negative on failure
  *
- * Programmer:  Pedro Vicente
+ * Programmer: Robb Matzke
+ *             Pedro Vicente, pvn@ncsa.uiuc.edu
  * 		March 28, 2002
  *
  *-------------------------------------------------------------------------

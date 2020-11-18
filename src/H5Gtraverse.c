@@ -15,7 +15,7 @@
  *
  * Created:		H5Gtraverse.c
  *			Sep 13 2005
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@ncsa.uiuc.edu>
  *
  * Purpose:		Functions for traversing group hierarchy
  *
@@ -197,15 +197,19 @@ H5G__traverse_ud(const H5G_loc_t *grp_loc/*in,out*/, const H5O_link_t *lnk,
     /* Create a group ID to pass to the user-defined callback */
     if(NULL == (grp = H5G_open(&grp_loc_copy)))
         HGOTO_ERROR(H5E_SYM, H5E_CANTOPENOBJ, FAIL, "unable to open group")
-    if((cur_grp = H5I_register(H5I_GROUP, grp, FALSE)) < 0)
+    if((cur_grp = H5VL_wrap_register(H5I_GROUP, grp, FALSE)) < 0)
         HGOTO_ERROR(H5E_SYM, H5E_CANTREGISTER, FAIL, "unable to register group")
 
     /* User-defined callback function */
+#ifndef H5_NO_DEPRECATED_SYMBOLS
     /* (Backwardly compatible with v0 H5L_class_t traverssal callback) */
     if(link_class->version == H5L_LINK_CLASS_T_VERS_0)
         cb_return = (((const H5L_class_0_t *)link_class)->trav_func)(lnk->name, cur_grp, lnk->u.ud.udata, lnk->u.ud.size, H5CX_get_lapl());
     else
         cb_return = (link_class->trav_func)(lnk->name, cur_grp, lnk->u.ud.udata, lnk->u.ud.size, H5CX_get_lapl(), H5CX_get_dxpl());
+#else /* H5_NO_DEPRECATED_SYMBOLS */
+    cb_return = (link_class->trav_func)(lnk->name, cur_grp, lnk->u.ud.udata, lnk->u.ud.size, H5CX_get_lapl(), H5CX_get_dxpl());
+#endif /* H5_NO_DEPRECATED_SYMBOLS */
 
     /* Check for failing to locate the object */
     if(cb_return < 0) {
@@ -351,6 +355,7 @@ done:
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Nov 20 2006
  *
  *-------------------------------------------------------------------------
@@ -459,6 +464,7 @@ done:
  *				resolved.
  *
  * Programmer:	Robb Matzke
+ *		matzke@llnl.gov
  *		Aug 11 1997
  *
  *-------------------------------------------------------------------------
@@ -805,6 +811,7 @@ done:
  *				traversed.
  *
  * Programmer:	Quincey Koziol
+ *		koziol@ncsa.uiuc.edu
  *		Sep 13 2005
  *
  *-------------------------------------------------------------------------
@@ -836,9 +843,9 @@ H5G_traverse(const H5G_loc_t *loc, const char *name, unsigned target, H5G_traver
 
     /* Set up invalid tag. This is a precautionary step only. Setting an invalid
      * tag here will ensure that no metadata accessed while doing the traversal
-     * is given an improper tag, unless another one is specifically set up
-     * first. This will ensure we're not accidentally tagging something we
-     * shouldn't be during the traversal. Note that for best tagging assertion
+     * is given an improper tag, unless another one is specifically set up 
+     * first. This will ensure we're not accidentally tagging something we 
+     * shouldn't be during the traversal. Note that for best tagging assertion 
      * coverage, setting H5C_DO_TAGGING_SANITY_CHECKS is advised.
      */
     H5_BEGIN_TAG(H5AC__INVALID_TAG);

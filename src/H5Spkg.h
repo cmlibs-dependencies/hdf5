@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:	Quincey Koziol
+ * Programmer:	Quincey Koziol <koziol@ncsa.uiuc.edu>
  *		Thursday, September 28, 2000
  *
  * Purpose:	This file contains declarations which are visible only within
@@ -43,26 +43,28 @@
 /* Versions for H5S_SEL_HYPER selection info */
 #define H5S_HYPER_VERSION_1         1
 #define H5S_HYPER_VERSION_2         2
-#define H5S_HYPER_VERSION_LATEST    H5S_HYPER_VERSION_2
+#define H5S_HYPER_VERSION_3         3
+#define H5S_HYPER_VERSION_LATEST    H5S_HYPER_VERSION_3
 
 /* Versions for H5S_SEL_POINTS selection info */
-#define H5S_POINT_VERSION_1         1
-#define H5S_POINT_VERSION_LATEST    H5S_POINT_VERSION_1
+#define H5S_POINT_VERSION_1     1
+#define H5S_POINT_VERSION_2     2
 
 /* Versions for H5S_SEL_NONE selection info */
-#define H5S_NONE_VERSION_1          1
-#define H5S_NONE_VERSION_LATEST     H5S_NONE_VERSION_1
+#define H5S_NONE_VERSION_1      1
 
 /* Versions for H5S_SEL_ALL selection info */
-#define H5S_ALL_VERSION_1           1
-#define H5S_ALL_VERSION_LATEST      H5S_ALL_VERSION_1
+#define H5S_ALL_VERSION_1       1
 
 /* Encoded size of selection info for H5S_SEL_POINTS/H5S_SEL_HYPER */
+#define H5S_SELECT_INFO_ENC_SIZE_2 0x02        /* 2 bytes: 16 bits */
 #define H5S_SELECT_INFO_ENC_SIZE_4 0x04        /* 4 bytes: 32 bits */
 #define H5S_SELECT_INFO_ENC_SIZE_8 0x08        /* 8 bytes: 64 bits */
-#define H5S_SELECT_INFO_ENC_SIZE_BITS   ( H5S_SELECT_INFO_ENC_SIZE_4 |    \
+#define H5S_SELECT_INFO_ENC_SIZE_BITS   ( H5S_SELECT_INFO_ENC_SIZE_2 |    \
+                                          H5S_SELECT_INFO_ENC_SIZE_4 |    \
                                           H5S_SELECT_INFO_ENC_SIZE_8 )
 
+#define H5S_UINT16_MAX      0x0000FFFF  /* 2^16 - 1 = 65,535                            */
 #define H5S_UINT32_MAX      0xFFFFFFFF  /* 2^32 - 1 = 4,294,967,295                     */
 #define H5S_UINT64_MAX      ((hsize_t)(-1L))   /* 2^64 - 1 = 18,446,744,073,709,551,615 */
 
@@ -319,9 +321,11 @@ struct H5S_t {
 
 /* Selection iteration methods */
 /* Method to retrieve the current coordinates of iterator for current selection */
-typedef herr_t (*H5S_sel_iter_coords_func_t)(const H5S_sel_iter_t *iter, hsize_t *coords);
+typedef herr_t (*H5S_sel_iter_coords_func_t)(const H5S_sel_iter_t *iter,
+    hsize_t *coords);
 /* Method to retrieve the current block of iterator for current selection */
-typedef herr_t (*H5S_sel_iter_block_func_t)(const H5S_sel_iter_t *iter, hsize_t *start, hsize_t *end);
+typedef herr_t (*H5S_sel_iter_block_func_t)(const H5S_sel_iter_t *iter,
+    hsize_t *start, hsize_t *end);
 /* Method to determine number of elements left in iterator for current selection */
 typedef hsize_t (*H5S_sel_iter_nelmts_func_t)(const H5S_sel_iter_t *iter);
 /* Method to determine if there are more blocks left in the current selection */

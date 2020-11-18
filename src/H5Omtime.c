@@ -11,10 +11,10 @@
  * help@hdfgroup.org.                                                        *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/* Programmer:      Robb Matzke
- *                  Friday, July 24, 1998
+/* Programmer:    Robb Matzke <matzke@llnl.gov>
+ *        Friday, July 24, 1998
  *
- * Purpose:         The object modification time message.
+ * Purpose:    The object modification time message.
  */
 
 #include "H5Omodule.h"          /* This source code file is part of the H5O module */
@@ -111,6 +111,7 @@ H5FL_DEFINE(time_t);
  *        Failure:    NULL
  *
  * Programmer:    Quincey Koziol
+ *        koziol@ncsa.uiuc.edu
  *        Jan  3 2002
  *
  *-------------------------------------------------------------------------
@@ -167,6 +168,7 @@ done:
  *        Failure:    NULL
  *
  * Programmer:    Robb Matzke
+ *        matzke@llnl.gov
  *        Jul 24 1998
  *
  *-------------------------------------------------------------------------
@@ -225,6 +227,7 @@ done:
  * Return:    Non-negative on success/Negative on failure
  *
  * Programmer:    Quincey Koziol
+ *        koziol@ncsa.uiuc.edu
  *        Jan  3 2002
  *
  *-------------------------------------------------------------------------
@@ -264,7 +267,10 @@ H5O_mtime_new_encode(H5F_t H5_ATTR_UNUSED *f, hbool_t H5_ATTR_UNUSED disable_sha
  * Return:    Non-negative on success/Negative on failure
  *
  * Programmer:    Robb Matzke
+ *        matzke@llnl.gov
  *        Jul 24 1998
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -302,7 +308,10 @@ H5O_mtime_encode(H5F_t H5_ATTR_UNUSED *f, hbool_t H5_ATTR_UNUSED disable_shared,
  *        Failure:    NULL
  *
  * Programmer:    Robb Matzke
+ *        matzke@llnl.gov
  *        Jul 24 1998
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -344,7 +353,10 @@ done:
  *        Failure:    0
  *
  * Programmer:    Quincey Koziol
+ *        koziol@ncsa.uiuc.edu
  *        Jan  3 2002
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -374,7 +386,10 @@ H5O_mtime_new_size(const H5F_t H5_ATTR_UNUSED * f, hbool_t H5_ATTR_UNUSED disabl
  *        Failure:    0
  *
  * Programmer:    Robb Matzke
+ *        matzke@llnl.gov
  *        Jul 14 1998
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -424,6 +439,7 @@ H5O__mtime_free(void *mesg)
  * Return:    Non-negative on success/Negative on failure
  *
  * Programmer:    Robb Matzke
+ *        matzke@llnl.gov
  *        Jul 24 1998
  *
  *-------------------------------------------------------------------------
@@ -436,7 +452,7 @@ H5O__mtime_debug(H5F_t H5_ATTR_UNUSED *f, const void *_mesg, FILE *stream,
     struct tm        *tm;
     char        buf[128];
 
-    FUNC_ENTER_NOAPI_NOINIT_NOERR
+    FUNC_ENTER_STATIC_NOERR
 
     /* check args */
     HDassert(f);

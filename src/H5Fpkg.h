@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:	Quincey Koziol
+ * Programmer:	Quincey Koziol <koziol@ncsa.uiuc.edu>
  *		Thursday, September 28, 2000
  *
  * Purpose:	This file contains declarations which are visible only within
@@ -80,17 +80,17 @@
         + 1) /* superblock version */
 
 /* The H5F_SUPERBLOCK_MINIMAL_VARLEN_SIZE is the minimal amount of super block
- * variable length data guarnateed to load the sizeof offsets and the sizeof
+ * variable length data guarnateed to load the sizeof offsets and the sizeof 
  * lengths fields in all versions of the superblock.
  *
- * This is necessary in the V3 cache, as on the initial load, we need to
+ * This is necessary in the V3 cache, as on the initial load, we need to 
  * get enough of the superblock to determine its version and size so that
- * the metadata cache can load the correct amount of data from file to
+ * the metadata cache can load the correct amount of data from file to 
  * allow the second deserialization attempt to succeed.
  *
- * The value selected will have to be revisited for each new version
+ * The value selected will have to be revisited for each new version 
  * of the super block.  Note that the current value is one byte larger
- * than it needs to be.
+ * than it needs to be. 
  */
 #define H5F_SUPERBLOCK_MINIMAL_VARLEN_SIZE	7
 
@@ -166,8 +166,8 @@ typedef struct H5F_superblock_cache_ud_t {
     unsigned btree_k[H5B_NUM_BTREE_ID]; /* B-tree key values for each type */
     haddr_t stored_eof;     /* End-of-file in file */
     hbool_t drvrinfo_removed; /* Indicate if the driver info was removed */
-    unsigned    super_vers;   /* Superblock version obtained in get_load_size callback.
-			       * It will be used later in verify_chksum callback
+    unsigned    super_vers;   /* Superblock version obtained in get_load_size callback. 
+			       * It will be used later in verify_chksum callback 
 			       */
 } H5F_superblock_cache_ud_t;
 
@@ -242,16 +242,16 @@ typedef struct H5F_super_t {
 struct H5F_shared_t {
     H5FD_t	*lf; 		/* Lower level file handle for I/O	*/
     H5F_super_t *sblock;        /* Pointer to (pinned) superblock for file */
-    H5O_drvinfo_t *drvinfo;	/* Pointer to the (pinned) driver info
+    H5O_drvinfo_t *drvinfo;	/* Pointer to the (pinned) driver info 
                                  * cache entry.  This field is only defined
                                  * for older versions of the super block,
                                  * and then only when a driver information
                                  * block is present.  At all other times
                                  * it should be NULL.
                                  */
-    hbool_t drvinfo_sb_msg_exists;  /* Convenience field used to track
-                                     * whether the driver info superblock
-                                     * extension message has been created
+    hbool_t drvinfo_sb_msg_exists;  /* Convenience field used to track 
+                                     * whether the driver info superblock 
+                                     * extension message has been created 
                                      * yet. This field should be TRUE iff the
                                      * superblock extension exists and contains
                                      * a driver info message.  Under all other
@@ -278,7 +278,7 @@ struct H5F_shared_t {
                                 /* metadata cache.  This structure is   */
                                 /* fixed at creation time and should    */
                                 /* not change thereafter.               */
-    H5AC_cache_image_config_t
+    H5AC_cache_image_config_t 
 		mdc_initCacheImageCfg;  /* initial configuration for the */
                                         /* generate metadata cache image on     */
                                         /* close option.  This structure is     */
@@ -306,14 +306,19 @@ struct H5F_shared_t {
     struct H5G_t *root_grp;	/* Open root group			*/
     H5FO_t *open_objs;          /* Open objects in file                 */
     H5UC_t *grp_btree_shared;   /* Ref-counted group B-tree node info   */
-    hbool_t     use_file_locking; /* Whether or not to use file locking */
+    hbool_t     closing;        /* File is in the process of being closed */
+
+    /* Cached VOL connector ID & info */
+    hid_t       vol_id;         /* ID of VOL connector for the container */
+    const H5VL_class_t *vol_cls; /* Pointer to VOL connector class for the container */
+    void       *vol_info;       /* Copy of VOL connector info for container */
 
     /* File space allocation information */
     H5F_fspace_strategy_t fs_strategy; /* File space handling strategy	*/
     hsize_t     fs_threshold;	/* Free space section threshold 	*/
     hbool_t     fs_persist;     /* Free-space persist or not */
     unsigned    fs_version;     /* Free-space version: */
-                                /* It is used to update fsinfo message in the superblock
+                                /* It is used to update fsinfo message in the superblock 
                                    extension when closing down the free-space managers */
     hbool_t     use_tmp_space;  /* Whether temp. file space allocation is allowed */
     haddr_t	tmp_addr;       /* Next address to use for temp. space in the file */
@@ -322,14 +327,9 @@ struct H5F_shared_t {
     H5F_fs_state_t fs_state[H5F_MEM_PAGE_NTYPES];   /* State of free space manager for each type */
     haddr_t fs_addr[H5F_MEM_PAGE_NTYPES];   /* Address of free space manager info for each type */
     H5FS_t *fs_man[H5F_MEM_PAGE_NTYPES];    /* Free space manager for each file space type */
-    hbool_t first_alloc_dealloc;            /* TRUE iff free space managers   */
-                                            /* are persistent and have not    */
-                                            /* been used accessed for either  */
-                                            /* allocation or deallocation     */
-                                            /* since file open.               */
-    haddr_t eoa_pre_fsm_fsalloc;	        /* eoa pre file space allocation  */
-                                            /* for self referential FSMs      */
-    haddr_t eoa_post_fsm_fsalloc;           /* eoa post file space allocation */
+    hbool_t null_fsm_addr;                  /* Used by h5clear tool to tell the library  */
+                                            /* to drop free-space to the floor */
+    haddr_t eoa_fsm_fsalloc;                /* eoa after file space allocation */
                                             /* for self referential FSMs      */
     haddr_t eoa_post_mdci_fsalloc;          /* eoa past file space allocation */
                                             /* for metadata cache image, or   */
@@ -356,6 +356,14 @@ struct H5F_shared_t {
     /* Object flush info */
     H5F_object_flush_t 	object_flush;	    /* Information for object flush callback */
     hbool_t crt_dset_min_ohdr_flag; /* flag to minimize created dataset object header */
+
+    char               *extpath;        /* Path for searching target external link file                 */
+
+#ifdef H5_HAVE_PARALLEL
+    H5P_coll_md_read_flag_t coll_md_read;  /* Do all metadata reads collectively */
+    hbool_t             coll_md_write;  /* Do all metadata writes collectively */
+#endif /* H5_HAVE_PARALLEL */
+
 };
 
 /*
@@ -366,18 +374,14 @@ struct H5F_shared_t {
 struct H5F_t {
     char	       *open_name;      /* Name used to open file                                       */
     char	       *actual_name;    /* Actual name of the file, after resolving symlinks, etc.      */
-    char               *extpath;        /* Path for searching target external link file                 */
     H5F_shared_t       *shared;         /* The shared file info                                         */
+    H5VL_object_t      *vol_obj;        /* VOL object                                                   */
     unsigned	        nopen_objs;     /* Number of open object headers                                */
     H5FO_t             *obj_count;      /* # of time each object is opened through top file structure   */
-    hid_t               file_id;        /* ID of this file                                              */
+    hbool_t             id_exists;      /* Whether an ID for this struct exists                         */
     hbool_t             closing;        /* File is in the process of being closed                       */
     struct H5F_t       *parent;         /* Parent file that this file is mounted to                     */
     unsigned            nmounts;        /* Number of children mounted to this file                      */
-#ifdef H5_HAVE_PARALLEL
-    H5P_coll_md_read_flag_t coll_md_read;  /* Do all metadata reads collectively */
-    hbool_t             coll_md_write;  /* Do all metadata writes collectively */
-#endif /* H5_HAVE_PARALLEL */
 };
 
 /*****************************/
@@ -390,29 +394,24 @@ H5FL_EXTERN(H5F_t);
 /* Declare a free list to manage the H5F_shared_t struct */
 H5FL_EXTERN(H5F_shared_t);
 
-/* Whether or not to use file locking (based on the environment variable)
- * FAIL means ignore the environment variable.
- */
-H5_DLLVAR htri_t use_locks_env_g;
 
 /******************************/
 /* Package Private Prototypes */
 /******************************/
 
 /* General routines */
-H5_DLL H5F_t *H5F__new(H5F_shared_t *shared, unsigned flags, hid_t fcpl_id, hid_t fapl_id, H5FD_t *lf);
+H5_DLL herr_t H5F__post_open(H5F_t *f);
+H5_DLL H5F_t *H5F__reopen(H5F_t *f);
 H5_DLL herr_t H5F__dest(H5F_t *f, hbool_t flush);
 H5_DLL herr_t H5F__flush(H5F_t *f);
-H5_DLL htri_t H5F__is_hdf5(const char *name);
+H5_DLL htri_t H5F__is_hdf5(const char *name, hid_t fapl_id);
 H5_DLL ssize_t H5F__get_file_image(H5F_t *f, void *buf_ptr, size_t buf_len);
 H5_DLL herr_t H5F__get_info(H5F_t *f, H5F_info2_t *finfo);
-H5_DLL herr_t H5F__get_metadata_read_retry_info(H5F_t *file, H5F_retry_info_t *info);
 H5_DLL herr_t H5F__format_convert(H5F_t *f);
 H5_DLL herr_t H5F__start_swmr_write(H5F_t *f);
-H5_DLL herr_t H5F__close(hid_t file_id);
-H5_DLL herr_t H5F__close_cb(H5F_t *f);
+H5_DLL herr_t H5F__close(H5F_t *f);
 H5_DLL herr_t H5F__set_libver_bounds(H5F_t *f, H5F_libver_t low, H5F_libver_t high);
-H5_DLL herr_t H5F__parse_file_lock_env_var(htri_t *use_locks);
+H5_DLL herr_t H5F__get_cont_info(const H5F_t *f, H5VL_file_cont_info_t *info);
 
 /* File mount related routines */
 H5_DLL herr_t H5F__mount(H5G_loc_t *loc, const char *name, H5F_t *child, hid_t plist_id);
@@ -472,7 +471,7 @@ H5_DLL herr_t H5F__get_sohm_mesg_count_test(hid_t fid, unsigned type_id, size_t 
 H5_DLL herr_t H5F__check_cached_stab_test(hid_t file_id);
 H5_DLL herr_t H5F__get_maxaddr_test(hid_t file_id, haddr_t *maxaddr);
 H5_DLL herr_t H5F__get_sbe_addr_test(hid_t file_id, haddr_t *sbe_addr);
-H5_DLL herr_t H5F__reparse_file_lock_variable_test(void);
+H5_DLL htri_t H5F__same_file_test(hid_t file_id1, hid_t file_id2);
 #endif /* H5F_TESTING */
 
 #endif /* _H5Fpkg_H */

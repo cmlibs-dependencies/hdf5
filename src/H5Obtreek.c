@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
-/* Programmer:  Quincey Koziol
+/* Programmer:  Quincey Koziol <koziol@hdfgroup.org>
  *              Thursday, March  1, 2007
  *
  * Purpose:	A message holding non-default v1 B-tree 'K' value

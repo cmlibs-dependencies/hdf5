@@ -30,12 +30,15 @@
 #include "H5ACprivate.h"        /* Metadata cache                           */
 #include "H5CXprivate.h"        /* API Contexts                             */
 #include "H5Eprivate.h"         /* Error handling                           */
+#include "H5FLprivate.h"        /* Free lists                               */
 #include "H5FOprivate.h"        /* File objects                             */
 #include "H5Iprivate.h"         /* IDs                                      */
 #include "H5Lprivate.h"         /* Links                                    */
 #include "H5MMprivate.h"        /* Memory Management                        */
+#include "H5Oprivate.h"         /* Object headers                           */
 #include "H5Pprivate.h"         /* Property lists                           */
 #include "H5Tpkg.h"             /* Datatypes                                */
+#include "H5VLprivate.h"        /* Virtual Object Layer                     */
 
 
 /****************/
@@ -56,8 +59,6 @@
 /********************/
 /* Local Prototypes */
 /********************/
-static herr_t H5T__commit_anon(H5F_t *file, H5T_t *type, hid_t tcpl_id);
-static hid_t H5T__get_create_plist(const H5T_t *type);
 static H5T_t *H5T__open_oid(const H5G_loc_t *loc);
 
 
@@ -80,6 +81,12 @@ static H5T_t *H5T__open_oid(const H5G_loc_t *loc);
 /* Local Variables */
 /*******************/
 
+/* Declare a free list to manage the H5VL_t struct */
+H5FL_EXTERN(H5VL_t);
+
+/* Declare a free list to manage the H5VL_object_t struct */
+H5FL_EXTERN(H5VL_object_t);
+
 
 
 /*-------------------------------------------------------------------------
@@ -88,10 +95,7 @@ static H5T_t *H5T__open_oid(const H5G_loc_t *loc);
  * Purpose:     Save a transient datatype to a file and turn the type handle
  *              into a "named", immutable type.
  *
- * Return:      Non-negative on success/Negative on failure
- *
- * Programmer:  Quincey Koziol
- *              April 5, 2007
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
@@ -99,22 +103,25 @@ herr_t
 H5Tcommit2(hid_t loc_id, const char *name, hid_t type_id, hid_t lcpl_id,
     hid_t tcpl_id, hid_t tapl_id)
 {
-    H5G_loc_t	loc;                    /* Location to create datatype */
-    H5T_t	*type;                  /* Datatype for ID */
+    void *data = NULL;                  /* VOL-managed datatype data */
+    H5VL_object_t *new_obj = NULL;      /* VOL object that holds the datatype object and the VOL info */
+    H5T_t *dt = NULL;                   /* High level datatype object that wraps the VOL object */
+    H5VL_object_t *vol_obj = NULL;      /* object of loc_id */
+    H5VL_loc_params_t loc_params;
     herr_t      ret_value = SUCCEED;    /* Return value */
 
     FUNC_ENTER_API(FAIL)
     H5TRACE6("e", "i*siiii", loc_id, name, type_id, lcpl_id, tcpl_id, tapl_id);
 
     /* Check arguments */
-    if(H5G_loc(loc_id, &loc) < 0)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a location")
     if(!name)
         HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "name parameter cannot be NULL")
     if(!*name)
         HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "name parameter cannot be an empty string")
-    if(NULL == (type = (H5T_t *)H5I_object_verify(type_id, H5I_DATATYPE)))
+    if(NULL == (dt = (H5T_t *)H5I_object_verify(type_id, H5I_DATATYPE)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a datatype")
+    if(H5T_is_named(dt))
+        HGOTO_ERROR(H5E_ARGS, H5E_CANTSET, FAIL, "datatype is already committed")
 
     /* Get correct property list */
     if(H5P_DEFAULT == lcpl_id)
@@ -137,9 +144,27 @@ H5Tcommit2(hid_t loc_id, const char *name, hid_t type_id, hid_t lcpl_id,
     if(H5CX_set_apl(&tapl_id, H5P_CLS_TACC, loc_id, TRUE) < 0)
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTSET, FAIL, "can't set access property list info")
 
+    /* Fill in location struct fields */
+    loc_params.type         = H5VL_OBJECT_BY_SELF;
+    loc_params.obj_type     = H5I_get_type(loc_id);
+
+    /* Get the object from the loc_id */
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object(loc_id)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid object identifier")
+
     /* Commit the type */
-    if(H5T__commit_named(&loc, name, type, lcpl_id, tcpl_id) < 0)
+    if(NULL == (data = H5VL_datatype_commit(vol_obj, &loc_params, name, type_id, lcpl_id, tcpl_id, tapl_id, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL)))
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "unable to commit datatype")
+
+    /* Set up VOL object */
+    if(NULL == (new_obj = H5FL_CALLOC(H5VL_object_t)))
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTALLOC, FAIL, "can't allocate top object structure")
+    new_obj->connector = vol_obj->connector;
+    new_obj->connector->nrefs ++;
+    new_obj->data = data;
+
+    /* Set the committed type object to the VOL connector pointer in the H5T_t struct */
+    dt->vol_obj = new_obj;
 
 done:
     FUNC_LEAVE_API(ret_value)
@@ -215,7 +240,7 @@ done:
                 HDONE_ERROR(H5E_DATATYPE, H5E_CANTDELETE, FAIL, "unable to delete object header")
 
             /* Mark datatype as being back in memory */
-            if(H5T_set_loc(dt, dt->sh_loc.file, H5T_LOC_MEMORY))
+            if(H5T_set_loc(dt, NULL, H5T_LOC_MEMORY))
                 HDONE_ERROR(H5E_DATATYPE, H5E_CANTDELETE, FAIL, "unable to return datatype to memory")
             dt->sh_loc.type = H5O_SHARE_TYPE_UNSHARED;
             dt->shared->state = old_state;
@@ -238,28 +263,28 @@ done:
  * Note:        The datatype access property list is unused currently, but
  *              is checked for sanity anyway.
  *
- * Return:      Non-negative on success/Negative on failure
- *
- * Programmer:  Peter Cao
- *              May 17, 2005
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
 herr_t
 H5Tcommit_anon(hid_t loc_id, hid_t type_id, hid_t tcpl_id, hid_t tapl_id)
 {
-    H5G_loc_t	loc;                    /* Group location for location */
-    H5T_t	*type = NULL;           /* Datatype created */
+    void *dt = NULL;                    /* datatype object created by VOL connector */
+    H5VL_object_t *new_obj = NULL;      /* VOL object that holds the datatype object and the VOL info */
+    H5T_t       *type = NULL;           /* Datatype created */
+    H5VL_object_t *vol_obj = NULL;      /* object of loc_id */
+    H5VL_loc_params_t loc_params;
     herr_t      ret_value = SUCCEED;    /* Return value */
 
     FUNC_ENTER_API(FAIL)
     H5TRACE4("e", "iiii", loc_id, type_id, tcpl_id, tapl_id);
 
     /* Check arguments */
-    if(H5G_loc(loc_id, &loc) < 0)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a location")
     if(NULL == (type = (H5T_t *)H5I_object_verify(type_id, H5I_DATATYPE)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a datatype")
+    if(H5T_is_named(type))
+        HGOTO_ERROR(H5E_ARGS, H5E_CANTSET, FAIL, "datatype is already committed")
 
     /* Get correct property list */
     if(H5P_DEFAULT == tcpl_id)
@@ -272,9 +297,28 @@ H5Tcommit_anon(hid_t loc_id, hid_t type_id, hid_t tcpl_id, hid_t tapl_id)
     if(H5CX_set_apl(&tapl_id, H5P_CLS_TACC, loc_id, TRUE) < 0)
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTSET, FAIL, "can't set access property list info")
 
-    /* Commit the type */
-    if(H5T__commit_anon(loc.oloc->file, type, tcpl_id) < 0)
+    /* Fill in location struct fields */
+    loc_params.type         = H5VL_OBJECT_BY_SELF;
+    loc_params.obj_type     = H5I_get_type(loc_id);
+
+    /* Get the file object */
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object(loc_id)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid file identifier")
+
+    /* Commit the datatype */
+    if(NULL == (dt = H5VL_datatype_commit(vol_obj, &loc_params, NULL, type_id, H5P_LINK_CREATE_DEFAULT,
+            tcpl_id, tapl_id, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL)))
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "unable to commit datatype")
+
+    /* Setup VOL object */
+    if(NULL == (new_obj = H5FL_CALLOC(H5VL_object_t)))
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTALLOC, FAIL, "can't allocate top object structure")
+    new_obj->connector = vol_obj->connector;
+    new_obj->connector->nrefs ++;
+    new_obj->data = dt;
+
+    /* Set the committed type object to the VOL connector pointer in the H5T_t struct */
+    type->vol_obj = new_obj;
 
 done:
     FUNC_LEAVE_API(ret_value)
@@ -293,13 +337,13 @@ done:
  *
  *-------------------------------------------------------------------------
  */
-static herr_t
+herr_t
 H5T__commit_anon(H5F_t *file, H5T_t *type, hid_t tcpl_id)
 {
     H5O_loc_t *oloc;                    /* Object location for datatype */
     herr_t      ret_value = SUCCEED;    /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_PACKAGE
 
     /* Sanity checks */
     HDassert(file);
@@ -374,7 +418,7 @@ H5T__commit(H5F_t *file, H5T_t *type, hid_t tcpl_id)
     /* Mark datatype as being on disk now.  This step changes the size of
      *  datatype as stored on disk.
      */
-    if(H5T_set_loc(type, file, H5T_LOC_DISK) < 0)
+    if(H5T_set_loc(type, H5F_VOL_OBJ(file), H5T_LOC_DISK) < 0)
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, FAIL, "cannot mark datatype on disk")
 
     /* Reset datatype location and path */
@@ -451,10 +495,7 @@ done:
  *
  * Purpose:     Determines if a datatype is committed or not.
  *
- * Return:      TRUE/FALSE/Negative
- *
- * Programmer:	Robb Matzke
- *              Thursday, June  4, 1998
+ * Return:      TRUE/FALSE/FAIL
  *
  *-------------------------------------------------------------------------
  */
@@ -472,35 +513,11 @@ H5Tcommitted(hid_t type_id)
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a datatype")
 
     /* Set return value */
-    ret_value = H5T_committed(type);
+    ret_value = H5T_is_named(type);
 
 done:
     FUNC_LEAVE_API(ret_value)
 } /* end H5Tcommitted() */
-
-
-/*-------------------------------------------------------------------------
- * Function:	H5T_committed
- *
- * Purpose:	Determines if a datatype is committed or not.
- *
- * Return:	Success:	TRUE if committed, FALSE otherwise.
- *
- * Programmer:	Quincey Koziol
- *              Wednesday, September 24, 2003
- *
- *-------------------------------------------------------------------------
- */
-htri_t
-H5T_committed(const H5T_t *type)
-{
-    /* Use no-init for efficiency */
-    FUNC_ENTER_NOAPI_NOINIT_NOERR
-
-    HDassert(type);
-
-    FUNC_LEAVE_NOAPI(H5T_STATE_OPEN == type->shared->state || H5T_STATE_NAMED == type->shared->state)
-} /* end H5T_committed() */
 
 
 /*-------------------------------------------------------------------------
@@ -510,7 +527,7 @@ H5T_committed(const H5T_t *type)
  *		ADJUST to the link count.
  *
  * Return:	Success:	New link count
- *		Failure:	-1
+ *		Failure:	Negative
  *
  * Programmer:	Quincey Koziol
  *              Friday, September 26, 2003
@@ -546,24 +563,20 @@ done:
  *
  *              Failure:    H5I_INVALID_HID
  *
- * Programmer:	James Laird
- *              Thursday July 27, 2006
- *
  *-------------------------------------------------------------------------
  */
 hid_t
 H5Topen2(hid_t loc_id, const char *name, hid_t tapl_id)
 {
-    H5T_t      *type = NULL;            /* Datatype opened in file */
-    H5G_loc_t	 loc;                   /* Group location of object to open */
+    void *dt = NULL;           /* datatype object created by VOL connector */
+    H5VL_object_t *vol_obj = NULL;     /* object of loc_id */
+    H5VL_loc_params_t loc_params;
     hid_t        ret_value = H5I_INVALID_HID;      /* Return value */
 
     FUNC_ENTER_API(H5I_INVALID_HID)
     H5TRACE3("i", "i*si", loc_id, name, tapl_id);
 
     /* Check args */
-    if(H5G_loc(loc_id, &loc) < 0)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "not a location")
     if(!name)
         HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, H5I_INVALID_HID, "name parameter cannot be NULL")
     if(!*name)
@@ -573,18 +586,26 @@ H5Topen2(hid_t loc_id, const char *name, hid_t tapl_id)
     if(H5CX_set_apl(&tapl_id, H5P_CLS_TACC, loc_id, FALSE) < 0)
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTSET, FAIL, "can't set access property list info")
 
+    /* Fill in location struct fields */
+    loc_params.type         = H5VL_OBJECT_BY_SELF;
+    loc_params.obj_type     = H5I_get_type(loc_id);
+
+    /* get the location object */
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object(loc_id)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "invalid file identifier")
+
     /* Open the datatype */
-    if(NULL == (type = H5T__open_name(&loc, name)))
+    if(NULL == (dt = H5VL_datatype_open(vol_obj, &loc_params, name, tapl_id, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL)))
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTOPENOBJ, H5I_INVALID_HID, "unable to open named datatype")
 
     /* Register the type and return the ID */
-    if((ret_value = H5I_register(H5I_DATATYPE, type, TRUE)) < 0)
+    if((ret_value = H5VL_register(H5I_DATATYPE, dt, vol_obj->connector, TRUE)) < 0)
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTREGISTER, H5I_INVALID_HID, "unable to register named datatype")
 
 done:
     /* Cleanup on error */
     if(H5I_INVALID_HID == ret_value)
-        if(type && H5T_close(type) < 0)
+        if(dt && H5VL_datatype_close(vol_obj, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL) < 0)
             HDONE_ERROR(H5E_DATATYPE, H5E_CLOSEERROR, H5I_INVALID_HID, "unable to release datatype")
 
     FUNC_LEAVE_API(ret_value)
@@ -605,16 +626,13 @@ done:
  *
  *              Failure:    H5I_INVALID_HID
  *
- * Programmer:	Quincey Koziol
- *		Tuesday, November 28, 2006
- *
  *-------------------------------------------------------------------------
  */
 hid_t
 H5Tget_create_plist(hid_t dtype_id)
 {
-    H5T_t *type;                /* Datatype object for ID */
-    herr_t status;              /* Generic status value */
+    H5T_t          *type        = NULL;             /* Datatype object for ID */
+    htri_t          is_named    = FAIL;             /* Is the datatype named? */
     hid_t           ret_value   = H5I_INVALID_HID;  /* Return value */
 
     FUNC_ENTER_API(H5I_INVALID_HID)
@@ -625,14 +643,29 @@ H5Tget_create_plist(hid_t dtype_id)
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "not a datatype")
 
     /* Check if the datatype is committed */
-    if((status = H5T_committed(type)) < 0)
+    if(FAIL == (is_named = H5T_is_named(type)))
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTGET, H5I_INVALID_HID, "can't check whether datatype is committed")
 
-    /* Retrieve further information, if the datatype is committed */
-    if(status > 0)
-        /* Retrieve datatype creation properties */
-        if((ret_value = H5T__get_create_plist(type)) < 0)
+    /* If the datatype is not committed/named, just copy the default
+     * creation property list and return that.
+     */
+    if(FALSE == is_named) {
+        H5P_genplist_t *tcpl_plist  = NULL;
+
+        /* Copy the default datatype creation property list */
+        if(NULL == (tcpl_plist = (H5P_genplist_t *)H5I_object(H5P_LST_DATATYPE_CREATE_ID_g)))
+            HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "can't get default creation property list")
+        if((ret_value = H5P_copy_plist(tcpl_plist, TRUE)) < 0)
+            HGOTO_ERROR(H5E_DATATYPE, H5E_CANTGET, H5I_INVALID_HID, "unable to copy the creation property list")
+    } /* end if */
+    /* If the datatype is committed, retrieve further information */
+    else {
+        H5VL_object_t *vol_obj = type->vol_obj;
+
+        /* Get the property list through the VOL */
+        if(H5VL_datatype_get(vol_obj, H5VL_DATATYPE_GET_TCPL, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, &ret_value) < 0)
             HGOTO_ERROR(H5E_DATATYPE, H5E_CANTGET, H5I_INVALID_HID, "can't get object creation info")
+    } /* end else */
 
 done:
     FUNC_LEAVE_API(ret_value)
@@ -671,8 +704,9 @@ H5Tflush(hid_t type_id)
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTSET, FAIL, "can't set access property list info")
 
     /* Flush metadata for named datatype */
-    if(H5O_flush_common(&dt->oloc, type_id) < 0)
-        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTFLUSH, FAIL, "unable to flush datatype and object flush callback")
+    if(dt->vol_obj)
+        if(H5VL_datatype_specific(dt->vol_obj, H5VL_DATATYPE_FLUSH, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, type_id) < 0)
+            HGOTO_ERROR(H5E_DATATYPE, H5E_CANTFLUSH, FAIL, "unable to flush datatype")
 
 done:
     FUNC_LEAVE_API(ret_value)
@@ -711,8 +745,9 @@ H5Trefresh(hid_t type_id)
         HGOTO_ERROR(H5E_DATATYPE, H5E_CANTSET, FAIL, "can't set access property list info")
 
     /* Refresh the datatype's metadata */
-    if((H5O_refresh_metadata(type_id, dt->oloc)) < 0)
-        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTLOAD, FAIL, "unable to refresh datatype")
+    if(dt->vol_obj)
+        if(H5VL_datatype_specific(dt->vol_obj, H5VL_DATATYPE_REFRESH, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, type_id) < 0)
+            HGOTO_ERROR(H5E_DATATYPE, H5E_CANTLOAD, FAIL, "unable to refresh datatype")
 
 done:
     FUNC_LEAVE_API(ret_value)
@@ -738,7 +773,7 @@ done:
  *
  *-------------------------------------------------------------------------
  */
-static hid_t
+hid_t
 H5T__get_create_plist(const H5T_t *type)
 {
     H5P_genplist_t      *tcpl_plist;    /* Existing datatype creation propertty list */
@@ -746,7 +781,7 @@ H5T__get_create_plist(const H5T_t *type)
     hid_t		new_tcpl_id = FAIL;     /* New datatype creation property list */
     hid_t		ret_value = H5I_INVALID_HID;       /* Return value */
 
-    FUNC_ENTER_STATIC
+    FUNC_ENTER_PACKAGE
 
     /* Sanity check */
     HDassert(type);
@@ -895,6 +930,7 @@ H5T_open(const H5G_loc_t *loc)
     else {
         if(NULL == (dt = H5FL_MALLOC(H5T_t)))
             HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, NULL, "can't allocate space for datatype")
+        dt->vol_obj = NULL;
 
 #if defined(H5_USING_MEMCHECKER) || !defined(NDEBUG)
         /* Clear object location */
@@ -1043,4 +1079,207 @@ H5T_update_shared(H5T_t *dt)
 
     FUNC_LEAVE_NOAPI(SUCCEED)
 } /* H5T_update_shared() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5T_construct_datatype
+ *
+ * Purpose:     Create a Library datatype with a connector specific datatype object 
+ *
+ * Return:      Success:    A type structure
+ *              Failure:    NULL
+ *
+ *-------------------------------------------------------------------------
+ */
+H5T_t *
+H5T_construct_datatype(H5VL_object_t *vol_obj)
+{
+    ssize_t        nalloc;
+    void          *buf = NULL;
+    H5T_t         *dt = NULL;       /* datatype object from VOL connector */
+    H5T_t         *ret_value = NULL;
+
+    FUNC_ENTER_NOAPI(NULL)
+
+    /* get required buf size for encoding the datatype */
+    if(H5VL_datatype_get(vol_obj, H5VL_DATATYPE_GET_BINARY, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, &nalloc, NULL, 0) < 0)
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, NULL, "unable to get datatype serialized size")
+
+    /* allocate buffer to store binary description of the datatype */
+    if(NULL == (buf = (void *)H5MM_calloc((size_t)nalloc)))
+        HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, NULL, "can't allocate space for datatype")
+
+    /* get binary description of the datatype */
+    if(H5VL_datatype_get(vol_obj, H5VL_DATATYPE_GET_BINARY, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, &nalloc, buf, (size_t)nalloc) < 0)
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, NULL, "unable to get serialized datatype")
+
+    if(NULL == (dt = H5T_decode((size_t)nalloc, (const unsigned char *)buf)))
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINIT, NULL, "can't decode datatype")
+
+    dt->vol_obj = vol_obj;
+
+    ret_value = dt;
+
+done:
+    if(buf)
+        buf = H5MM_xfree(buf);
+
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5T_construct_datatype() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5T_get_named_type
+ *
+ * Purpose:     Returns the VOL object for the named datatype if it exists
+ *
+ * Return:      Success:    Pointer to the VOL object for the datatype
+ *              Failure:    NULL
+ *
+ *-------------------------------------------------------------------------
+ */
+H5VL_object_t *
+H5T_get_named_type(const H5T_t *dt)
+{
+    H5VL_object_t *ret_value = NULL;    /* Return value */
+
+    FUNC_ENTER_NOAPI_NOINIT_NOERR
+
+    if(NULL != dt->vol_obj)
+        ret_value = dt->vol_obj;
+
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5T_get_named_type() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5T_get_actual_type
+ *
+ * Purpose:     Returns underlying native datatype created by native connector
+ *              if datatype is committed, otherwise return the datatype 
+ *              object associate with the ID.
+ *
+ * Return:      Success:    Pointer to the VOL-managed data for this datatype
+ *              Failure:    NULL
+ *
+ *-------------------------------------------------------------------------
+ */
+H5T_t *
+H5T_get_actual_type(H5T_t *dt)
+{
+    H5T_t *ret_value = NULL;    /* Return value */
+
+    FUNC_ENTER_NOAPI_NOINIT_NOERR
+
+    /* Check if the datatype is committed */
+    if(NULL == dt->vol_obj)
+        ret_value = dt;
+    else
+        ret_value = (H5T_t *)H5VL_object_data(dt->vol_obj);
+
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5T_get_actual_type() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5T_save_refresh_state
+ *
+ * Purpose:     Save state for datatype reconstuction after a refresh.
+ *
+ * Return:      SUCCEED/FAIL
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5T_save_refresh_state(hid_t tid, H5O_shared_t *cached_H5O_shared)
+{
+    H5T_t *dt = NULL;                   /* High level datatype object that wraps the VOL object */
+    H5T_t *vol_dt = NULL;               /* H5T_t pointer stored in the datatype's vol_obj field */
+    herr_t ret_value = SUCCEED;         /* Return value */
+
+    FUNC_ENTER_NOAPI(FAIL)
+
+    HDassert(cached_H5O_shared);
+
+    if(NULL == (dt = (H5T_t *)H5I_object_verify(tid, H5I_DATATYPE)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "tid is not a datatype ID")
+    vol_dt = (H5T_t *)(dt->vol_obj->data);
+    if(NULL == vol_dt)
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "tid is not not a named datatype ID")
+
+    /* Increase the count on the file object */
+    vol_dt->shared->fo_count += 1;
+
+    /* Increment object count for the object in the top file */
+    if(H5FO_top_incr(vol_dt->sh_loc.file, vol_dt->sh_loc.u.loc.oh_addr) < 0)
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTINC, FAIL, "can't increment object count")
+
+    /* Cache the H5O_shared_t data */
+    H5MM_memcpy(cached_H5O_shared, &(vol_dt->sh_loc), sizeof(H5O_shared_t));
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5T_save_refresh_state() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5T_restore_refresh_state
+ *
+ * Purpose:     Restore state for datatype reconstuction after a refresh.
+ *
+ * Return:      SUCCEED/FAIL
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5T_restore_refresh_state(hid_t tid, H5O_shared_t *cached_H5O_shared)
+{
+    H5T_t *dt = NULL;                   /* High level datatype object that wraps the VOL object */
+    H5T_t *vol_dt = NULL;               /* H5T_t pointer stored in the datatype's vol_obj field */
+    herr_t ret_value = SUCCEED;         /* Return value */
+
+    FUNC_ENTER_NOAPI(FAIL)
+
+    HDassert(cached_H5O_shared);
+
+    if(NULL == (dt = (H5T_t *)H5I_object_verify(tid, H5I_DATATYPE)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "tid not a datatype ID")
+    vol_dt = (H5T_t *)(dt->vol_obj->data);
+    if(NULL == vol_dt)
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "tid is not not a named datatype ID")
+
+    /* Restore the H5O_shared_t data */
+    H5MM_memcpy(&(vol_dt->sh_loc), cached_H5O_shared, sizeof(H5O_shared_t));
+
+    /* Decrement the ref. count for this object in the top file */
+    if(H5FO_top_decr(vol_dt->sh_loc.file, vol_dt->sh_loc.u.loc.oh_addr) < 0)
+        HGOTO_ERROR(H5E_DATATYPE, H5E_CANTDEC, FAIL, "can't decrement object count")
+
+    /* Decrease the count on the file object */
+    vol_dt->shared->fo_count -= 1;
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5T_restore_refresh_state() */
+
+
+/*-------------------------------------------------------------------------
+ * Function:    H5T_already_vol_managed
+ *
+ * Purpose:     Check if the committed datatype is already VOL managed
+ *
+ * Return:      TRUE / FALSE
+ *
+ *-------------------------------------------------------------------------
+ */
+hbool_t
+H5T_already_vol_managed(const H5T_t *dt)
+{
+    FUNC_ENTER_NOAPI_NOINIT_NOERR
+
+    /* Sanity check */
+    HDassert(dt);
+
+    FUNC_LEAVE_NOAPI( dt->vol_obj != NULL )
+} /* end H5T_already_vol_managed() */
 

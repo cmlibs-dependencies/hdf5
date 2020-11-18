@@ -488,12 +488,26 @@ h5pget_fill_value_c (hid_t_f *prp_id, hid_t_f *type_id, void *fillvalue)
  *  Removed extra length parameters EP 7/6/00
  * SOURCE
 */
+#ifdef H5_NO_DEPRECATED_SYMBOLS
+int_f
+h5pget_version_c (hid_t_f H5_ATTR_UNUSED *prp_id, int_f * boot,int_f * freelist, int_f * stab, int_f *shhdr)
+/******/
+{
+     /*
+      * Fill in fake values [since we need a file ID to call H5Fget_info :-( -QAK ]
+      */
+     *boot = (int_f)0;
+     *freelist = (int_f)0;
+     *stab = (int_f)0;
+     *shhdr = (int_f)0;
+
+     return 0;
+}
+#else /* H5_NO_DEPRECATED_SYMBOLS */
 int_f
 h5pget_version_c (hid_t_f *prp_id, int_f * boot,int_f * freelist, int_f * stab, int_f *shhdr)
 /******/
 {
-     int ret_value = -1;
-#ifndef H5_NO_DEPRECATED_SYMBOLS
      herr_t ret;
      unsigned c_boot;
      unsigned c_freelist;
@@ -504,25 +518,16 @@ h5pget_version_c (hid_t_f *prp_id, int_f * boot,int_f * freelist, int_f * stab, 
       * Call H5Pget_version function.
       */
      ret = H5Pget_version((hid_t)*prp_id, &c_boot, &c_freelist, &c_stab, &c_shhdr);
-     if (ret < 0) return ret_value;
+     if (ret < 0) return -1;
 
      *boot = (int_f)c_boot;
      *freelist = (int_f)c_freelist;
      *stab = (int_f)c_stab;
      *shhdr = (int_f)c_shhdr;
-#else /* H5_NO_DEPRECATED_SYMBOLS */
-     /*
-      * Fill in fake values [since we need a file ID to call H5Fget_info :-( -QAK ]
-      */
-     *boot = (int_f)0;
-     *freelist = (int_f)0;
-     *stab = (int_f)0;
-     *shhdr = (int_f)0;
-#endif /* H5_NO_DEPRECATED_SYMBOLS */
-     ret_value = 0;
 
-     return ret_value;
+     return 0;
 }
+#endif /* H5_NO_DEPRECATED_SYMBOLS */
 
 /****if* H5Pf/h5pget_userblock_c
  * NAME
@@ -1826,7 +1831,7 @@ DONE:
  *  Wednesday, February 23, 2000
  * HISTORY
  *  Changed type of 'offset' from int_f to off_t_f -- MSB January 9, 2012
- *
+ *  
  * SOURCE
 */
 int_f
@@ -3148,7 +3153,7 @@ h5pget_class_name_c(hid_t_f *cls, _fcd name, int_f *name_len)
      char *c_name;
 
      /*
-      * Call H5Pget_class_name function. c_name is allocated by the library,
+      * Call H5Pget_class_name function. c_name is allocated by the library, 
       * has to be freed by application.
       */
      if(NULL == (c_name = H5Pget_class_name((hid_t)*cls)))
@@ -3211,7 +3216,7 @@ DONE:
  *  plist   - property list class identifier
  *  name     - name of the new property
  *  name_len - length of the "name" buffer
- *  Output:
+ *  Output:  
  *  value - property value
  * RETURNS
  *  0 on success, -1 on failure
@@ -5172,7 +5177,7 @@ h5pget_chunk_cache_c(hid_t_f *dapl_id, size_t_f *rdcc_nslots, size_t_f *rdcc_nby
  *
  *  Inputs:
  *  fapl_id - File access property list identifier
- *  buf_ptr - Pointer to the initial file image,
+ *  buf_ptr - Pointer to the initial file image, 
  *  or NULL if no initial file image is desired
  *  buf_len - Size of the supplied buffer, or 0 (zero) if no initial image is desired
  *
@@ -5202,7 +5207,7 @@ h5pset_file_image_c(hid_t_f *fapl_id, void *buf_ptr, size_t_f *buf_len)
  *  Inputs:
  *  fapl_id - File access property list identifier
  *  Outputs:
- *  buf_ptr - Pointer to the initial file image,
+ *  buf_ptr - Pointer to the initial file image, 
  *  or NULL if no initial file image is desired
  *  buf_len - Size of the supplied buffer, or 0 (zero) if no initial image is desired
  *

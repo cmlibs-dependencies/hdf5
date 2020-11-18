@@ -15,7 +15,7 @@
  *
  * Created:   H5Pocpl.c
  *            Nov 28 2006
- *            Quincey Koziol
+ *            Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:   Object creation property list class routines
  *
@@ -581,6 +581,13 @@ done:
  * Programmer:  Quincey Koziol
  *              Friday, April  5, 2003
  *
+ * Modifications:
+ *
+ *              Neil Fortner
+ *              Thursday, March 26, 2009
+ *              Overloaded to accept gcpl's as well as dcpl's and moved to
+ *              H5Pocpl.c
+ *
  *-------------------------------------------------------------------------
  */
 herr_t
@@ -644,6 +651,18 @@ done:
  *
  * Programmer:    Robb Matzke
  *              Wednesday, April 15, 1998
+ *
+ * Modifications:
+ *
+ *              Raymond Lu
+ *              Tuesday, October 2, 2001
+ *              Changed the way to check parameter and set property for
+ *              generic property list.
+ *
+ *              Neil Fortner
+ *              Wednesday, May 20, 2009
+ *              Overloaded to accept gcpl's as well as dcpl's and moved to
+ *              H5Pocpl.c
  *
  *-------------------------------------------------------------------------
  */
@@ -762,6 +781,13 @@ done:
  * Programmer:    Robb Matzke
  *              Tuesday, August  4, 1998
  *
+ * Modifications:
+ *
+ *              Neil Fortner
+ *              Wednesday, May 20, 2009
+ *              Overloaded to accept gcpl's as well as dcpl's and moved to
+ *              H5Pocpl.c
+ *
  *-------------------------------------------------------------------------
  */
 int
@@ -811,6 +837,13 @@ done:
  *
  * Programmer:    Robb Matzke
  *              Wednesday, April 15, 1998
+ *
+ * Modifications:
+ *
+ *              Neil Fortner
+ *              Wednesday, May 20, 2009
+ *              Overloaded to accept gcpl's as well as dcpl's and moved to
+ *              H5Pocpl.c
  *
  *-------------------------------------------------------------------------
  */
@@ -947,6 +980,13 @@ done:
  * Programmer:    Quincey Koziol
  *              Friday, April  5, 2003
  *
+ * Modifications:
+ *
+ *              Neil Fortner
+ *              Thursday, May 21, 2009
+ *              Overloaded to accept gcpl's as well as dcpl's and moved to
+ *              H5Pocpl.c
+ *
  *-------------------------------------------------------------------------
  */
 herr_t
@@ -1008,6 +1048,13 @@ done:
  *
  * Programmer:    Quincey Koziol
  *              Tuesday, April  8, 2003
+ *
+ * Modifications:
+ *
+ *              Neil Fortner
+ *              Thursday, May 21, 2009
+ *              Overloaded to accept gcpl's as well as dcpl's and moved to
+ *              H5Pocpl.c
  *
  *-------------------------------------------------------------------------
  */
@@ -1085,6 +1132,13 @@ done:
  * Programmer:  Pedro Vicente
  *              January 26, 2004
  *
+ * Modifications:
+ *
+ *              Neil Fortner
+ *              Thursday, May 21, 2009
+ *              Overloaded to accept gcpl's as well as dcpl's and moved to
+ *              H5Pocpl.c
+ *
  *-------------------------------------------------------------------------
  */
 herr_t
@@ -1137,6 +1191,18 @@ done:
  * Programmer:    Robb Matzke
  *              Wednesday, April 15, 1998
  *
+ * Modifications:
+ *
+ *              Raymond Lu
+ *              Tuesday, October 2, 2001
+ *              Changed the way to check parameter and set property for
+ *              generic property list.
+ *
+ *              Neil Fortner
+ *              Thursday, March 26, 2009
+ *              Overloaded to accept gcpl's as well as dcpl's and moved to
+ *              H5Pocpl.c
+ *
  *-------------------------------------------------------------------------
  */
 herr_t
@@ -1184,6 +1250,13 @@ done:
  *
  * Programmer:    Raymond Lu
  *              Dec 19, 2002
+ *
+ * Modifications:
+ *
+ *              Neil Fortner
+ *              Wednesday, May 6, 2009
+ *              Overloaded to accept gcpl's as well as dcpl's and moved to
+ *              H5Pocpl.c
  *
  *-------------------------------------------------------------------------
  */

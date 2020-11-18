@@ -26,6 +26,7 @@
 
 #include "H5CXprivate.h"        /* API Contexts                             */
 #include "H5Iprivate.h"
+#include "H5VLprivate.h"        /* Virtual Object Layer                     */
 #include "H5VMprivate.h"
 
 #define FILENAME_LEN	1024
@@ -480,7 +481,7 @@ test_fs_create(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     /* initialize creation parameters for free-space manager */
@@ -546,7 +547,7 @@ test_fs_create(hid_t fapl)
     if(file_size != empty_size)
         TEST_ERROR
 
-    PASSED();
+    PASSED()
 
     return 0;
 
@@ -622,7 +623,7 @@ test_fs_sect_add(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     init_cparam(&cparam);
@@ -673,7 +674,7 @@ test_fs_sect_add(hid_t fapl)
     if (tmp_file_size <= (file_size+fr_meta_size))
         TEST_ERROR
 
-    PASSED();
+    PASSED()
 
     TESTING("adding a section via H5FS_sect_add() to free-space with H5FS_CLS_GHOST_OBJ: test 2");
 
@@ -686,7 +687,7 @@ test_fs_sect_add(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     init_cparam(&cparam);
@@ -735,7 +736,7 @@ test_fs_sect_add(hid_t fapl)
     if (tmp_file_size != (file_size+fr_meta_size))
         TEST_ERROR
 
-    PASSED();
+    PASSED()
 
     TESTING("adding a section via H5FS_sect_add() to free-space: test 3");
 
@@ -756,7 +757,7 @@ test_fs_sect_add(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     TEST_set_eoa((haddr_t)TEST_SECT_ADDR150);  /* set end of file address for shrinking */
@@ -804,7 +805,7 @@ test_fs_sect_add(hid_t fapl)
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
 
     TESTING("adding a section via H5FS_sect_add() to free-space: test 4");
 
@@ -825,7 +826,7 @@ test_fs_sect_add(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     TEST_set_eoa((haddr_t)TEST_SECT_ADDR150);  /* set end of file address for shrinking */
@@ -879,11 +880,11 @@ test_fs_sect_add(hid_t fapl)
         FAIL_STACK_ERROR
     fs_addr = HADDR_UNDEF;
 
-    /* Close the file */
+    /* Close the file and dxpl */
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
 
     return 0;
 
@@ -946,7 +947,7 @@ test_fs_sect_find(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     init_cparam(&cparam);
@@ -981,7 +982,7 @@ test_fs_sect_find(hid_t fapl)
         FAIL_STACK_ERROR
     frsp = NULL;
 
-    PASSED();
+    PASSED()
 
     TESTING("H5FS_sect_find() a section equal to requested-size from free-space");
 
@@ -1109,7 +1110,7 @@ test_fs_sect_find(hid_t fapl)
         FAIL_STACK_ERROR
     frsp = NULL;
 
-    PASSED();
+    PASSED()
 
     TESTING("H5FS_sect_find() a section greater than requested-size from free-space");
 
@@ -1189,7 +1190,7 @@ test_fs_sect_find(hid_t fapl)
         FAIL_STACK_ERROR
     frsp = NULL;
 
-    PASSED();
+    PASSED()
 
     TESTING("H5FS_sect_find(): cannot find a section with requested-size from free-space");
 
@@ -1248,11 +1249,11 @@ test_fs_sect_find(hid_t fapl)
         FAIL_STACK_ERROR
     fs_addr = HADDR_UNDEF;
 
-    /* Close the file */
+    /* Close the file and dxpl */
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
 
     return 0;
 
@@ -1334,7 +1335,7 @@ test_fs_sect_merge(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     init_cparam(&cparam);
@@ -1452,7 +1453,7 @@ test_fs_sect_merge(hid_t fapl)
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
 
     /*
      * TEST 2
@@ -1464,7 +1465,7 @@ test_fs_sect_merge(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     init_cparam(&cparam);
@@ -1554,7 +1555,7 @@ test_fs_sect_merge(hid_t fapl)
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
 
     /*
      * TEST 3
@@ -1566,7 +1567,7 @@ test_fs_sect_merge(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     init_cparam(&cparam);
@@ -1722,7 +1723,7 @@ test_fs_sect_merge(hid_t fapl)
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
 
     return 0;
 
@@ -1801,7 +1802,7 @@ test_fs_sect_shrink(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     init_cparam(&cparam);
@@ -1893,7 +1894,7 @@ test_fs_sect_shrink(hid_t fapl)
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
 
 
     TESTING("shrinking of sections when H5FS_sect_add() to free-space: test 2");
@@ -1903,7 +1904,7 @@ test_fs_sect_shrink(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     init_cparam(&cparam);
@@ -1995,7 +1996,7 @@ test_fs_sect_shrink(hid_t fapl)
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
 
     TESTING("shrinking of sections when H5FS_sect_add() to free-space: test 3");
 
@@ -2004,7 +2005,7 @@ test_fs_sect_shrink(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     init_cparam(&cparam);
@@ -2086,7 +2087,7 @@ test_fs_sect_shrink(hid_t fapl)
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
 
     return 0;
 
@@ -2142,7 +2143,7 @@ test_fs_sect_change_class(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     init_cparam(&cparam);
@@ -2239,7 +2240,7 @@ test_fs_sect_change_class(hid_t fapl)
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
 
     /*
      * TEST 2
@@ -2251,7 +2252,7 @@ test_fs_sect_change_class(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     init_cparam(&cparam);
@@ -2361,7 +2362,7 @@ test_fs_sect_change_class(hid_t fapl)
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
 
     return 0;
 
@@ -2433,7 +2434,7 @@ test_fs_sect_extend(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     /* Tag with the global free space tag */
@@ -2514,7 +2515,7 @@ test_fs_sect_extend(hid_t fapl)
 	FAIL_STACK_ERROR
     fs_addr = HADDR_UNDEF;
 
-    PASSED();
+    PASSED()
 
     /*
      * TEST 2
@@ -2587,7 +2588,7 @@ test_fs_sect_extend(hid_t fapl)
 	FAIL_STACK_ERROR
     fs_addr = HADDR_UNDEF;
 
-    PASSED();
+    PASSED()
 
     /*
      * Test 3
@@ -2661,7 +2662,7 @@ test_fs_sect_extend(hid_t fapl)
 	FAIL_STACK_ERROR
     fs_addr = HADDR_UNDEF;
 
-    PASSED();
+    PASSED()
 
     /*
      * TEST 4
@@ -2734,9 +2735,9 @@ test_fs_sect_extend(hid_t fapl)
 	FAIL_STACK_ERROR
     fs_addr = HADDR_UNDEF;
 
-    PASSED();
+    PASSED()
 
-    /* Close the file */
+    /* Close the file and dxpl */
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
@@ -2787,7 +2788,7 @@ test_fs_sect_iterate(hid_t fapl)
         FAIL_STACK_ERROR
 
     /* Get a pointer to the internal file object */
-    if(NULL == (f = (H5F_t *)H5I_object(file)))
+    if(NULL == (f = (H5F_t *)H5VL_object(file)))
         FAIL_STACK_ERROR
 
     init_cparam(&cparam);
@@ -2838,11 +2839,11 @@ test_fs_sect_iterate(hid_t fapl)
 	FAIL_STACK_ERROR
     fs_addr = HADDR_UNDEF;
 
-    /* Close the file */
+    /* Close the file and dxpl */
     if(H5Fclose(file) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
 
     return 0;
 

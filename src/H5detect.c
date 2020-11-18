@@ -43,9 +43,6 @@ static const char *FileHeader = "\n\
  */
 #undef NDEBUG
 #include "H5private.h"
-/* Do NOT use HDfprintf in this file as it is not linked with the library,
- * which contains the H5system.c file in which the function is defined.
- */
 #include "H5Tpublic.h"
 #include "H5Rpublic.h"
 
@@ -110,8 +107,8 @@ typedef struct detected_t {
     unsigned int comp_align;            /* alignment for structure          */
 } detected_t;
 
-/* This structure holds structure alignment for pointers, hvl_t, hobj_ref_t,
- * hdset_reg_ref_t */
+/* This structure holds structure alignment for pointers, vlen and reference
+ * types. */
 typedef struct malign_t {
     const char          *name;
     unsigned int         comp_align;    /* alignment for structure          */
@@ -223,6 +220,25 @@ precision (detected_t *d)
  *              DETECT_BYTE is used for types that are exactly one byte.
  *
  * Return:      void
+ *
+ * Modifications:
+ *
+ *    Robb Matzke, 4 Nov 1996
+ *    The INFO.perm now contains `-1' for bytes that aren't used and
+ *    are always zero.  This happens on the Cray for `short' where
+ *    sizeof(short) is 8, but only the low-order 4 bytes are ever used.
+ *
+ *    Robb Matzke, 4 Nov 1996
+ *    Added a `padding' field to indicate how many zero bytes appear to
+ *    the left (N) or right (-N) of the value.
+ *
+ *    Robb Matzke, 5 Nov 1996
+ *    Removed HFILE and CFILE arguments.
+ *
+ *      Neil Fortner, 6 Sep 2013
+ *      Split macro into DETECT_I and DETECT_BYTE macros, extracted
+ *      common code into DETECT_I_BYTE_CORE.  This was done to remove
+ *      "will never be executed" warnings.
  *
  *-------------------------------------------------------------------------
  */
@@ -367,9 +383,8 @@ precision (detected_t *d)
 /*-------------------------------------------------------------------------
  * Function:    DETECT_M
  *
- * Purpose:     This macro takes only miscellaneous structures or pointer
- *              (pointer, hvl_t, hobj_ref_t, hdset_reg_ref_t).  It
- *              constructs the names and decides the alignment in structure.
+ * Purpose:     This macro takes only miscellaneous structures or pointer.
+ *              It constructs the names and decides the alignment in structure.
  *
  * Return:      void
  *-------------------------------------------------------------------------
@@ -745,8 +760,8 @@ H5T__init_native(void)\n\
     H5T_native_order_g = H5T_ORDER_%s;\n", "BE");
     }
 
-    /* Structure alignment for pointers, hvl_t, hobj_ref_t, hdset_reg_ref_t */
-    fprintf(rawoutstream, "\n    /* Structure alignment for pointers, hvl_t, hobj_ref_t, hdset_reg_ref_t */\n");
+    /* Structure alignment for pointers, vlen and reference types */
+    fprintf(rawoutstream, "\n    /* Structure alignment for pointers, vlen and reference types */\n");
     for(j=0; j<na; j++)
         fprintf(rawoutstream, "    H5T_%s_COMP_ALIGN_g = %lu;\n", misc_align[j].name, (unsigned long)(misc_align[j].comp_align));
 
@@ -1528,11 +1543,12 @@ detect_C99_floats(void)
 static void HDF_NO_UBSAN
 detect_alignments(void)
 {
-    /* Detect structure alignment for pointers, hvl_t, hobj_ref_t, hdset_reg_ref_t */
+    /* Detect structure alignment for pointers, vlen and reference types */
     DETECT_M(void *,              POINTER,      m_g[na_g]); na_g++;
     DETECT_M(hvl_t,               HVL,          m_g[na_g]); na_g++;
     DETECT_M(hobj_ref_t,          HOBJREF,      m_g[na_g]); na_g++;
     DETECT_M(hdset_reg_ref_t,     HDSETREGREF,  m_g[na_g]); na_g++;
+    DETECT_M(H5R_ref_t,           REF,          m_g[na_g]); na_g++;
 }
 
 
@@ -1600,6 +1616,12 @@ static int verify_signal_handlers(int signum, void (*handler)(int))
  * Purpose:     Main entry point.
  *
  * Return:      Success:    EXIT_SUCCESS
+ *
+ * Modifications:
+ *    Some compilers, e.g., Intel C v7.0, took a long time to compile
+ *      with optimization when a module routine contains many code lines.
+ *      Divide up all those types detections macros into subroutines, both
+ *      to avoid the compiler optimization error and cleaner codes.
  *
  *-------------------------------------------------------------------------
  */

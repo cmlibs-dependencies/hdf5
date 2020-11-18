@@ -156,11 +156,17 @@ JNIEXPORT jboolean JNICALL
 Java_hdf_hdf5lib_H5_H5Fis_1hdf5
     (JNIEnv *env, jclass clss, jstring name)
 {
+#ifndef H5_NO_DEPRECATED_SYMBOLS
     const char *fileName = NULL;
+#endif
     htri_t      bval = JNI_FALSE;
 
     UNUSED(clss);
 
+#ifdef H5_NO_DEPRECATED_SYMBOLS
+    UNUSED(name);
+    H5_UNIMPLEMENTED(ENVONLY, "H5Fis_hdf5: not implemented");
+#else
     if (NULL == name)
         H5_NULL_ARGUMENT_ERROR(ENVONLY, "H5Fis_hdf5: file name is NULL");
 
@@ -170,13 +176,47 @@ Java_hdf_hdf5lib_H5_H5Fis_1hdf5
         H5_LIBRARY_ERROR(ENVONLY);
 
     bval = (bval > 0) ? JNI_TRUE : JNI_FALSE;
+#endif
+
+done:
+#ifndef H5_NO_DEPRECATED_SYMBOLS
+    if (fileName)
+        UNPIN_JAVA_STRING(ENVONLY, name, fileName);
+#endif
+
+    return (jboolean)bval;
+} /* end Java_hdf_hdf5lib_H5_H5Fis_1hdf5 */
+
+/*
+ * Class:     hdf_hdf5lib_H5
+ * Method:    H5Fis_accessible
+ * Signature: (Ljava/lang/String;J)Z
+ */
+JNIEXPORT jboolean JNICALL
+Java_hdf_hdf5lib_H5_H5Fis_1accessible
+    (JNIEnv *env, jclass clss, jstring name, jlong file_id)
+{
+    const char *fileName = NULL;
+    htri_t      bval = JNI_FALSE;
+
+    UNUSED(clss);
+
+    if (NULL == name)
+        H5_NULL_ARGUMENT_ERROR(ENVONLY, "H5Fis_accessible: file name is NULL");
+
+    PIN_JAVA_STRING(ENVONLY, name, fileName, NULL, "H5Fis_accessible: file name not pinned");
+
+    if ((bval = H5Fis_accessible(fileName, (hid_t)file_id)) < 0)
+        H5_LIBRARY_ERROR(ENVONLY);
+
+    bval = (bval > 0) ? JNI_TRUE : JNI_FALSE;
 
 done:
     if (fileName)
         UNPIN_JAVA_STRING(ENVONLY, name, fileName);
 
     return (jboolean)bval;
-} /* end Java_hdf_hdf5lib_H5_H5Fis_1hdf5 */
+} /* end Java_hdf_hdf5lib_H5_H5Fis_1accessible */
 
 /*
  * Class:     hdf_hdf5lib_H5
@@ -237,6 +277,26 @@ Java_hdf_hdf5lib_H5_H5Fget_1intent
 done:
     return (jint)intent;
 } /* end Java_hdf_hdf5lib_H5_H5Fget_1intent */
+
+/*
+ * Class:     hdf_hdf5lib_H5
+ * Method:    H5Fget_fileno
+ * Signature: (J)J
+ */
+JNIEXPORT jlong JNICALL
+Java_hdf_hdf5lib_H5_H5Fget_1fileno
+    (JNIEnv *env, jclass clss, jlong file_id)
+{
+    unsigned long fileno = 0;
+
+    UNUSED(clss);
+
+    if (H5Fget_fileno((hid_t)file_id, &fileno) < 0)
+        H5_LIBRARY_ERROR(ENVONLY);
+
+done:
+    return (jlong)fileno;
+} /* end Java_hdf_hdf5lib_H5_H5Fget_1fileno */
 
 /*
  * Class:     hdf_hdf5lib_H5

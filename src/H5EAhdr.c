@@ -15,7 +15,7 @@
  *
  * Created:		H5EAhdr.c
  *			Aug 26 2008
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		Array header routines for extensible arrays.
  *
@@ -110,6 +110,7 @@ H5FL_SEQ_DEFINE_STATIC(H5EA_sblk_info_t);
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 26 2008
  *
  *-------------------------------------------------------------------------
@@ -179,6 +180,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_alloc() */
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 18 2008
  *
  *-------------------------------------------------------------------------
@@ -243,6 +245,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_init() */
  * Return:	Non-NULL pointer to buffer for elements on success/NULL on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 16 2008
  *
  *-------------------------------------------------------------------------
@@ -309,6 +312,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_alloc_elmts() */
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 18 2008
  *
  *-------------------------------------------------------------------------
@@ -345,6 +349,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_free_elmts() */
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Jun 17 2008
  *
  *-------------------------------------------------------------------------
@@ -459,6 +464,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_create() */
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 26 2008
  *
  *-------------------------------------------------------------------------
@@ -491,6 +497,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_incr() */
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 26 2008
  *
  *-------------------------------------------------------------------------
@@ -526,6 +533,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_decr() */
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 26 2008
  *
  *-------------------------------------------------------------------------
@@ -551,6 +559,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_fuse_incr() */
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 26 2008
  *
  *-------------------------------------------------------------------------
@@ -580,6 +589,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_fuse_decr() */
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep  9 2008
  *
  *-------------------------------------------------------------------------
@@ -609,6 +619,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_modified() */
  * Return:	Non-NULL pointer to header on success/NULL on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Jul 31 2013
  *
  *-------------------------------------------------------------------------
@@ -666,6 +677,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_protect() */
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug  1 2013
  *
  *-------------------------------------------------------------------------
@@ -696,6 +708,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_unprotect() */
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Aug 26 2008
  *
  *-------------------------------------------------------------------------
@@ -752,6 +765,7 @@ END_FUNC(PKG)   /* end H5EA__hdr_delete() */
  * Return:	Non-negative on success/Negative on failure
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Sep 11 2008
  *
  *-------------------------------------------------------------------------

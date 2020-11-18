@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Robb Matzke
+ * Programmer:  Robb Matzke <matzke@llnl.gov>
  *              Thursday, November 19, 1998
  *
  * Purpose:  Provides support functions for most of the hdf5 tests cases.
@@ -23,7 +23,6 @@
 
 #include "h5test.h"
 #include "H5srcdir.h"
-#include "H5srcdir_str.h"
 
 /* Necessary for h5_verify_cached_stabs() */
 #define H5G_FRIEND        /*suppress error about including H5Gpkg      */
@@ -44,6 +43,9 @@
  *      value is the name of the driver and subsequent data
  *      is interpreted according to the driver.  See
  *      h5_get_vfd_fapl() for details.
+ *
+ * HDF5_LIBVER_BOUNDS:    This string describes what library version bounds to
+ *      use for HDF5 file access.  See h5_get_libver_fapl() for details.
  *
  * HDF5_PREFIX:    A string to add to the beginning of all serial test
  *      file names.  This can be used to run tests in a
@@ -98,18 +100,13 @@ static const char *multi_letters = "msbrglo";
 /* The # of seconds to wait for the message file--used by h5_wait_message() */
 #define MESSAGE_TIMEOUT         300             /* Timeout in seconds */
 
-/* Buffer to construct path in and return pointer to */
-static char srcdir_path[1024] = "";
-
-/* Buffer to construct file in and return pointer to */
-static char srcdir_testpath[1024] = "";
-
 /*  The strings that correspond to library version bounds H5F_libver_t in H5Fpublic.h */
 /*  This is used by h5_get_version_string() */
 const char *LIBVER_NAMES[] = {
     "earliest", /* H5F_LIBVER_EARLIEST = 0  */
     "v18",      /* H5F_LIBVER_V18 = 1       */
-    "latest",   /* H5F_LIBVER_V110 = 2      */
+    "v110",     /* H5F_LIBVER_V110 = 2      */
+    "latest",   /* H5F_LIBVER_V112 = 3      */
     NULL
 };
 
@@ -117,8 +114,9 @@ const char *LIBVER_NAMES[] = {
 static H5E_auto2_t err_func = NULL;
 
 static herr_t h5_errors(hid_t estack, void *client_data);
-static char *h5_fixname_real(const char *base_name, hid_t fapl, const char *suffix,
-                              char *fullname, size_t size, hbool_t nest_printf);
+static char *h5_fixname_real(const char *base_name, hid_t fapl, const char *_suffix,
+    char *fullname, size_t size, hbool_t nest_printf, hbool_t subst_for_superblock);
+
 
 /*-------------------------------------------------------------------------
  * Function:  h5_errors
@@ -480,7 +478,33 @@ h5_test_init(void)
 char *
 h5_fixname(const char *base_name, hid_t fapl, char *fullname, size_t size)
 {
-    return (h5_fixname_real(base_name, fapl, ".h5", fullname, size, FALSE));
+    return (h5_fixname_real(base_name, fapl, ".h5", fullname, size, FALSE, FALSE));
+}
+
+
+/*-------------------------------------------------------------------------
+ * Function:    h5_fixname_superblock
+ *
+ * Purpose:     Like h5_fixname() but returns the name of the file you'd
+ *              open to find the superblock. Useful for when you have to
+ *              open a file with open(2) but the h5_fixname() string
+ *              contains stuff like format strings.
+ *
+ * Return:      Success:    The FULLNAME pointer.
+ *
+ *              Failure:    NULL if BASENAME or FULLNAME is the null
+ *                          pointer or if FULLNAME isn't large enough for
+ *                          the result.
+ *
+ * Programmer:  Dana Robinson
+ *              Spring 2019
+ *
+ *-------------------------------------------------------------------------
+ */
+char *
+h5_fixname_superblock(const char *base_name, hid_t fapl_id, char *fullname, size_t size)
+{
+    return (h5_fixname_real(base_name, fapl_id, ".h5", fullname, size, FALSE, TRUE));
 }
 
 
@@ -500,7 +524,7 @@ h5_fixname(const char *base_name, hid_t fapl, char *fullname, size_t size)
 char *
 h5_fixname_no_suffix(const char *base_name, hid_t fapl, char *fullname, size_t size)
 {
-    return (h5_fixname_real(base_name, fapl, NULL, fullname, size, FALSE));
+    return (h5_fixname_real(base_name, fapl, NULL, fullname, size, FALSE, FALSE));
 }
 
 
@@ -526,7 +550,7 @@ h5_fixname_no_suffix(const char *base_name, hid_t fapl, char *fullname, size_t s
 char *
 h5_fixname_printf(const char *base_name, hid_t fapl, char *fullname, size_t size)
 {
-    return (h5_fixname_real(base_name, fapl, ".h5", fullname, size, TRUE));
+    return (h5_fixname_real(base_name, fapl, ".h5", fullname, size, TRUE, FALSE));
 }
 
 
@@ -554,7 +578,7 @@ h5_fixname_printf(const char *base_name, hid_t fapl, char *fullname, size_t size
  */
 static char *
 h5_fixname_real(const char *base_name, hid_t fapl, const char *_suffix,
-                char *fullname, size_t size, hbool_t nest_printf)
+    char *fullname, size_t size, hbool_t nest_printf, hbool_t subst_for_superblock)
 {
     const char     *prefix = NULL;
     const char     *env = NULL;    /* HDF5_DRIVER environment variable     */
@@ -576,7 +600,10 @@ h5_fixname_real(const char *base_name, hid_t fapl, const char *_suffix,
 
         if(suffix) {
             if(H5FD_FAMILY == driver) {
-                suffix = nest_printf ? "%%05d.h5" : "%05d.h5";
+                if(subst_for_superblock)
+                    suffix = "00000.h5";
+                else
+                    suffix = nest_printf ? "%%05d.h5" : "%05d.h5";
             }
             else if (H5FD_MULTI == driver) {
 
@@ -592,11 +619,17 @@ h5_fixname_real(const char *base_name, hid_t fapl, const char *_suffix,
 #endif
                 if(env && !HDstrcmp(env, "split")) {
                     /* split VFD */
-                    suffix = NULL;
+                    if(subst_for_superblock)
+                        suffix = "-m.h5";
+                    else
+                        suffix = NULL;
                 }
                 else {
                     /* multi VFD */
-                    suffix = NULL;
+                    if(subst_for_superblock)
+                        suffix = "-s.h5";
+                    else
+                        suffix = NULL;
                 }
             }
         }
@@ -797,8 +830,8 @@ h5_rmprefix(const char *filename)
  * Function:    h5_fileaccess
  *
  * Purpose:     Returns a file access template which is the default template
- *              but with a file driver set
- *              according to a constant or environment variable HDF5_DRIVER
+ *              but with a file driver, VOL connector, or libver bound set
+ *              according to a constant or environment variable
  *
  * Return:      Success:    A file access property list
  *              Failure:    H5I_INVALID_HID
@@ -818,6 +851,10 @@ h5_fileaccess(void)
 
     /* Attempt to set up a file driver first */
     if(h5_get_vfd_fapl(fapl_id) < 0)
+        goto error;
+
+    /* Finally, check for libver bounds */
+    if(h5_get_libver_fapl(fapl_id) < 0)
         goto error;
 
     return fapl_id;
@@ -854,6 +891,10 @@ h5_fileaccess_flags(unsigned flags)
 
     /* Attempt to set up a file driver first */
     if((flags & H5_FILEACCESS_VFD) && h5_get_vfd_fapl(fapl_id) < 0)
+        goto error;
+
+    /* Finally, check for libver bounds */
+    if((flags & H5_FILEACCESS_LIBVER) && h5_get_libver_fapl(fapl_id) < 0)
         goto error;
 
     return fapl_id;
@@ -1002,6 +1043,69 @@ error:
 
 
 /*-------------------------------------------------------------------------
+ * Function:    h5_get_libver_fapl
+ *
+ * Purpose:     Sets the library version bounds for a FAPL according to the
+ *              value in the constant or environment variable "HDF5_LIBVER_BOUNDS".
+ *
+ * Return:      Success:    0
+ *              Failure:    -1
+ *
+ * Programmer:  Quincey Koziol
+ *              November 2018
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+h5_get_libver_fapl(hid_t fapl)
+{
+    const char  *env = NULL;    /* HDF5_DRIVER environment variable     */
+    const char  *tok = NULL;    /* strtok pointer                       */
+    char        *lasts = NULL;  /* Context pointer for strtok_r() call */
+    char        buf[1024];      /* buffer for tokenizing HDF5_DRIVER    */
+
+    /* Get the environment variable, if it exists */
+    env = HDgetenv("HDF5_LIBVER_BOUNDS");
+#ifdef HDF5_LIBVER_BOUNDS
+    /* Use the environment variable, then the compile-time constant */
+    if(!env)
+        env = HDF5_LIBVER_BOUNDS;
+#endif
+
+    /* If the environment variable was not set, just return
+     * without modifying the FAPL.
+     */
+    if(!env || !*env)
+        goto done;
+
+    /* Get the first 'word' of the environment variable.
+     * If it's nothing (environment variable was whitespace)
+     * just return the default fapl.
+     */
+    HDstrncpy(buf, env, sizeof(buf));
+    buf[sizeof(buf) - 1] = '\0';
+    if(NULL == (tok = HDstrtok_r(buf, " \t\n\r", &lasts)))
+        goto done;
+
+    if(!HDstrcmp(tok, "latest")) {
+        /* use the latest format */
+        if(H5Pset_libver_bounds(fapl, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST) < 0)
+            goto error;
+    } /* end if */
+    else {
+        /* Unknown setting */
+        goto error;
+    } /* end else */
+
+done:
+    return 0;
+
+error:
+    return -1;
+} /* end h5_get_libver_fapl() */
+
+
+/*-------------------------------------------------------------------------
  * Function:  h5_no_hwconv
  *
  * Purpose:  Turn off hardware data type conversions.
@@ -1060,8 +1164,10 @@ h5_show_hostname(void)
         else
             HDprintf("thread 0.");
     }
+#elif defined(H5_HAVE_THREADSAFE)
+    HDprintf("thread %lu.", HDpthread_self_ulong());
 #else
-    HDprintf("thread %" PRIu64 ".", H5TS_thread_id());
+    HDprintf("thread 0.");
 #endif
 #ifdef H5_HAVE_WIN32_API
 
@@ -1588,7 +1694,7 @@ error:
  */
 static herr_t
 h5_verify_cached_stabs_cb(hid_t oid, const char H5_ATTR_UNUSED *name,
-    const H5O_info_t *oinfo, void H5_ATTR_UNUSED *udata)
+    const H5O_info2_t *oinfo, void H5_ATTR_UNUSED *udata)
 {
     if(oinfo->type == H5O_TYPE_GROUP)
         return H5G__verify_cached_stabs_test(oid);
@@ -1636,7 +1742,7 @@ h5_verify_cached_stabs(const char *base_name[], hid_t fapl)
             continue;
         } /* end if */
 
-        if(H5Ovisit2(file, H5_INDEX_NAME, H5_ITER_NATIVE,
+        if(H5Ovisit3(file, H5_INDEX_NAME, H5_ITER_NATIVE,
                 h5_verify_cached_stabs_cb, NULL, H5O_INFO_BASIC) < 0)
             goto error;
 
@@ -1874,6 +1980,48 @@ error:
 } /* h5_get_dummy_vfd_class */
 
 /*-------------------------------------------------------------------------
+ * Function:    h5_get_dummy_vol_class()
+ *
+ * Purpose:     Returns a disposable, generally non-functional,
+ *              VOL class struct.
+ *
+ *              In some of the test code, we need a disposable VOL connector
+ *              but we don't want to mess with the real VFDs and we also
+ *              don't have access to the internals of the real VOL connectors
+ *              (which use static globals and functions) to easily duplicate
+ *              them (e.g.: for testing VOL connector ID handling).
+ *
+ *              This API call will return a pointer to a VOL class that
+ *              can be used to construct a test VOL using H5VLregister_connector().
+ *
+ * Return:      Success:    A pointer to a VOL class struct
+ *              Failure:    NULL
+ *
+ *-------------------------------------------------------------------------
+ */
+H5VL_class_t *
+h5_get_dummy_vol_class(void)
+{
+    H5VL_class_t *vol_class = NULL;     /* Dummy VOL class that will be returned */
+
+    /* Create the class and initialize everything to zero/NULL */
+    if(NULL == (vol_class = (H5VL_class_t *)HDcalloc((size_t)1, sizeof(H5VL_class_t))))
+        TEST_ERROR;
+
+    /* Fill in the minimum parameters to make a VOL connector class that
+     * can be registered.
+     */
+    vol_class->name = "dummy";
+
+    return vol_class;
+
+error:
+    if(vol_class)
+        HDfree(vol_class);
+    return NULL;
+} /* h5_get_dummy_vol_class */
+
+/*-------------------------------------------------------------------------
  * Function:    h5_get_version_string
  *
  * Purpose:     Get the string that corresponds to the libvery version bound.
@@ -1887,263 +2035,3 @@ h5_get_version_string(H5F_libver_t libver)
 {
     return(LIBVER_NAMES[libver]);
 } /* end of h5_get_version_string */
-
-/*-------------------------------------------------------------------------
- * Function:    h5_compare_file_bytes()
- *
- * Purpose:     Helper function to compare two files byte-for-byte.
- *
- * Return:      Success:  0, if files are identical
- *              Failure: -1, if files differ
- *
- * Programmer:  Binh-Minh Ribler
- *              October, 2018
- *-------------------------------------------------------------------------
- */
-int
-h5_compare_file_bytes(char *f1name, char *f2name)
-{
-    FILE       *f1ptr = NULL;  /* two file pointers */
-    FILE       *f2ptr = NULL;
-    off_t       f1size = 0;    /* size of the files */
-    off_t       f2size = 0;
-    char        f1char = 0;    /* one char from each file */
-    char        f2char = 0;
-    off_t       ii = 0;
-    int         ret_value = 0; /* for error handling */
-
-    /* Open files for reading */
-    f1ptr = HDfopen(f1name, "rb");
-    if (f1ptr == NULL) {
-        HDfprintf(stderr, "Unable to fopen() %s\n", f1name);
-        ret_value = -1;
-        goto done;
-    }
-    f2ptr = HDfopen(f2name, "rb");
-    if (f2ptr == NULL) {
-        HDfprintf(stderr, "Unable to fopen() %s\n", f2name);
-        ret_value = -1;
-        goto done;
-    }
-
-    /* Get the file sizes and verify that they equal */
-    HDfseek(f1ptr , 0 , SEEK_END);
-    f1size = HDftell(f1ptr);
-
-    HDfseek(f2ptr , 0 , SEEK_END);
-    f2size = HDftell(f2ptr);
-
-    if (f1size != f2size) {
-        HDfprintf(stderr, "Files differ in size, %llu vs. %llu\n", f1size, f2size);
-        ret_value = -1;
-        goto done;
-    }
-
-    /* Compare each byte and fail if a difference is found */
-    HDrewind(f1ptr);
-    HDrewind(f2ptr);
-    for (ii = 0; ii < f1size; ii++) {
-        if(HDfread(&f1char, 1, 1, f1ptr) != 1) {
-            ret_value = -1;
-            goto done;
-        }
-        if(HDfread(&f2char, 1, 1, f2ptr) != 1) {
-            ret_value = -1;
-            goto done;
-        }
-        if (f1char != f2char) {
-            HDfprintf(stderr, "Mismatch @ 0x%llX: 0x%X != 0x%X\n", ii, f1char, f2char);
-            ret_value = -1;
-            goto done;
-        }
-    }
-
-done:
-    if (f1ptr)
-        HDfclose(f1ptr);
-    if (f2ptr)
-        HDfclose(f2ptr);
-    return ret_value;
-} /* end h5_compare_file_bytes() */
-
-/*-------------------------------------------------------------------------
- * Function:    H5_get_srcdir_filename
- *
- * Purpose:     Append the test file name to the srcdir path and return the whole string
- *
- * Return:      The string
- *
- *-------------------------------------------------------------------------
- */
-const char *H5_get_srcdir_filename(const char *filename)
-{
-    const char *srcdir = H5_get_srcdir();
-
-    /* Check for error */
-    if(NULL == srcdir)
-        return(NULL);
-    else {
-        /* Build path to test file */
-        if((HDstrlen(srcdir) + HDstrlen(filename) + 1) < sizeof(srcdir_testpath)) {
-            HDsnprintf(srcdir_testpath, sizeof(srcdir_testpath), "%s%s", srcdir, filename);
-            return(srcdir_testpath);
-        } /* end if */
-        else
-            return(NULL);
-    } /* end else */
-} /* end H5_get_srcdir_filename() */
-
-/*-------------------------------------------------------------------------
- * Function:    H5_get_srcdir
- *
- * Purpose:     Just return the srcdir path
- *
- * Return:      The string
- *
- *-------------------------------------------------------------------------
- */
-const char *H5_get_srcdir(void)
-{
-    const char *srcdir = HDgetenv("srcdir");
-
-    /* Check for using the srcdir from configure time */
-    if(NULL == srcdir)
-        srcdir = config_srcdir;
-
-    /* Build path to all test files */
-    if((HDstrlen(srcdir) + 2) < sizeof(srcdir_path)) {
-        HDsnprintf(srcdir_path, sizeof(srcdir_path), "%s/", srcdir);
-        return(srcdir_path);
-    } /* end if */
-    else
-        return(NULL);
-} /* end H5_get_srcdir() */
-
-/*-------------------------------------------------------------------------
- * Function:    h5_duplicate_file_by_bytes
- *
- * Purpose:     Duplicate a file byte-for-byte at filename/path 'orig'
- *              to a new (or replaced) file at 'dest'.
- *
- * Return:      Success:  0, completed successfully
- *              Failure: -1
- *
- * Programmer:  Jake Smith
- *              24 June 2020
- *
- *-------------------------------------------------------------------------
- */
-int
-h5_duplicate_file_by_bytes(const char *orig, const char *dest)
-{
-    FILE *orig_ptr = NULL;
-    FILE *dest_ptr = NULL;
-    hsize_t fsize = 0;
-    hsize_t read_size = 0;
-    hsize_t max_buf = 0;
-    void *dup_buf = NULL;
-    int ret_value = 0;
-
-    max_buf = 4096 * sizeof(char);
-
-    orig_ptr = HDfopen(orig, "rb");
-    if (NULL == orig_ptr) {
-        ret_value = -1;
-        goto done;
-    }
-
-    HDfseek(orig_ptr , 0 , SEEK_END);
-    fsize = (hsize_t)HDftell(orig_ptr);
-    HDrewind(orig_ptr);
-
-    dest_ptr = HDfopen(dest, "wb");
-    if (NULL == dest_ptr) {
-        ret_value = -1;
-        goto done;
-    }
-
-    read_size = MIN(fsize, max_buf);
-    dup_buf = HDmalloc(read_size);
-    if (NULL == dup_buf) {
-        ret_value = -1;
-        goto done;
-    }
-
-    while (read_size > 0) {
-        if (HDfread(dup_buf, read_size, 1, orig_ptr) != 1) {
-            ret_value = -1;
-            goto done;
-        }
-        HDfwrite(dup_buf, read_size, 1, dest_ptr);
-        fsize -= read_size;
-        read_size = MIN(fsize, max_buf);
-    }
-
-done:
-    if (orig_ptr != NULL)
-        HDfclose(orig_ptr);
-    if (dest_ptr != NULL)
-        HDfclose(dest_ptr);
-    if (dup_buf != NULL)
-        HDfree(dup_buf);
-    return ret_value;
-} /* end h5_duplicate_file_by_bytes() */
-
-/*-------------------------------------------------------------------------
- * Function:    h5_check_if_file_locking_enabled
- *
- * Purpose:     Checks if file locking is enabled on this file system.
- *
- * Return:      SUCCEED/FAIL
- *              are_enabled will be FALSE if file locking is disabled on
- *              the file system of if there were errors.
- *
- *-------------------------------------------------------------------------
- */
-herr_t
-h5_check_if_file_locking_enabled(hbool_t *is_enabled)
-{
-    const char *filename = "locking_test_file";
-    int pmode = O_RDWR | O_CREAT | O_TRUNC;
-    int fd = -1;
-
-    *is_enabled = TRUE;
-
-    if((fd = HDopen(filename, pmode, H5_POSIX_CREATE_MODE_RW)) < 0)
-        goto error;
-
-    /* Test HDflock() to see if it works */
-    if(HDflock(fd, LOCK_EX | LOCK_NB) < 0) {
-        if(ENOSYS == errno) {
-            /* When errno is set to ENOSYS, the file system does not support
-             * locking, so ignore it. This is most frequently used on
-             * Lustre. If we also want to check for disabled NFS locks
-             * we'll need to check for ENOLCK, too. That isn't done by
-             * default here since that could also represent an actual
-             * error condition.
-             */
-            errno = 0;
-            *is_enabled = FALSE;
-        }
-        else
-            goto error;
-    }
-    if(HDflock(fd, LOCK_UN) < 0)
-        goto error;
-
-    if(HDclose(fd) < 0)
-        goto error;
-    if(HDremove(filename) < 0)
-        goto error;
-
-    return SUCCEED;
-
-error:
-    *is_enabled = FALSE;
-    if (fd > -1) {
-        HDclose(fd);
-        HDremove(filename);
-    }
-    return FAIL;
-} /* end h5_check_if_file_locking_enabled() */
-

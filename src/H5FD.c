@@ -202,7 +202,7 @@ H5FD__free_cls(H5FD_class_t *cls)
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5FD__free_cls() */
+} /* end H5FD_free_cls() */
 
 
 /*-------------------------------------------------------------------------
@@ -566,22 +566,22 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:    H5FD_free_driver_info
+ * Function:    H5FD_fapl_close
  *
- * Purpose:     Frees a driver's info
+ * Purpose:     Closes a driver for a dataset transfer property list
  *
  * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
 herr_t
-H5FD_free_driver_info(hid_t driver_id, const void *driver_info)
+H5FD_fapl_close(hid_t driver_id, const void *driver_info)
 {
     herr_t      ret_value = SUCCEED;       /* Return value */
 
     FUNC_ENTER_NOAPI(FAIL)
 
-    if(driver_id > 0 && driver_info) {
+    if(driver_id > 0) {
         H5FD_class_t	*driver;
 
         /* Retrieve the driver for the ID */
@@ -589,19 +589,19 @@ H5FD_free_driver_info(hid_t driver_id, const void *driver_info)
             HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a driver ID")
 
         /* Allow driver to free info or do it ourselves */
-        if(driver->fapl_free) {
-            /* Free the const pointer */
-            /* Cast through uintptr_t to de-const memory */
-            if((driver->fapl_free)((void *)(uintptr_t)driver_info) < 0)
-                HGOTO_ERROR(H5E_VFL, H5E_CANTFREE, FAIL, "driver free request failed")
-        }
-        else
-            driver_info = H5MM_xfree_const(driver_info);
-    }
+        if(driver_info) {
+            if(driver->fapl_free) {
+                if((driver->fapl_free)((void *)driver_info) < 0)        /* Casting away const OK -QAK */
+                    HGOTO_ERROR(H5E_VFL, H5E_CANTFREE, FAIL, "driver free request failed")
+            } /* end if */
+            else
+                driver_info = H5MM_xfree((void *)driver_info);        /* Casting away const OK -QAK */
+        } /* end if */
+    } /* end if */
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
-} /* end H5FD_free_driver_info() */
+} /* end H5FD_fapl_close() */
 
 
 /*-------------------------------------------------------------------------
@@ -789,7 +789,7 @@ done:
  *              will be all zero during the driver close callback like during
  *              the 'open' callback.
  *
- * Return:      Non-negative on success/Negative on failure
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
@@ -1088,7 +1088,7 @@ done:
  *              doesn't map to a free list then either the application 'free'
  *              callback is invoked (if defined) or the memory is leaked.
  *
- * Return:      Non-negative on success/Negative on failure
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
@@ -1382,11 +1382,11 @@ done:
  *              be the constant H5P_DEFAULT). The result is written into the
  *              buffer BUF.
  *
- * Return:      Success:    Non-negative
+ * Return:      Success:    SUCCEED
  *                          The read result is written into the BUF buffer
  *                          which should be allocated by the caller.
  *
- *              Failure:	Negative
+ *              Failure:	FAIL
  *                          The contents of BUF are undefined.
  *
  *-------------------------------------------------------------------------
@@ -1436,7 +1436,7 @@ done:
  *              constant H5P_DEFAULT). The bytes to be written come from the
  *              buffer BUF.
  *
- * Return:      Non-negative on success/Negative on failure
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
@@ -1483,7 +1483,7 @@ done:
  * Purpose:     Notify driver to flush all cached data.  If the driver has no
  *              flush method then nothing happens.
  *
- * Return:      Non-negative on success/Negative on failureL
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
@@ -1553,7 +1553,7 @@ done:
  *
  * Purpose:     Notify driver to truncate the file back to the allocated size.
  *
- * Return:      Non-negative on success/Negative on failure
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
@@ -1622,7 +1622,7 @@ done:
  *
  * Purpose:     Set a file lock
  *
- * Return:      Non-negative on success/Negative on failure
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
@@ -1642,7 +1642,7 @@ H5FDlock(H5FD_t *file, hbool_t rw)
 
     /* Call private function */
     if(H5FD_lock(file, rw) < 0)
-        HGOTO_ERROR(H5E_VFL, H5E_CANTLOCKFILE, FAIL, "file lock request failed")
+        HGOTO_ERROR(H5E_VFL, H5E_CANTINIT, FAIL, "file lock request failed")
 
 done:
     FUNC_LEAVE_API(ret_value)
@@ -1672,7 +1672,7 @@ H5FD_lock(H5FD_t *file, hbool_t rw)
 
     /* Dispatch to driver */
     if(file->cls->lock && (file->cls->lock)(file, rw) < 0)
-        HGOTO_ERROR(H5E_VFL, H5E_CANTLOCKFILE, FAIL, "driver lock request failed")
+        HGOTO_ERROR(H5E_VFL, H5E_CANTUPDATE, FAIL, "driver lock request failed")
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
@@ -1684,7 +1684,7 @@ done:
  *
  * Purpose:     Remove a file lock
  *
- * Return:      Non-negative on success/Negative on failure
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
@@ -1704,7 +1704,7 @@ H5FDunlock(H5FD_t *file)
 
     /* Call private function */
     if(H5FD_unlock(file) < 0)
-        HGOTO_ERROR(H5E_VFL, H5E_CANTUNLOCKFILE, FAIL, "file unlock request failed")
+        HGOTO_ERROR(H5E_VFL, H5E_CANTINIT, FAIL, "file unlock request failed")
 
 done:
     FUNC_LEAVE_API(ret_value)
@@ -1733,7 +1733,7 @@ H5FD_unlock(H5FD_t *file)
 
     /* Dispatch to driver */
     if(file->cls->unlock && (file->cls->unlock)(file) < 0)
-        HGOTO_ERROR(H5E_VFL, H5E_CANTUNLOCKFILE, FAIL, "driver unlock request failed")
+        HGOTO_ERROR(H5E_VFL, H5E_CANTUPDATE, FAIL, "driver unlock request failed")
 
 done:
     FUNC_LEAVE_NOAPI(ret_value)
@@ -1773,7 +1773,7 @@ H5FD_get_fileno(const H5FD_t *file, unsigned long *filenum)
  * Purpose:     Returns a pointer to the file handle of low-level virtual
  *              file driver.
  *
- * Return:      Non-negative on success/Negative on failure
+ * Return:      SUCCEED/FAIL
  *
  *--------------------------------------------------------------------------
  */
@@ -1919,7 +1919,7 @@ H5FD_set_paged_aggr(H5FD_t *file, hbool_t paged)
 *           can't use the file to get the driver, the driver ID is passed
 *           in as a parameter.
 *
-* Return:   Non-negative on success/Negative on failure
+* Return:   SUCCEED/FAIL
 *
 *-------------------------------------------------------------------------
 */

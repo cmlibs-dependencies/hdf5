@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer: Robb Matzke
+ * Programmer: Robb Matzke <matzke@llnl.gov>
  *	       Tuesday, November 25, 1997
  */
 

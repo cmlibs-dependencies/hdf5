@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Pedro Vicente
+ * Programmer:  Pedro Vicente <pvn@ncsa.uiuc.edu>
  *              April 12, 2002
  *
  * Purpose:     Tests the H5Dset_extent call
@@ -2013,7 +2013,8 @@ static int test_external(hid_t fapl) {
     if (H5Fclose(fid) < 0)
         FAIL_STACK_ERROR
 
-    PASSED();
+    PASSED()
+    ;
 
     return 0;
 
@@ -2657,7 +2658,7 @@ static int test_random_rank4_vl( hid_t fapl, hid_t dcpl, hbool_t do_fillvalue,
             } /* end else */
 
             /* Free read buffer */
-            if(H5Dvlen_reclaim(type, mspace, H5P_DEFAULT, rbuf) < 0)
+            if(H5Treclaim(type, mspace, H5P_DEFAULT, rbuf) < 0)
                 TEST_ERROR
         } /* end if */
 
@@ -2677,7 +2678,7 @@ static int test_random_rank4_vl( hid_t fapl, hid_t dcpl, hbool_t do_fillvalue,
     /* Close */
     if(H5Sselect_all(mspace) < 0)
         TEST_ERROR
-    if(H5Dvlen_reclaim(type, mspace, H5P_DEFAULT, wbuf) < 0)
+    if(H5Treclaim(type, mspace, H5P_DEFAULT, wbuf) < 0)
         TEST_ERROR
     free(fill_value.p);
     if(H5Sclose(mspace) < 0)

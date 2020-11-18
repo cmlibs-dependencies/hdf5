@@ -27,6 +27,9 @@
 #include "H5Eprivate.h"         /* Error handling                           */
 #include "H5FLprivate.h"        /* Free lists                               */
 #include "H5Iprivate.h"         /* IDs                                      */
+#include "H5VLprivate.h"        /* Virtual Object Layer                     */
+
+#include "H5VLnative_private.h" /* Native VOL connector                     */
 
 
 /****************/
@@ -50,12 +53,6 @@
 
 /* Package initialization variable */
 hbool_t H5_PKG_INIT_VAR = FALSE;
-
-/* Declare extern the free list to manage blocks of VL data */
-H5FL_BLK_EXTERN(vlen_vl_buf);
-
-/* Declare extern the free list to manage other blocks of VL data */
-H5FL_BLK_EXTERN(vlen_fl_buf);
 
 
 /*****************************/
@@ -102,9 +99,9 @@ hid_t
 H5Dcreate2(hid_t loc_id, const char *name, hid_t type_id, hid_t space_id,
     hid_t lcpl_id, hid_t dcpl_id, hid_t dapl_id)
 {
-    H5G_loc_t	   loc;                 /* Object location to insert dataset into */
-    H5D_t          *dset = NULL;        /* New dataset's info */
-    const H5S_t    *space;              /* Dataspace for dataset */
+    void               *dset = NULL;                    /* New dataset's info */
+    H5VL_object_t      *vol_obj = NULL;                 /* object of loc_id */
+    H5VL_loc_params_t   loc_params;
     hid_t               ret_value = H5I_INVALID_HID;    /* Return value */
 
     FUNC_ENTER_API(H5I_INVALID_HID)
@@ -116,12 +113,6 @@ H5Dcreate2(hid_t loc_id, const char *name, hid_t type_id, hid_t space_id,
         HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, H5I_INVALID_HID, "name parameter cannot be NULL")
     if(!*name)
         HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, H5I_INVALID_HID, "name parameter cannot be an empty string")
-    if(H5G_loc(loc_id, &loc) < 0)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "not a location ID")
-    if(H5I_DATATYPE != H5I_get_type(type_id))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "not a datatype ID")
-    if(NULL == (space = (const H5S_t *)H5I_object_verify(space_id, H5I_DATASPACE)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "not a dataspace ID")
 
     /* Get link creation property list */
     if(H5P_DEFAULT == lcpl_id)
@@ -147,17 +138,25 @@ H5Dcreate2(hid_t loc_id, const char *name, hid_t type_id, hid_t space_id,
     if(H5CX_set_apl(&dapl_id, H5P_CLS_DACC, loc_id, TRUE) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTSET, H5I_INVALID_HID, "can't set access property list info")
 
+    /* Get the location object */
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object(loc_id)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "invalid location identifier")
+
+    /* Set location parameters */
+    loc_params.type         = H5VL_OBJECT_BY_SELF;
+    loc_params.obj_type     = H5I_get_type(loc_id);
+
     /* Create the dataset */
-    if(NULL == (dset = H5D__create_named(&loc, name, type_id, space, lcpl_id, dcpl_id, dapl_id)))
+    if(NULL == (dset = H5VL_dataset_create(vol_obj, &loc_params, name, lcpl_id, type_id, space_id, dcpl_id, dapl_id, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL)))
         HGOTO_ERROR(H5E_DATASET, H5E_CANTINIT, H5I_INVALID_HID, "unable to create dataset")
 
-    /* Get an ID for the dataset */
-    if((ret_value = H5I_register(H5I_DATASET, dset, TRUE)) < 0)
-        HGOTO_ERROR(H5E_DATASET, H5E_CANTREGISTER, H5I_INVALID_HID, "unable to register dataset")
+    /* Get an atom for the dataset */
+    if((ret_value = H5VL_register(H5I_DATASET, dset, vol_obj->connector, TRUE)) < 0)
+        HGOTO_ERROR(H5E_DATASET, H5E_CANTREGISTER, H5I_INVALID_HID, "unable to atomize dataset handle")
 
 done:
     if(H5I_INVALID_HID == ret_value)
-        if(dset && H5D_close(dset) < 0)
+        if(dset && H5VL_dataset_close(vol_obj, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL) < 0)
             HDONE_ERROR(H5E_DATASET, H5E_CLOSEERROR, H5I_INVALID_HID, "unable to release dataset")
 
     FUNC_LEAVE_API(ret_value)
@@ -200,56 +199,48 @@ hid_t
 H5Dcreate_anon(hid_t loc_id, hid_t type_id, hid_t space_id, hid_t dcpl_id,
     hid_t dapl_id)
 {
-    H5G_loc_t	   loc;                 /* Object location to insert dataset into */
-    H5D_t          *dset = NULL;        /* New dataset's info */
-    const H5S_t    *space;              /* Dataspace for dataset */
+    void                *dset       = NULL;             /* dset object from VOL connector */
+    H5VL_object_t       *vol_obj    = NULL;             /* object of loc_id */
+    H5VL_loc_params_t   loc_params;
     hid_t               ret_value   = H5I_INVALID_HID;  /* Return value */
 
     FUNC_ENTER_API(H5I_INVALID_HID)
     H5TRACE5("i", "iiiii", loc_id, type_id, space_id, dcpl_id, dapl_id);
 
     /* Check arguments */
-    if(H5G_loc(loc_id, &loc) < 0)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "not a location ID")
-    if(H5I_DATATYPE != H5I_get_type(type_id))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "not a datatype ID")
-    if(NULL == (space = (const H5S_t *)H5I_object_verify(space_id, H5I_DATASPACE)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "not a dataspace ID")
     if(H5P_DEFAULT == dcpl_id)
         dcpl_id = H5P_DATASET_CREATE_DEFAULT;
     else
         if(TRUE != H5P_isa_class(dcpl_id, H5P_DATASET_CREATE))
             HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "not dataset create property list ID")
 
+    /* Set the DCPL for the API context */
+    H5CX_set_dcpl(dcpl_id);
+
     /* Verify access property list and set up collective metadata if appropriate */
     if(H5CX_set_apl(&dapl_id, H5P_CLS_DACC, loc_id, TRUE) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTSET, H5I_INVALID_HID, "can't set access property list info")
 
-    /* build and open the new dataset */
-    if(NULL == (dset = H5D__create(loc.oloc->file, type_id, space, dcpl_id, dapl_id)))
+    /* get the location object */
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object(loc_id)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "invalid location identifier")
+
+    /* Set location parameters */
+    loc_params.type     = H5VL_OBJECT_BY_SELF;
+    loc_params.obj_type = H5I_get_type(loc_id);
+
+    /* Create the dataset */
+    if(NULL == (dset = H5VL_dataset_create(vol_obj, &loc_params, NULL, H5P_LINK_CREATE_DEFAULT, type_id, space_id, dcpl_id, dapl_id, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL)))
         HGOTO_ERROR(H5E_DATASET, H5E_CANTINIT, H5I_INVALID_HID, "unable to create dataset")
 
-    /* Register the new dataset to get an ID for it */
-    if((ret_value = H5I_register(H5I_DATASET, dset, TRUE)) < 0)
+    /* Get an atom for the dataset */
+    if((ret_value = H5VL_register(H5I_DATASET, dset, vol_obj->connector, TRUE)) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTREGISTER, H5I_INVALID_HID, "unable to register dataset")
 
 done:
-    /* Release the dataset's object header, if it was created */
-    if(dset) {
-        H5O_loc_t *oloc;         /* Object location for dataset */
-
-        /* Get the new dataset's object location */
-        if(NULL == (oloc = H5D_oloc(dset)))
-            HDONE_ERROR(H5E_DATASET, H5E_CANTGET, H5I_INVALID_HID, "unable to get object location of dataset")
-
-        /* Decrement refcount on dataset's object header in memory */
-        if(H5O_dec_rc_by_loc(oloc) < 0)
-           HDONE_ERROR(H5E_DATASET, H5E_CANTDEC, H5I_INVALID_HID, "unable to decrement refcount on newly created object")
-    }
-
     /* Cleanup on failure */
     if(H5I_INVALID_HID == ret_value)
-        if(dset && H5D_close(dset) < 0)
+        if(dset && H5VL_dataset_close(vol_obj, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL) < 0)
             HDONE_ERROR(H5E_DATASET, H5E_CLOSEERROR, H5I_INVALID_HID, "unable to release dataset")
 
     FUNC_LEAVE_API(ret_value)
@@ -274,16 +265,15 @@ done:
 hid_t
 H5Dopen2(hid_t loc_id, const char *name, hid_t dapl_id)
 {
-    H5D_t       *dset = NULL;
-    H5G_loc_t   loc;                    /* Object location of group */
+    void               *dset = NULL;            /* dset object from VOL connector */
+    H5VL_object_t      *vol_obj = NULL;         /* object of loc_id */
+    H5VL_loc_params_t   loc_params;
     hid_t               ret_value   = H5I_INVALID_HID;  /* Return value */
 
     FUNC_ENTER_API(H5I_INVALID_HID)
     H5TRACE3("i", "i*si", loc_id, name, dapl_id);
 
     /* Check args */
-    if(H5G_loc(loc_id, &loc) < 0)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "not a location")
     if(!name)
         HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, H5I_INVALID_HID, "name parameter cannot be NULL")
     if(!*name)
@@ -293,17 +283,25 @@ H5Dopen2(hid_t loc_id, const char *name, hid_t dapl_id)
     if(H5CX_set_apl(&dapl_id, H5P_CLS_DACC, loc_id, FALSE) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTSET, H5I_INVALID_HID, "can't set access property list info")
 
+    /* get the location object */
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object(loc_id)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "invalid location identifier")
+
+    /* Set the location parameters */
+    loc_params.type         = H5VL_OBJECT_BY_SELF;
+    loc_params.obj_type     = H5I_get_type(loc_id);
+
     /* Open the dataset */
-    if(NULL == (dset = H5D__open_name(&loc, name, dapl_id)))
+    if(NULL == (dset = H5VL_dataset_open(vol_obj, &loc_params, name, dapl_id, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL)))
         HGOTO_ERROR(H5E_DATASET, H5E_CANTOPENOBJ, H5I_INVALID_HID, "unable to open dataset")
 
     /* Register an atom for the dataset */
-    if((ret_value = H5I_register(H5I_DATASET, dset, TRUE)) < 0)
+    if((ret_value = H5VL_register(H5I_DATASET, dset, vol_obj->connector, TRUE)) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTREGISTER, H5I_INVALID_HID, "can't register dataset atom")
 
 done:
     if(H5I_INVALID_HID == ret_value)
-        if(dset && H5D_close(dset) < 0)
+        if(dset && H5VL_dataset_close(vol_obj, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL) < 0)
             HDONE_ERROR(H5E_DATASET, H5E_CLOSEERROR, H5I_INVALID_HID, "unable to release dataset")
 
     FUNC_LEAVE_API(ret_value)
@@ -317,7 +315,7 @@ done:
  *              it. It is illegal to subsequently use that same dataset
  *              ID in calls to other dataset functions.
  *
- * Return:      Non-negative on success/Negative on failure
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
@@ -330,11 +328,11 @@ H5Dclose(hid_t dset_id)
     H5TRACE1("e", "i", dset_id);
 
     /* Check args */
-    if(NULL == H5I_object_verify(dset_id, H5I_DATASET))
+    if(H5I_DATASET != H5I_get_type(dset_id))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a dataset ID")
 
     /* Decrement the counter on the dataset.  It will be freed if the count
-     * reaches zero.
+     * reaches zero.  
      */
     if(H5I_dec_app_ref_always_close(dset_id) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTDEC, FAIL, "can't decrement count on dataset ID")
@@ -360,18 +358,18 @@ done:
 hid_t
 H5Dget_space(hid_t dset_id)
 {
-    H5D_t           *dset = NULL;
+    H5VL_object_t  *vol_obj = NULL;                    /* Dataset structure    */
     hid_t           ret_value = H5I_INVALID_HID;    /* Return value         */
 
     FUNC_ENTER_API(H5I_INVALID_HID)
     H5TRACE1("i", "i", dset_id);
 
     /* Check args */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "invalid dataset identifier")
 
     /* Get the dataspace */
-    if((ret_value = H5D__get_space(dset)) < 0)
+    if(H5VL_dataset_get(vol_obj, H5VL_DATASET_GET_SPACE, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, &ret_value) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, H5I_INVALID_HID, "unable to get dataspace")
 
 done:
@@ -384,25 +382,25 @@ done:
  *
  * Purpose:     Returns the status of dataspace allocation.
  *
- * Return:      Non-negative on success/Negative on failure
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
 herr_t
 H5Dget_space_status(hid_t dset_id, H5D_space_status_t *allocation)
 {
-    H5D_t 	        *dset = NULL;
+    H5VL_object_t  *vol_obj = NULL;                    /* Dataset structure    */
     herr_t          ret_value = SUCCEED;            /* Return value         */
 
     FUNC_ENTER_API(FAIL)
     H5TRACE2("e", "i*Ds", dset_id, allocation);
 
     /* Check args */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid dataset identifier")
 
     /* Get dataspace status */
-    if(H5D__get_space_status(dset, allocation) < 0)
+    if((ret_value = H5VL_dataset_get(vol_obj, H5VL_DATASET_GET_SPACE_STATUS, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, allocation)) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, FAIL, "unable to get space status")
 
 done:
@@ -426,18 +424,18 @@ done:
 hid_t
 H5Dget_type(hid_t dset_id)
 {
-    H5D_t	*dset;                  /* Dataset */
+    H5VL_object_t  *vol_obj;                           /* Dataset structure    */
     hid_t           ret_value = H5I_INVALID_HID;    /* Return value         */
 
     FUNC_ENTER_API(H5I_INVALID_HID)
     H5TRACE1("i", "i", dset_id);
 
     /* Check args */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "invalid dataset identifier")
 
     /* Get the datatype */
-    if((ret_value = H5D__get_type(dset)) < 0)
+    if(H5VL_dataset_get(vol_obj, H5VL_DATASET_GET_TYPE, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, &ret_value) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, H5I_INVALID_HID, "unable to get datatype")
 
 done:
@@ -464,18 +462,18 @@ done:
 hid_t
 H5Dget_create_plist(hid_t dset_id)
 {
-    H5D_t	*dataset;               /* Dataset structure */
+    H5VL_object_t  *vol_obj;                           /* Dataset structure    */
     hid_t           ret_value = H5I_INVALID_HID;    /* Return value         */
 
     FUNC_ENTER_API(H5I_INVALID_HID)
     H5TRACE1("i", "i", dset_id);
 
     /* Check args */
-    if(NULL == (dataset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "invalid dataset identifier")
 
     /* Get the dataset creation property list */
-    if((ret_value = H5D_get_create_plist(dataset)) < 0)
+    if(H5VL_dataset_get(vol_obj, H5VL_DATASET_GET_DCPL, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, &ret_value) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, H5I_INVALID_HID, "unable to get dataset creation properties")
 
 done:
@@ -519,18 +517,18 @@ done:
 hid_t
 H5Dget_access_plist(hid_t dset_id)
 {
-    H5D_t           *dset;          /* Dataset structure */
+    H5VL_object_t  *vol_obj;                           /* Dataset structure    */
     hid_t           ret_value = H5I_INVALID_HID;    /* Return value         */
 
     FUNC_ENTER_API(H5I_INVALID_HID)
     H5TRACE1("i", "i", dset_id);
 
     /* Check args */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, H5I_INVALID_HID, "invalid dataset identifier")
 
     /* Get the dataset access property list */
-    if((ret_value = H5D_get_access_plist(dset)) < 0)
+    if(H5VL_dataset_get(vol_obj, H5VL_DATASET_GET_DAPL, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, &ret_value) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, H5I_INVALID_HID, "unable to get dataset access properties")
 
 done:
@@ -556,18 +554,18 @@ done:
 hsize_t
 H5Dget_storage_size(hid_t dset_id)
 {
-    H5D_t	*dset;          /* Dataset to query */
+    H5VL_object_t  *vol_obj;                           /* Dataset for this operation   */
     hsize_t         ret_value = 0;                  /* Return value                 */
 
     FUNC_ENTER_API(0)
     H5TRACE1("h", "i", dset_id);
 
     /* Check args */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, 0, "invalid dataset identifier")
 
     /* Get the storage size */
-    if(H5D__get_storage_size(dset, &ret_value) < 0)
+    if(H5VL_dataset_get(vol_obj, H5VL_DATASET_GET_STORAGE_SIZE, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, &ret_value) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, 0, "unable to get storage size")
 
 done:
@@ -589,18 +587,19 @@ done:
 haddr_t
 H5Dget_offset(hid_t dset_id)
 {
-    H5D_t	*dset;          /* Dataset to query */
+    H5VL_object_t  *vol_obj;                           /* Dataset for this operation   */
     haddr_t         ret_value = HADDR_UNDEF;        /* Return value                 */
 
     FUNC_ENTER_API(HADDR_UNDEF)
     H5TRACE1("a", "i", dset_id);
 
     /* Check args */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, HADDR_UNDEF, "not a dataset")
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, HADDR_UNDEF, "invalid dataset identifier")
 
     /* Get the offset */
-    ret_value = H5D__get_offset(dset);
+    if(H5VL_dataset_optional(vol_obj, H5VL_NATIVE_DATASET_GET_OFFSET, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, &ret_value) < 0)
+        HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, HADDR_UNDEF, "unable to get offset")
 
 done:
     FUNC_LEAVE_API(ret_value)
@@ -704,56 +703,6 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:	H5Dvlen_reclaim
- *
- * Purpose:	Frees the buffers allocated for storing variable-length data
- *      in memory.  Only frees the VL data in the selection defined in the
- *      dataspace.  The dataset transfer property list is required to find the
- *      correct allocation/free methods for the VL data in the buffer.
- *
- * Return:	Non-negative on success, negative on failure
- *
- * Programmer:	Quincey Koziol
- *              Thursday, June 10, 1999
- *
- *-------------------------------------------------------------------------
- */
-herr_t
-H5Dvlen_reclaim(hid_t type_id, hid_t space_id, hid_t dxpl_id, void *buf)
-{
-    H5S_t *space;               /* Dataspace for iteration */
-    herr_t ret_value;           /* Return value */
-
-    FUNC_ENTER_API(FAIL)
-    H5TRACE4("e", "iii*x", type_id, space_id, dxpl_id, buf);
-
-    /* Check args */
-    if(H5I_DATATYPE != H5I_get_type(type_id) || buf == NULL)
-	HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "invalid argument")
-    if(NULL == (space = (H5S_t *)H5I_object_verify(space_id, H5I_DATASPACE)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid dataspace")
-    if(!(H5S_has_extent(space)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "dataspace does not have extent set")
-
-    /* Get the default dataset transfer property list if the user didn't provide one */
-    if(H5P_DEFAULT == dxpl_id)
-        dxpl_id = H5P_DATASET_XFER_DEFAULT;
-    else
-        if(TRUE != H5P_isa_class(dxpl_id, H5P_DATASET_XFER))
-            HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not xfer parms")
-
-    /* Set DXPL for operation */
-    H5CX_set_dxpl(dxpl_id);
-
-    /* Call internal routine */
-    ret_value = H5D_vlen_reclaim(type_id, space, buf);
-
-done:
-    FUNC_LEAVE_API(ret_value)
-}   /* end H5Dvlen_reclaim() */
-
-
-/*-------------------------------------------------------------------------
  * Function:    H5Dvlen_get_buf_size
  *
  * Purpose: This routine checks the number of bytes required to store the VL
@@ -761,14 +710,6 @@ done:
  *      dataset on disk and the type_id for the memory representation of the
  *      VL data, in memory.  The *size value is modified according to how many
  *      bytes are required to store the VL data in memory.
- *
- * Implementation: This routine actually performs the read with a custom
- *      memory manager which basically just counts the bytes requested and
- *      uses a temporary memory buffer (through the H5FL API) to make certain
- *      enough space is available to perform the read.  Then the temporary
- *      buffer is released and the number of bytes allocated is returned.
- *      Kinda kludgy, but easier than the other method of trying to figure out
- *      the sizes without actually reading the data in... - QAK
  *
  * Return:  Non-negative on success, negative on failure
  *
@@ -778,81 +719,42 @@ done:
  *-------------------------------------------------------------------------
  */
 herr_t
-H5Dvlen_get_buf_size(hid_t dataset_id, hid_t type_id, hid_t space_id, hsize_t *size)
+H5Dvlen_get_buf_size(hid_t dataset_id, hid_t type_id, hid_t space_id,
+    hsize_t *size)
 {
-    H5D_vlen_bufsize_t vlen_bufsize = {0, 0, 0, 0, 0, 0};
-    H5D_t *dset;                /* Dataset for operation */
-    H5S_t *fspace = NULL;       /* Dataset's dataspace */
-    H5S_t *mspace = NULL;       /* Memory dataspace */
-    char bogus;                 /* bogus value to pass to H5Diterate() */
-    H5S_t *space;               /* Dataspace for iteration */
-    H5T_t *type;                /* Datatype */
-    H5S_sel_iter_op_t dset_op;  /* Operator for iteration */
-    herr_t ret_value;           /* Return value */
+    H5VL_object_t *vol_obj;     /* Dataset for this operation */
+    hbool_t supported;          /* Whether 'get vlen buf size' operation is supported by VOL connector */
+    herr_t ret_value = SUCCEED; /* Return value */
 
     FUNC_ENTER_API(FAIL)
     H5TRACE4("e", "iii*h", dataset_id, type_id, space_id, size);
 
     /* Check args */
-    if(H5I_DATASET != H5I_get_type(dataset_id) ||
-            H5I_DATATYPE != H5I_get_type(type_id) || size == NULL)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "invalid argument")
-    if(NULL == (dset = (H5D_t *)H5I_object(dataset_id)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a dataset")
-    if(NULL == (type = (H5T_t *)H5I_object_verify(type_id, H5I_DATATYPE)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not an valid base datatype")
-    if(NULL == (space = (H5S_t *)H5I_object_verify(space_id, H5I_DATASPACE)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid dataspace")
-    if(!(H5S_has_extent(space)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "dataspace does not have extent set")
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object(dataset_id)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid dataset identifier")
+    if(H5I_DATATYPE != H5I_get_type(type_id))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid datatype identifier")
+    if(H5I_DATASPACE != H5I_get_type(space_id))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid dataspace identifier")
+    if(size == NULL)
+        HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "invalid 'size' pointer")
 
-    /* Save the dataset */
-    vlen_bufsize.dset = dset;
-
-    /* Get a copy of the dataset's dataspace */
-    if(NULL == (fspace = H5S_copy(dset->shared->space, FALSE, TRUE)))
-	HGOTO_ERROR(H5E_DATASET, H5E_CANTCOPY, FAIL, "unable to get dataspace")
-    vlen_bufsize.fspace = fspace;
-
-    /* Create a scalar for the memory dataspace */
-    if(NULL == (mspace = H5S_create(H5S_SCALAR)))
-        HGOTO_ERROR(H5E_DATASPACE, H5E_CANTCREATE, FAIL, "can't create dataspace")
-    vlen_bufsize.mspace = mspace;
-
-    /* Grab the temporary buffers required */
-    if(NULL == (vlen_bufsize.fl_tbuf = H5FL_BLK_MALLOC(vlen_fl_buf, (size_t)1)))
-        HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, FAIL, "no temporary buffers available")
-    if(NULL == (vlen_bufsize.vl_tbuf = H5FL_BLK_MALLOC(vlen_vl_buf, (size_t)1)))
-        HGOTO_ERROR(H5E_RESOURCE, H5E_NOSPACE, FAIL, "no temporary buffers available")
-
-    /* Set the memory manager to the special allocation routine */
-    if(H5CX_set_vlen_alloc_info(H5D__vlen_get_buf_size_alloc, &vlen_bufsize, NULL, NULL) < 0)
-        HGOTO_ERROR(H5E_DATASET, H5E_CANTSET, FAIL, "can't set VL data allocation routine")
-
-    /* Set the initial number of bytes required */
-    vlen_bufsize.size = 0;
-
-    /* Call H5S_select_iterate with args, etc. */
-    dset_op.op_type = H5S_SEL_ITER_OP_APP;
-    dset_op.u.app_op.op = H5D__vlen_get_buf_size;
-    dset_op.u.app_op.type_id = type_id;
-
-    ret_value = H5S_select_iterate(&bogus, type, space, &dset_op, &vlen_bufsize);
-
-    /* Get the size if we succeeded */
-    if(ret_value >= 0)
-        *size = vlen_bufsize.size;
+    /* Check if the 'get_vlen_buf_size' callback is supported */
+    supported = FALSE;
+    if(H5VL_introspect_opt_query(vol_obj, H5VL_SUBCLS_DATASET, H5VL_NATIVE_DATASET_GET_VLEN_BUF_SIZE, &supported) < 0)
+        HGOTO_ERROR(H5E_FILE, H5E_CANTGET, H5I_INVALID_HID, "can't check for 'get vlen buf size' operation")
+    if(supported) {
+        /* Make the 'get_vlen_buf_size' callback */
+        if(H5VL_dataset_optional(vol_obj, H5VL_NATIVE_DATASET_GET_VLEN_BUF_SIZE, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, type_id, space_id, size) < 0)
+            HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, FAIL, "unable to get vlen buf size")
+    } /* end if */
+    else {
+        /* Perform a generic operation that will work with all VOL connectors */
+        if(H5D__vlen_get_buf_size_gen(vol_obj, type_id, space_id, size) < 0)
+            HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, FAIL, "unable to get vlen buf size")
+    } /* end else */
 
 done:
-    if(fspace && H5S_close(fspace) < 0)
-        HDONE_ERROR(H5E_DATASET, H5E_CLOSEERROR, FAIL, "unable to release dataspace")
-    if(mspace && H5S_close(mspace) < 0)
-        HDONE_ERROR(H5E_DATASET, H5E_CLOSEERROR, FAIL, "unable to release dataspace")
-    if(vlen_bufsize.fl_tbuf != NULL)
-        vlen_bufsize.fl_tbuf = H5FL_BLK_FREE(vlen_fl_buf, vlen_bufsize.fl_tbuf);
-    if(vlen_bufsize.vl_tbuf != NULL)
-        vlen_bufsize.vl_tbuf = H5FL_BLK_FREE(vlen_vl_buf, vlen_bufsize.vl_tbuf);
-
     FUNC_LEAVE_API(ret_value)
 } /* end H5Dvlen_get_buf_size() */
 
@@ -863,21 +765,21 @@ done:
  * Purpose:     Modifies the dimensions of a dataset.
  *              Can change to a smaller dimension.
  *
- * Return:	Non-negative on success, negative on failure
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
 herr_t
 H5Dset_extent(hid_t dset_id, const hsize_t size[])
 {
-    H5D_t *dset;                /* Dataset for this operation */
-    herr_t ret_value = SUCCEED; /* Return value */
+    H5VL_object_t  *vol_obj;                   /* Dataset for this operation   */
+    herr_t          ret_value = SUCCEED;    /* Return value                 */
 
     FUNC_ENTER_API(FAIL)
     H5TRACE2("e", "i*h", dset_id, size);
 
     /* Check args */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "dset_id parameter is not a valid dataset identifier")
     if(!size)
         HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "size array cannot be NULL")
@@ -887,7 +789,7 @@ H5Dset_extent(hid_t dset_id, const hsize_t size[])
         HGOTO_ERROR(H5E_DATASET, H5E_CANTSET, FAIL, "can't set collective metadata read info")
 
     /* Set the extent */
-    if(H5D__set_extent(dset, size) < 0)
+    if ((ret_value = H5VL_dataset_specific(vol_obj, H5VL_DATASET_SET_EXTENT, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, size)) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTSET, FAIL, "unable to set dataset extent")
 
 done:
@@ -900,29 +802,32 @@ done:
  *
  * Purpose:     Flushes all buffers associated with a dataset.
  *
- * Return:      Non-negative on success, negative on failure
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
 herr_t
 H5Dflush(hid_t dset_id)
 {
-    H5D_t *dset;                /* Dataset for this operation */
-    herr_t ret_value = SUCCEED; /* return value */
+    H5VL_object_t  *vol_obj;                   /* Dataset for this operation   */
+    herr_t          ret_value = SUCCEED;    /* Return value                 */
 
     FUNC_ENTER_API(FAIL)
     H5TRACE1("e", "i", dset_id);
-
+    
     /* Check args */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a dataset")
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "dset_id parameter is not a valid dataset identifier")
 
     /* Set up collective metadata if appropriate */
     if(H5CX_set_loc(dset_id) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTSET, FAIL, "can't set collective metadata read info")
 
-    /* Flush dataset information cached in memory */
-    if(H5D__flush(dset, dset_id) < 0)
+    /* Flush dataset information cached in memory
+     * XXX: Note that we need to pass the ID to the VOL since the H5F_flush_cb_t
+     *      callback needs it and that's in the public API.
+     */
+    if((ret_value = H5VL_dataset_specific(vol_obj, H5VL_DATASET_FLUSH, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, dset_id)) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTFLUSH, FAIL, "unable to flush dataset")
 
 done:
@@ -935,21 +840,21 @@ done:
  *
  * Purpose:     Refreshes all buffers associated with a dataset.
  *
- * Return:      Non-negative on success, negative on failure
+ * Return:      SUCCEED/FAIL
  *
  *-------------------------------------------------------------------------
  */
 herr_t
 H5Drefresh(hid_t dset_id)
 {
-    H5D_t *dset;                   /* Dataset to refresh */
+    H5VL_object_t  *vol_obj;                   /* Dataset for this operation   */
     herr_t          ret_value = SUCCEED;    /* Return value                 */
 
     FUNC_ENTER_API(FAIL)
     H5TRACE1("e", "i", dset_id);
 
     /* Check args */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "dset_id parameter is not a valid dataset identifier")
 
     /* Set up collective metadata if appropriate */
@@ -957,7 +862,7 @@ H5Drefresh(hid_t dset_id)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTSET, FAIL, "can't set collective metadata read info")
 
     /* Refresh the dataset object */
-    if((H5D__refresh(dset_id, dset)) < 0)
+    if((ret_value = H5VL_dataset_specific(vol_obj, H5VL_DATASET_REFRESH, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, dset_id)) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTLOAD, FAIL, "unable to refresh dataset")
 
 done:
@@ -968,14 +873,14 @@ done:
 /*-------------------------------------------------------------------------
  * Function:    H5Dformat_convert (Internal)
  *
- * Purpose:     For chunked:
+ * Purpose:     For chunked: 
  *                  Convert the chunk indexing type to version 1 B-tree if not
  *              For compact/contiguous:
  *                  Downgrade layout version to 3 if greater than 3
  *              For virtual:
  *                  No conversion
  *
- * Return:      Non-negative on success, negative on failure
+ * Return:      SUCCEED/FAIL
  *
  * Programmer:  Vailin Choi
  *              Feb 2015
@@ -985,47 +890,23 @@ done:
 herr_t
 H5Dformat_convert(hid_t dset_id)
 {
-    H5D_t *dset;                /* Dataset to refresh */
+    H5VL_object_t  *vol_obj;                   /* Dataset for this operation   */
     herr_t          ret_value = SUCCEED;    /* Return value                 */
-
+    
     FUNC_ENTER_API(FAIL)
     H5TRACE1("e", "i", dset_id);
 
     /* Check args */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a dataset")
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "dset_id parameter is not a valid dataset identifier")
 
     /* Set up collective metadata if appropriate */
     if(H5CX_set_loc(dset_id) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTSET, FAIL, "can't set collective metadata read info")
 
-    switch(dset->shared->layout.type) {
-	case H5D_CHUNKED:
-	    /* Convert the chunk indexing type to version 1 B-tree if not */
-	    if(dset->shared->layout.u.chunk.idx_type != H5D_CHUNK_IDX_BTREE)
-                if((H5D__format_convert(dset)) < 0)
-                    HGOTO_ERROR(H5E_DATASET, H5E_CANTLOAD, FAIL, "unable to downgrade chunk indexing type for dataset")
-	    break;
-
-	case H5D_CONTIGUOUS:
-	case H5D_COMPACT:
-	    /* Downgrade the layout version to 3 if greater than 3 */
-	    if(dset->shared->layout.version > H5O_LAYOUT_VERSION_DEFAULT)
-                if((H5D__format_convert(dset)) < 0)
-                    HGOTO_ERROR(H5E_DATASET, H5E_CANTLOAD, FAIL, "unable to downgrade layout version for dataset")
-	    break;
-
-	case H5D_VIRTUAL:
-	    /* Nothing to do even though layout is version 4 */
-	    break;
-
-        case H5D_LAYOUT_ERROR:
-        case H5D_NLAYOUTS:
-            HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid dataset layout type")
-
-	default:
-	    HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "unknown dataset layout type")
-    } /* end switch */
+    /* Convert the dataset */
+    if(H5VL_dataset_optional(vol_obj, H5VL_NATIVE_DATASET_FORMAT_CONVERT, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL) < 0)
+        HGOTO_ERROR(H5E_DATASET, H5E_INTERNAL, FAIL, "can't convert dataset format")
 
 done:
     FUNC_LEAVE_API(ret_value)
@@ -1045,25 +926,23 @@ done:
  *-------------------------------------------------------------------------
  */
 herr_t
-H5Dget_chunk_index_type(hid_t did, H5D_chunk_index_t *idx_type)
+H5Dget_chunk_index_type(hid_t dset_id, H5D_chunk_index_t *idx_type)
 {
-    H5D_t *dset;                /* Dataset to refresh */
-    herr_t ret_value = SUCCEED; /* return value */
+    H5VL_object_t  *vol_obj;                   /* Dataset for this operation   */
+    herr_t          ret_value = SUCCEED;    /* Return value                 */
 
     FUNC_ENTER_API(FAIL)
-    H5TRACE2("e", "i*Dk", did, idx_type);
+    H5TRACE2("e", "i*Dk", dset_id, idx_type);
 
     /* Check args */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(did, H5I_DATASET)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a dataset")
-
-    /* Should be a chunked dataset */
-    if(dset->shared->layout.type != H5D_CHUNKED)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "dataset is not chunked")
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "dset_id parameter is not a valid dataset identifier")
+    if(NULL == idx_type)
+        HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "idx_type parameter cannot be NULL")
 
     /* Get the chunk indexing type */
-    if(idx_type)
-        *idx_type = dset->shared->layout.u.chunk.idx_type;
+    if(H5VL_dataset_optional(vol_obj, H5VL_NATIVE_DATASET_GET_CHUNK_INDEX_TYPE, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, idx_type) < 0)
+        HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, FAIL, "can't get chunk index type")
 
 done:
     FUNC_LEAVE_API(ret_value)
@@ -1075,7 +954,10 @@ done:
  *
  * Purpose:     Returns the size of an allocated chunk.
  *
- * Return:	Non-negative on success, negative on failure
+ *              Intended for use with the H5D(O)read_chunk API call so
+ *              the caller can construct an appropriate buffer.
+ *
+ * Return:      SUCCEED/FAIL
  *
  * Programmer:  Matthew Strong (GE Healthcare)
  *              20 October 2016
@@ -1085,25 +967,22 @@ done:
 herr_t
 H5Dget_chunk_storage_size(hid_t dset_id, const hsize_t *offset, hsize_t *chunk_nbytes)
 {
-    H5D_t       *dset = NULL;
+    H5VL_object_t  *vol_obj;                   /* Dataset for this operation   */
     herr_t          ret_value = SUCCEED;    /* Return value                 */
 
     FUNC_ENTER_API(FAIL)
     H5TRACE3("e", "i*h*h", dset_id, offset, chunk_nbytes);
 
     /* Check arguments */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "dset_id parameter is not a valid dataset identifier")
     if(NULL == offset)
         HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "offset parameter cannot be NULL")
     if(NULL == chunk_nbytes)
         HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "chunk_nbytes parameter cannot be NULL")
 
-    if(H5D_CHUNKED != dset->shared->layout.type)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a chunked dataset")
-
     /* Get the dataset creation property list */
-    if(H5D__get_chunk_storage_size(dset, offset, chunk_nbytes) < 0)
+    if(H5VL_dataset_optional(vol_obj, H5VL_NATIVE_DATASET_GET_CHUNK_STORAGE_SIZE, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, offset, chunk_nbytes) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, FAIL, "can't get storage size of chunk")
 
 done:
@@ -1128,33 +1007,27 @@ done:
  * Return:      Non-negative on success, negative on failure
  *
  * Programmer:  Binh-Minh Ribler
- *              August 2018 (HDFFV-10615)
+ *              May 2019 (HDFFV-10677)
  *
  *-------------------------------------------------------------------------
  */
 herr_t
 H5Dget_num_chunks(hid_t dset_id, hid_t fspace_id, hsize_t *nchunks)
 {
-    H5D_t       *dset = NULL;
-    const H5S_t *space;              /* Dataspace for dataset */
+    H5VL_object_t  *vol_obj = NULL;     /* Dataset for this operation */
     herr_t          ret_value = SUCCEED;
 
     FUNC_ENTER_API(FAIL)
     H5TRACE3("e", "ii*h", dset_id, fspace_id, nchunks);
 
     /* Check arguments */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
         HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid dataset identifier")
-    if(NULL == (space = (const H5S_t *)H5I_object_verify(fspace_id, H5I_DATASPACE)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid dataspace identifier")
     if(NULL == nchunks)
         HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "invalid argument (null)")
 
-    if(H5D_CHUNKED != dset->shared->layout.type)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a chunked dataset")
-
     /* Get the number of written chunks */
-    if(H5D__get_num_chunks(dset, space, nchunks) < 0)
+    if(H5VL_dataset_optional(vol_obj, H5VL_NATIVE_DATASET_GET_NUM_CHUNKS, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, fspace_id, nchunks) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, FAIL, "Can't get number of chunks")
 
 done:
@@ -1180,15 +1053,15 @@ done:
  * Return:      Non-negative on success, negative on failure
  *
  * Programmer:  Binh-Minh Ribler
- *              August 2018 (HDFFV-10615)
+ *              May 2019 (HDFFV-10677)
  *
  *-------------------------------------------------------------------------
  */
 herr_t
 H5Dget_chunk_info(hid_t dset_id, hid_t fspace_id, hsize_t chk_index, hsize_t *offset, unsigned *filter_mask, haddr_t *addr, hsize_t *size)
 {
-    H5D_t       *dset = NULL;
-    const H5S_t *space;              /* Dataspace for dataset */
+    H5VL_object_t *vol_obj = NULL;     /* Dataset for this operation */
+    hsize_t        nchunks = 0;
     herr_t         ret_value = SUCCEED;
 
     FUNC_ENTER_API(FAIL)
@@ -1196,18 +1069,21 @@ H5Dget_chunk_info(hid_t dset_id, hid_t fspace_id, hsize_t chk_index, hsize_t *of
              filter_mask, addr, size);
 
     /* Check arguments */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a dataset ID")
-    if(NULL == (space = (const H5S_t *)H5I_object_verify(fspace_id, H5I_DATASPACE)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a dataspace ID")
     if(NULL == offset && NULL == filter_mask && NULL == addr && NULL == size)
         HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "invalid arguments, must have at least one non-null output argument")
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid dataset identifier")
 
-    if(H5D_CHUNKED != dset->shared->layout.type)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a chunked dataset")
+    /* Get the number of written chunks to check range */
+    if(H5VL_dataset_optional(vol_obj, H5VL_NATIVE_DATASET_GET_NUM_CHUNKS, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, fspace_id, &nchunks) < 0)
+        HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, FAIL, "Can't get number of chunks")
+
+    /* Check range for chunk index */
+    if(chk_index >= nchunks)
+        HGOTO_ERROR(H5E_DATASET, H5E_BADRANGE, FAIL, "chunk index is out of range")
 
     /* Call private function to get the chunk info given the chunk's index */
-    if(H5D__get_chunk_info(dset, space, chk_index, offset, filter_mask, addr, size) < 0)
+    if(H5VL_dataset_optional(vol_obj, H5VL_NATIVE_DATASET_GET_CHUNK_INFO_BY_IDX, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, fspace_id, chk_index, offset, filter_mask, addr, size) < 0)
         HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, FAIL, "Can't get chunk info by index")
 
 done:
@@ -1232,33 +1108,31 @@ done:
  * Return:      Non-negative on success, negative on failure
  *
  * Programmer:  Binh-Minh Ribler
- *              August 2018 (HDFFV-10615)
+ *              May 2019 (HDFFV-10677)
  *
  *-------------------------------------------------------------------------
  */
 herr_t
 H5Dget_chunk_info_by_coord(hid_t dset_id, const hsize_t *offset, unsigned *filter_mask, haddr_t *addr, hsize_t *size)
 {
-    H5D_t      *dset = NULL;
-    herr_t      ret_value = SUCCEED;            /* Return value */
+    H5VL_object_t  *vol_obj = NULL;     /* Dataset for this operation */
+    herr_t          ret_value = SUCCEED;
 
     FUNC_ENTER_API(FAIL)
     H5TRACE5("e", "i*h*Iu*a*h", dset_id, offset, filter_mask, addr, size);
 
     /* Check arguments */
-    if(NULL == (dset = (H5D_t *)H5I_object_verify(dset_id, H5I_DATASET)))
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a dataset")
-    if(NULL == offset)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "invalid argument (null)")
+    if(NULL == (vol_obj = (H5VL_object_t *)H5I_object_verify(dset_id, H5I_DATASET)))
+        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "invalid dataset identifier")
     if(NULL == filter_mask && NULL == addr && NULL == size)
         HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "invalid arguments, must have at least one non-null output argument")
+    if(NULL == offset)
+        HGOTO_ERROR(H5E_ARGS, H5E_BADVALUE, FAIL, "invalid argument (null)")
 
-    if(H5D_CHUNKED != dset->shared->layout.type)
-        HGOTO_ERROR(H5E_ARGS, H5E_BADTYPE, FAIL, "not a chunked dataset")
+    /* Call private function to get the chunk info given the chunk's index */
+    if(H5VL_dataset_optional(vol_obj, H5VL_NATIVE_DATASET_GET_CHUNK_INFO_BY_COORD, H5P_DATASET_XFER_DEFAULT, H5_REQUEST_NULL, offset, filter_mask, addr, size) < 0)
+        HGOTO_ERROR(H5E_DATASET, H5E_CANTGET, FAIL, "Can't get chunk info by its logical coordinates")
 
-    /* Internal function to get the chunk info */
-    if (H5D__get_chunk_info_by_coord(dset, offset, filter_mask, addr, size) < 0)
-        HGOTO_ERROR(H5E_DATASET, H5E_READERROR, FAIL, "can't get chunk info")
 done:
     FUNC_LEAVE_API(ret_value)
 } /* end H5Dget_chunk_info_by_coord() */

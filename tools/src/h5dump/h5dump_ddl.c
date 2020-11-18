@@ -31,7 +31,7 @@ typedef struct {
 } trav_attr_udata_t;
 
 /* callback function used by H5Literate() */
-static herr_t   dump_all_cb(hid_t group, const char *name, const H5L_info_t *linfo, void *op_data);
+static herr_t   dump_all_cb(hid_t group, const char *name, const H5L_info2_t *linfo, void *op_data);
 static int      dump_extlink(hid_t group, const char *linkname, const char *objname);
 
 /*-------------------------------------------------------------------------
@@ -103,13 +103,13 @@ dump_attr_cb(hid_t oid, const char *attr_name, const H5A_info_t H5_ATTR_UNUSED *
     HDmemset(&ctx, 0, sizeof(ctx));
     ctx.indent_level = dump_indent / COL;
     ctx.cur_column = dump_indent;
-    ctx.display_index = dump_opts.display_ai;
-    ctx.display_char = dump_opts.display_char;
+    ctx.display_index = display_ai;
+    ctx.display_char = display_char;
 
     attr_id = H5Aopen(oid, attr_name, H5P_DEFAULT);
-    oid_output = dump_opts.display_oid;
-    data_output = dump_opts.display_data;
-    attr_data_output = dump_opts.display_attr_data;
+    oid_output = display_oid;
+    data_output = display_data;
+    attr_data_output = display_attr_data;
 
     string_dataformat = *outputformat;
 
@@ -125,7 +125,7 @@ dump_attr_cb(hid_t oid, const char *attr_name, const H5A_info_t H5_ATTR_UNUSED *
     else
         string_dataformat.line_ncols = h5tools_nCols;
 
-    string_dataformat.do_escape = dump_opts.display_escape;
+    string_dataformat.do_escape = display_escape;
     outputformat = &string_dataformat;
 
     h5dump_type_table = type_table;
@@ -152,7 +152,7 @@ dump_attr_cb(hid_t oid, const char *attr_name, const H5A_info_t H5_ATTR_UNUSED *
  *-------------------------------------------------------------------------
  */
 static herr_t
-dump_all_cb(hid_t group, const char *name, const H5L_info_t *linfo, void H5_ATTR_UNUSED *op_data)
+dump_all_cb(hid_t group, const char *name, const H5L_info2_t *linfo, void H5_ATTR_UNUSED *op_data)
 {
     hid_t       obj;
     hid_t       dapl_id = H5P_DEFAULT;  /* dataset access property list ID */
@@ -185,7 +185,7 @@ dump_all_cb(hid_t group, const char *name, const H5L_info_t *linfo, void H5_ATTR
     else
         string_dataformat.line_ncols = h5tools_nCols;
 
-    string_dataformat.do_escape = dump_opts.display_escape;
+    string_dataformat.do_escape = display_escape;
     outputformat = &string_dataformat;
 
     /* Build the object's path name */
@@ -200,10 +200,10 @@ dump_all_cb(hid_t group, const char *name, const H5L_info_t *linfo, void H5_ATTR
     HDstrcat(obj_path, name);
 
     if(linfo->type == H5L_TYPE_HARD) {
-        H5O_info_t  oinfo;
+        H5O_info2_t  oinfo;
 
         /* Stat the object */
-        if(H5Oget_info_by_name2(group, name, &oinfo, H5O_INFO_BASIC, H5P_DEFAULT) < 0) {
+        if(H5Oget_info_by_name3(group, name, &oinfo, H5O_INFO_BASIC, H5P_DEFAULT) < 0) {
             error_msg("unable to get object information for \"%s\"\n", name);
             h5tools_setstatus(EXIT_FAILURE);
             ret = FAIL;
@@ -242,16 +242,16 @@ dump_all_cb(hid_t group, const char *name, const H5L_info_t *linfo, void H5_ATTR
             break;
 
         case H5O_TYPE_DATASET:
-            if(dump_opts.display_data) {
+            if(display_data) {
                 if ((dapl_id = H5Pcreate(H5P_DATASET_ACCESS)) < 0) {
                     error_msg("error in creating default access property list ID\n");
                 }
-                if (dump_opts.display_vds_first) {
+                if (display_vds_first) {
                     if(H5Pset_virtual_view(dapl_id, H5D_VDS_FIRST_MISSING) < 0)
                         error_msg("error in setting access property list ID, virtual_view\n");
                 }
-                if (dump_opts.vds_gap_size > 0) {
-                    if(H5Pset_virtual_printf_gap(dapl_id, (hsize_t)dump_opts.vds_gap_size) < 0)
+                if (vds_gap_size > 0) {
+                    if(H5Pset_virtual_printf_gap(dapl_id, (hsize_t)vds_gap_size) < 0)
                         error_msg("error in setting access property list ID, virtual_printf_gap\n");
                 }
             }
@@ -259,7 +259,7 @@ dump_all_cb(hid_t group, const char *name, const H5L_info_t *linfo, void H5_ATTR
                 if(oinfo.rc > 1 || hit_elink) {
                     obj_t  *found_obj;    /* Found object */
 
-                    found_obj = search_obj(dset_table, oinfo.addr);
+                    found_obj = search_obj(dset_table, &oinfo.token);
 
                     if(found_obj == NULL) {
                         ctx.indent_level++;
@@ -367,6 +367,7 @@ dump_all_cb(hid_t group, const char *name, const H5L_info_t *linfo, void H5_ATTR
             }
             break;
 
+        case H5O_TYPE_MAP:
         case H5O_TYPE_UNKNOWN:
         case H5O_TYPE_NTYPES:
         default:
@@ -564,7 +565,7 @@ attr_iteration(hid_t gid, unsigned attr_crt_order_flags)
 {
     /* attribute iteration: if there is a request to do H5_INDEX_CRT_ORDER and tracking order is set
        in the group for attributes, then, sort by creation order, otherwise by name */
-    if(dump_opts.include_attrs) {
+    if(include_attrs) {
         if((sort_by == H5_INDEX_CRT_ORDER) && (attr_crt_order_flags & H5P_CRT_ORDER_TRACKED)) {
             if(H5Aiterate2(gid, sort_by, sort_order, NULL, dump_attr_cb, NULL) < 0) {
                 error_msg("error getting attribute information\n");
@@ -595,9 +596,9 @@ link_iteration(hid_t gid, unsigned crt_order_flags)
     /* if there is a request to do H5_INDEX_CRT_ORDER and tracking order is set
        in the group, then, sort by creation order, otherwise by name */
     if((sort_by == H5_INDEX_CRT_ORDER) && (crt_order_flags & H5P_CRT_ORDER_TRACKED))
-        H5Literate(gid, sort_by, sort_order, NULL, dump_all_cb, NULL);
+        H5Literate2(gid, sort_by, sort_order, NULL, dump_all_cb, NULL);
     else
-        H5Literate(gid, H5_INDEX_NAME, sort_order, NULL, dump_all_cb, NULL);
+        H5Literate2(gid, H5_INDEX_NAME, sort_order, NULL, dump_all_cb, NULL);
 }
 
 /*-------------------------------------------------------------------------
@@ -611,7 +612,7 @@ link_iteration(hid_t gid, unsigned crt_order_flags)
 void
 dump_named_datatype(hid_t tid, const char *name)
 {
-    H5O_info_t        oinfo;
+    H5O_info2_t       oinfo;
     unsigned          attr_crt_order_flags;
     hid_t             tcpl_id = H5I_INVALID_HID;    /* datatype creation property list ID */
     hsize_t           curr_pos = 0;    /* total data element position   */
@@ -641,7 +642,7 @@ dump_named_datatype(hid_t tid, const char *name)
     else
         string_dataformat.line_ncols = h5tools_nCols;
 
-    string_dataformat.do_escape = dump_opts.display_escape;
+    string_dataformat.do_escape = display_escape;
     outputformat = &string_dataformat;
 
     if ((tcpl_id = H5Tget_create_plist(tid)) < 0) {
@@ -669,7 +670,7 @@ dump_named_datatype(hid_t tid, const char *name)
                         h5tools_dump_header_format->datatypeblockbegin);
     h5tools_render_element(rawoutstream, outputformat, &ctx, &buffer, &curr_pos, (size_t)outputformat->line_ncols, (hsize_t)0, (hsize_t)0);
 
-    H5Oget_info2(tid, &oinfo, H5O_INFO_BASIC);
+    H5Oget_info3(tid, &oinfo, H5O_INFO_BASIC);
 
     /* Must check for uniqueness of all objects if we've traversed an elink,
      * otherwise only check if the reference count > 1.
@@ -677,7 +678,7 @@ dump_named_datatype(hid_t tid, const char *name)
     if(oinfo.rc > 1 || hit_elink) {
         obj_t  *found_obj;    /* Found object */
 
-        found_obj = search_obj(type_table, oinfo.addr);
+        found_obj = search_obj(type_table, &oinfo.token);
 
         if (found_obj == NULL) {
             error_msg("internal error (file %s:line %d)\n", __FILE__, __LINE__);
@@ -738,7 +739,7 @@ done:
 void
 dump_group(hid_t gid, const char *name)
 {
-    H5O_info_t  oinfo;
+    H5O_info2_t oinfo;
     hid_t       dset;
     hid_t       type;
     hid_t       gcpl_id;
@@ -794,7 +795,7 @@ dump_group(hid_t gid, const char *name)
     else
         string_dataformat.line_ncols = h5tools_nCols;
 
-    string_dataformat.do_escape = dump_opts.display_escape;
+    string_dataformat.do_escape = display_escape;
     outputformat = &string_dataformat;
 
     ctx.need_prefix = TRUE;
@@ -815,21 +816,27 @@ dump_group(hid_t gid, const char *name)
         /* dump unamed type in root group */
         for(u = 0; u < type_table->nobjs; u++)
             if(!type_table->objs[u].recorded) {
+                char *obj_addr_str = NULL;
+
                 dset = H5Dopen2(gid, type_table->objs[u].objname, H5P_DEFAULT);
                 type = H5Dget_type(dset);
-                HDsprintf(type_name, "#"H5_PRINTF_HADDR_FMT, type_table->objs[u].objno);
+
+                H5Otoken_to_str(dset, &type_table->objs[u].obj_token, &obj_addr_str);
+                HDsprintf(type_name, "#%s", obj_addr_str);
+                H5free_memory(obj_addr_str);
+
                 dump_function_table->dump_named_datatype_function(type, type_name);
                 H5Tclose(type);
                 H5Dclose(dset);
             }
     } /* end if */
 
-    if(dump_opts.display_oid)
+    if(display_oid)
         h5tools_dump_oid(rawoutstream, outputformat, &ctx, gid);
 
     h5tools_dump_comment(rawoutstream, outputformat, &ctx, gid);
 
-    H5Oget_info2(gid, &oinfo, H5O_INFO_BASIC);
+    H5Oget_info3(gid, &oinfo, H5O_INFO_BASIC);
 
     /* Must check for uniqueness of all objects if we've traversed an elink,
      * otherwise only check if the reference count > 1.
@@ -837,7 +844,7 @@ dump_group(hid_t gid, const char *name)
     if(oinfo.rc > 1 || hit_elink) {
         obj_t  *found_obj;    /* Found object */
 
-        found_obj = search_obj(group_table, oinfo.addr);
+        found_obj = search_obj(group_table, &oinfo.token);
 
         if (found_obj == NULL) {
             error_msg("internal error (file %s:line %d)\n", __FILE__, __LINE__);
@@ -919,7 +926,7 @@ dump_dataset(hid_t did, const char *name, struct subset_t *sset)
     else
         string_dataformat.line_ncols = h5tools_nCols;
 
-    string_dataformat.do_escape = dump_opts.display_escape;
+    string_dataformat.do_escape = display_escape;
     outputformat = &string_dataformat;
 
     if ((dcpl_id = H5Dget_create_plist(did)) < 0) {
@@ -960,11 +967,11 @@ dump_dataset(hid_t did, const char *name, struct subset_t *sset)
     h5tools_dump_dataspace(rawoutstream, outputformat, &ctx, space);
     H5Sclose(space);
 
-    if(dump_opts.display_oid) {
+    if(display_oid) {
         h5tools_dump_oid(rawoutstream, outputformat, &ctx, did);
     }
 
-    if(dump_opts.display_dcpl) {
+    if(display_dcpl) {
         h5dump_type_table = type_table;
         h5tools_dump_dcpl(rawoutstream, outputformat, &ctx, dcpl_id, type, did);
         h5dump_type_table = NULL;
@@ -972,16 +979,16 @@ dump_dataset(hid_t did, const char *name, struct subset_t *sset)
     H5Pclose(dcpl_id);
 
     ctx.sset = sset;
-    ctx.display_index = dump_opts.display_ai;
-    ctx.display_char = dump_opts.display_char;
-    if(dump_opts.display_data) {
+    ctx.display_index = display_ai;
+    ctx.display_char = display_char;
+    if(display_data) {
         unsigned  data_loop = 1;
         unsigned  u;
 
-        if(dump_opts.display_packed_bits)
+        if(display_packed_bits)
             data_loop = packed_bits_num;
         for(u = 0; u < data_loop; u++) {
-            if(dump_opts.display_packed_bits) {
+            if(display_packed_bits) {
                 ctx.need_prefix = TRUE;
                 h5tools_simple_prefix(rawoutstream, outputformat, &ctx, (hsize_t)0, 0);
                 /* Render the element */
@@ -1084,7 +1091,7 @@ dump_data(hid_t obj_id, int obj_data, struct subset_t *sset, int display_index)
     else
         string_dataformat.line_ncols = h5tools_nCols;
 
-    string_dataformat.do_escape = dump_opts.display_escape;
+    string_dataformat.do_escape = display_escape;
     outputformat = &string_dataformat;
 
     HDmemset(&ctx, 0, sizeof(ctx));
@@ -1092,7 +1099,7 @@ dump_data(hid_t obj_id, int obj_data, struct subset_t *sset, int display_index)
     ctx.cur_column = dump_indent;
     ctx.sset = sset;
     ctx.display_index = display_index;
-    ctx.display_char = dump_opts.display_char;
+    ctx.display_char = display_char;
 
     if(obj_data == DATASET_DATA)
         print_dataset = TRUE;
@@ -1250,8 +1257,13 @@ dump_fcontents(hid_t fid)
         unsigned u;
 
         for (u = 0; u < type_table->nobjs; u++) {
-            if (!type_table->objs[u].recorded)
-                PRINTSTREAM(rawoutstream, " %-10s /#"H5_PRINTF_HADDR_FMT"\n", "datatype", type_table->objs[u].objno);
+            if (!type_table->objs[u].recorded) {
+                char *obj_addr_str = NULL;
+
+                H5Otoken_to_str(fid, &type_table->objs[u].obj_token, &obj_addr_str);
+                PRINTSTREAM(rawoutstream, " %-10s /#%s\n", "datatype", obj_addr_str);
+                H5free_memory(obj_addr_str);
+            }
         }
     }
 
@@ -1318,7 +1330,7 @@ attr_search(hid_t oid, const char *attr_name, const H5A_info_t H5_ATTR_UNUSED *a
 } /* end attr_search() */
 
 static herr_t
-obj_search(const char *path, const H5O_info_t *oi, const char H5_ATTR_UNUSED *already_visited, void *_op_data)
+obj_search(const char *path, const H5O_info2_t *oi, const char H5_ATTR_UNUSED *already_visited, void *_op_data)
 {
     trav_handle_udata_t  *handle_data = (trav_handle_udata_t*)_op_data;
     const char *op_name = handle_data->op_name;
@@ -1342,6 +1354,7 @@ obj_search(const char *path, const H5O_info_t *oi, const char H5_ATTR_UNUSED *al
                 handle_datatypes(handle_data->fid, path, NULL, 0, NULL);
                 break;
 
+            case H5O_TYPE_MAP:
             case H5O_TYPE_UNKNOWN:
             case H5O_TYPE_NTYPES:
             default:
@@ -1354,7 +1367,7 @@ obj_search(const char *path, const H5O_info_t *oi, const char H5_ATTR_UNUSED *al
 } /* end obj_search() */
 
 static herr_t
-lnk_search(const char *path, const H5L_info_t *li, void *_op_data)
+lnk_search(const char *path, const H5L_info2_t *li, void *_op_data)
 {
     size_t      search_len;
     size_t      k;
@@ -1502,8 +1515,8 @@ handle_attributes(hid_t fid, const char *attr, void H5_ATTR_UNUSED *data, int H5
     HDmemset(&ctx, 0, sizeof(ctx));
     ctx.indent_level = dump_indent / COL;
     ctx.cur_column = dump_indent;
-    ctx.display_index = dump_opts.display_ai;
-    ctx.display_char = dump_opts.display_char;
+    ctx.display_index = display_ai;
+    ctx.display_char = display_char;
 
     string_dataformat = *outputformat;
 
@@ -1519,7 +1532,7 @@ handle_attributes(hid_t fid, const char *attr, void H5_ATTR_UNUSED *data, int H5
     else
         string_dataformat.line_ncols = h5tools_nCols;
 
-    string_dataformat.do_escape = dump_opts.display_escape;
+    string_dataformat.do_escape = display_escape;
     outputformat = &string_dataformat;
 
     attr_name = h5tools_str_replace(attr + j + 1, "\\/", "/");
@@ -1558,9 +1571,9 @@ handle_attributes(hid_t fid, const char *attr, void H5_ATTR_UNUSED *data, int H5
     } /* end if */
 
     attr_id = H5Aopen(oid, attr_name, H5P_DEFAULT);
-    oid_output = dump_opts.display_oid;
-    data_output = dump_opts.display_data;
-    attr_data_output = dump_opts.display_attr_data;
+    oid_output = display_oid;
+    data_output = display_data;
+    attr_data_output = display_attr_data;
 
     h5dump_type_table = type_table;
     h5tools_dump_attribute(rawoutstream, outputformat, &ctx, attr_name, attr_id);
@@ -1606,22 +1619,22 @@ error:
 void
 handle_datasets(hid_t fid, const char *dset, void *data, int pe, const char *display_name)
 {
-    H5O_info_t       oinfo;
+    H5O_info2_t      oinfo;
     hid_t            dsetid;
     hid_t            dapl_id = H5P_DEFAULT;  /* dataset access property list ID */
     struct subset_t *sset = (struct subset_t *)data;
     const char      *real_name = display_name ? display_name : dset;
 
-    if(dump_opts.display_data) {
+    if(display_data) {
         if ((dapl_id = H5Pcreate(H5P_DATASET_ACCESS)) < 0) {
             error_msg("error in creating default access property list ID\n");
         }
-        if (dump_opts.display_vds_first) {
+        if (display_vds_first) {
             if(H5Pset_virtual_view(dapl_id, H5D_VDS_FIRST_MISSING) < 0)
                 error_msg("error in setting access property list ID, virtual_view\n");
         }
-        if (dump_opts.vds_gap_size > 0) {
-            if(H5Pset_virtual_printf_gap(dapl_id, (hsize_t)dump_opts.vds_gap_size) < 0)
+        if (vds_gap_size > 0) {
+            if(H5Pset_virtual_printf_gap(dapl_id, (hsize_t)vds_gap_size) < 0)
                 error_msg("error in setting access property list ID, virtual_printf_gap\n");
         }
     }
@@ -1717,11 +1730,11 @@ handle_datasets(hid_t fid, const char *dset, void *data, int pe, const char *dis
     } /* end if */
 
 
-    H5Oget_info2(dsetid, &oinfo, H5O_INFO_BASIC);
+    H5Oget_info3(dsetid, &oinfo, H5O_INFO_BASIC);
     if(oinfo.rc > 1 || hit_elink) {
         obj_t  *found_obj;    /* Found object */
 
-        found_obj = search_obj(dset_table, oinfo.addr);
+        found_obj = search_obj(dset_table, &oinfo.token);
 
         if(found_obj) {
             if (found_obj->displayed) {
@@ -1810,9 +1823,9 @@ handle_groups(hid_t fid, const char *group, void H5_ATTR_UNUSED *data, int pe, c
 void
 handle_links(hid_t fid, const char *links, void H5_ATTR_UNUSED * data, int H5_ATTR_UNUSED pe, const char H5_ATTR_UNUSED *display_name)
 {
-    H5L_info_t linfo;
+    H5L_info2_t linfo;
 
-    if(H5Lget_info(fid, links, &linfo, H5P_DEFAULT) < 0) {
+    if(H5Lget_info2(fid, links, &linfo, H5P_DEFAULT) < 0) {
         error_msg("unable to get link info from \"%s\"\n", links);
         h5tools_setstatus(EXIT_FAILURE);
     }
@@ -1901,8 +1914,12 @@ handle_datatypes(hid_t fid, const char *type, void H5_ATTR_UNUSED * data, int pe
             char name[128];
 
             if(!type_table->objs[idx].recorded) {
+                char *obj_addr_string = NULL;
+
                 /* unamed datatype */
-                HDsprintf(name, "/#"H5_PRINTF_HADDR_FMT, type_table->objs[idx].objno);
+                H5Otoken_to_str(fid, &type_table->objs[idx].obj_token, &obj_addr_string);
+                HDsprintf(name, "/#%s", obj_addr_string);
+                H5free_memory(obj_addr_string);
 
                 if(!HDstrcmp(name, real_name))
                     break;
@@ -1960,7 +1977,7 @@ static int
 dump_extlink(hid_t group, const char *linkname, const char *objname)
 {
     hid_t       oid;
-    H5O_info_t  oi;
+    H5O_info2_t oi;
     table_t     *old_group_table = group_table;
     table_t     *old_dset_table = dset_table;
     table_t     *old_type_table = type_table;
@@ -1972,7 +1989,7 @@ dump_extlink(hid_t group, const char *linkname, const char *objname)
         goto fail;
 
     /* Get object info */
-    if (H5Oget_info2(oid, &oi, H5O_INFO_BASIC) < 0) {
+    if (H5Oget_info3(oid, &oi, H5O_INFO_BASIC) < 0) {
         H5Oclose(oid);
         goto fail;
     }
@@ -2014,6 +2031,7 @@ dump_extlink(hid_t group, const char *linkname, const char *objname)
                 handle_datatypes(group, linkname, NULL, 0, objname);
                 break;
 
+            case H5O_TYPE_MAP:
             case H5O_TYPE_UNKNOWN:
             case H5O_TYPE_NTYPES:
             default:

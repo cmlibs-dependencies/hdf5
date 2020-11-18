@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer:  Quincey Koziol
+ * Programmer:  Quincey Koziol <koziol@ncsa.uiuc.edu>
  *              Friday, January 30, 2004
  *
  * Purpose:	Common routines for all MPI-based VFL drivers.
@@ -42,6 +42,8 @@
  *
  * Programmer:	Quincey Koziol
  *              Friday, January 30, 2004
+ *
+ * Modifications:
  *
  *-------------------------------------------------------------------------
  */
@@ -80,6 +82,8 @@ done:
  * Programmer:	Quincey Koziol
  *              Friday, January 30, 2004
  *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 int
@@ -116,6 +120,8 @@ done:
  * Programmer:	Quincey Koziol
  *              Friday, January 30, 2004
  *
+ * Modifications:
+ *
  *-------------------------------------------------------------------------
  */
 MPI_Comm
@@ -141,6 +147,44 @@ done:
 
 
 /*-------------------------------------------------------------------------
+ * Function:	H5FD_get_mpi_info
+ *
+ * Purpose:	Retrieves the file's mpi info
+ *
+ * Return:	Success:	SUCCEED
+ *
+ *		Failure:	FAIL
+ *
+ * Programmer:	John Mainzer
+ *              4/4/17
+ *
+ * Modifications:
+ *
+ *-------------------------------------------------------------------------
+ */
+herr_t
+H5FD_get_mpi_info(H5FD_t *file, void** mpi_info)
+{
+    const H5FD_class_mpi_t *cls;
+    herr_t  ret_value = SUCCEED;
+
+    FUNC_ENTER_NOAPI_NOINIT
+
+    HDassert(file);
+    cls = (const H5FD_class_mpi_t *)(file->cls);
+    HDassert(cls);
+    HDassert(cls->get_mpi_info);    /* All MPI drivers must implement this */
+
+    /* Dispatch to driver */
+    if((ret_value = (cls->get_mpi_info)(file, mpi_info)) < 0)
+        HGOTO_ERROR(H5E_VFL, H5E_CANTGET, FAIL, "driver get_mpi_info request failed")
+
+done:
+    FUNC_LEAVE_NOAPI(ret_value)
+} /* end H5FD_get_mpi_info() */
+
+
+/*-------------------------------------------------------------------------
  * Function:    H5FD_mpi_MPIOff_to_haddr
  *
  * Purpose:     Convert an MPI_Offset value to haddr_t.
@@ -153,6 +197,13 @@ done:
  * Programmer:  Unknown
  *              January 30, 1998
  *
+ * Modifications:
+ * 		Robb Matzke, 1999-04-23
+ *		An error is reported for address overflows. The ADDR output
+ *		argument is optional.
+ *
+ * 		Robb Matzke, 1999-08-06
+ *		Modified to work with the virtual file layer.
  *-------------------------------------------------------------------------
  */
 haddr_t
@@ -184,6 +235,16 @@ H5FD_mpi_MPIOff_to_haddr(MPI_Offset mpi_off)
  * Programmer:  Unknown
  *              January 30, 1998
  *
+ * Modifications:
+ * 		Robb Matzke, 1999-04-23
+ *		An error is reported for address overflows. The ADDR output
+ *		argument is optional.
+ *
+ * 		Robb Matzke, 1999-07-28
+ *		The ADDR argument is passed by value.
+ *
+ * 		Robb Matzke, 1999-08-06
+ *		Modified to work with the virtual file layer.
  *-------------------------------------------------------------------------
  */
 herr_t
@@ -203,111 +264,6 @@ H5FD_mpi_haddr_to_MPIOff(haddr_t addr, MPI_Offset *mpi_off/*out*/)
     else
         ret_value=SUCCEED;
 
-    FUNC_LEAVE_NOAPI(ret_value)
-}
-
-
-/*-------------------------------------------------------------------------
- * Function:    H5FD_mpi_comm_info_dup
- *
- * Purpose:     Make duplicates of communicator and Info object.
- * 		If the Info object is in fact MPI_INFO_NULL, no duplicate
- * 		is made but the same value assigned to the new Info object
- * 		handle.
- *
- * Return:      Success:	Non-negative.  The new communicator and Info
- * 				object handles are returned via comm_new and
- * 				info_new pointers.
- *
- * 		Failure:	Negative.
- *
- * Programmer:  Albert Cheng
- *              Jan  8, 2003
- *-------------------------------------------------------------------------
- */
-herr_t
-H5FD_mpi_comm_info_dup(MPI_Comm comm, MPI_Info info, MPI_Comm *comm_new, MPI_Info *info_new)
-{
-    herr_t	ret_value=SUCCEED;
-    MPI_Comm	comm_dup=MPI_COMM_NULL;
-    MPI_Info	info_dup=MPI_INFO_NULL;
-    int		mpi_code;
-
-    FUNC_ENTER_NOAPI(FAIL)
-
-    /* Check arguments */
-    if (MPI_COMM_NULL == comm)
-	HGOTO_ERROR(H5E_INTERNAL, H5E_BADVALUE, FAIL, "not a valid argument")
-    if (!comm_new || !info_new)
-	HGOTO_ERROR(H5E_INTERNAL, H5E_BADVALUE, FAIL, "bad pointers")
-
-    /* Dup them.  Using temporary variables for error recovery cleanup. */
-    if (MPI_SUCCESS != (mpi_code=MPI_Comm_dup(comm, &comm_dup)))
-	HMPI_GOTO_ERROR(FAIL, "MPI_Comm_dup failed", mpi_code)
-    if (MPI_INFO_NULL != info){
-	if (MPI_SUCCESS != (mpi_code=MPI_Info_dup(info, &info_dup)))
-	    HMPI_GOTO_ERROR(FAIL, "MPI_Info_dup failed", mpi_code)
-    }else{
-	/* No dup, just copy it. */
-	info_dup = info;
-    }
-
-    /* Set MPI_ERRORS_RETURN on comm_dup so that MPI failures are not fatal,
-       and return codes can be checked and handled. May 23, 2017 FTW */
-    if (MPI_SUCCESS != (mpi_code = MPI_Comm_set_errhandler(comm_dup, MPI_ERRORS_RETURN)))
-        HMPI_GOTO_ERROR(FAIL, "MPI_Errhandler_set failed", mpi_code)
-
-    /* copy them to the return arguments */
-    *comm_new = comm_dup;
-    *info_new = info_dup;
-
-done:
-    if (FAIL == ret_value){
-	/* need to free anything created here */
-	if (MPI_COMM_NULL != comm_dup)
-	    MPI_Comm_free(&comm_dup);
-	if (MPI_INFO_NULL != info_dup)
-	    MPI_Info_free(&info_dup);
-    }
-
-    FUNC_LEAVE_NOAPI(ret_value)
-}
-
-
-/*-------------------------------------------------------------------------
- * Function:    H5FD_mpi_comm_info_free
- *
- * Purpose:     Free the communicator and Info object.
- * 		If comm or info is in fact MPI_COMM_NULL or MPI_INFO_NULL
- * 		respectively, no action occurs to it.
- *
- * Return:      Success:	Non-negative.  The values the pointers refer
- * 				to will be set to the corresponding NULL
- * 				handles.
- *
- * 		Failure:	Negative.
- *
- * Programmer:  Albert Cheng
- *              Jan  8, 2003
- *-------------------------------------------------------------------------
- */
-herr_t
-H5FD_mpi_comm_info_free(MPI_Comm *comm, MPI_Info *info)
-{
-    herr_t      ret_value=SUCCEED;
-
-    FUNC_ENTER_NOAPI(FAIL)
-
-    /* Check arguments */
-    if (!comm || !info)
-	HGOTO_ERROR(H5E_INTERNAL, H5E_BADVALUE, FAIL, "not a valid argument")
-
-    if (MPI_COMM_NULL != *comm)
-	MPI_Comm_free(comm);
-    if (MPI_INFO_NULL != *info)
-	MPI_Info_free(info);
-
-done:
     FUNC_LEAVE_NOAPI(ret_value)
 }
 
@@ -334,6 +290,9 @@ done:
  * Programmer:	rky
  *              19981207
  *
+ * Modifications:
+ *		Robb Matzke, 1999-08-09
+ *		Modified to work with the virtual file layer.
  *-------------------------------------------------------------------------
  */
 herr_t
@@ -386,6 +345,9 @@ done:
  * Programmer:	rky
  *              19981207
  *
+ * Modifications:
+ *		Robb Matzke, 1999-08-09
+ *		Modified to work with the virtual file layer.
  *-------------------------------------------------------------------------
  */
 herr_t

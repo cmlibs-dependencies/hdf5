@@ -302,7 +302,7 @@ static int test_mpio_gb_file(char *filename) {
                             "proc %d: write to mpi_off=%016llx, %lld\n",
                             mpi_rank, mpi_off, mpi_off);
                 /* set data to some trivial pattern for easy verification */
-                for (j = 0; j < MB; j++)
+                for (j = 0; j < MB; j++) 
                     *(buf + j) = (int8_t)(i * mpi_size + mpi_rank);
                 if (VERBOSE_MED)
                     HDfprintf(stdout,
@@ -526,7 +526,7 @@ static int test_mpio_1wMr(char *filename, int special_request) {
     * ==================================================*/
     irank = 0;
     for (i = 0; i < DIMSIZE; i++)
-        writedata[i] = irank * DIMSIZE + i;
+         H5_CHECKED_ASSIGN(writedata[i], uint8_t, irank * DIMSIZE + i, int)
     mpi_off = irank * DIMSIZE;
 
     /* Only one process writes */
@@ -597,7 +597,7 @@ static int test_mpio_1wMr(char *filename, int special_request) {
         return 1;
     };
     for (i = 0; i < DIMSIZE; i++) {
-        expect_val = (uint8_t)(irank * DIMSIZE + i);
+        H5_CHECKED_ASSIGN(expect_val, uint8_t, irank * DIMSIZE + i, int);
         if (readdata[i] != expect_val) {
             PRINTID;
             HDprintf("read data[%d:%d] got %02x, expect %02x\n", irank, i,

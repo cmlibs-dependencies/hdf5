@@ -685,53 +685,6 @@ unsigned FileAccPropList::getGcReferences() const
 }
 
 //--------------------------------------------------------------------------
-// Function:    FileAccPropList::setFileLocking
-///\brief       Sets file locking flags.
-///\param       use_file_locking - IN: Flag that determines if file locks should
-//                  be used or not.
-///\param       ignore_when_disabled - IN: Flag that determines if file locks
-//                  should be be used when disabled on the file system or not.
-///\exception   H5::PropListIException
-///\par Description
-///             For information, please refer to the H5Pset_file_locking API in
-///             the HDF5 C Reference Manual.
-// Programmer   Dana Robinson - 2020
-//--------------------------------------------------------------------------
-void FileAccPropList::setFileLocking(hbool_t use_file_locking, hbool_t ignore_when_disabled) const
-{
-    herr_t ret_value = H5Pset_file_locking(id, use_file_locking, ignore_when_disabled);
-
-    if (ret_value < 0)
-    {
-        throw PropListIException("FileAccPropList::setFileLocking", "H5Pset_file_locking failed");
-    }
-}
-
-//--------------------------------------------------------------------------
-// Function:    FileAccPropList::getFileLocking
-///\brief       Gets file locking flags.
-///\param       use_file_locking - OUT: Flag that determines if file locks
-//                  should be used or not.
-///\param       ignore_when_disabled - OUT: Flag that determines if file locks
-//                  should be be used when disabled on the file system or not.
-///\exception   H5::PropListIException
-///\par Description
-///             For information, please refer to the H5Pget_file_locking API in
-///             the HDF5 C Reference Manual.
-// Programmer   Dana Robinson - 2020
-//--------------------------------------------------------------------------
-void FileAccPropList::getFileLocking(hbool_t& use_file_locking, hbool_t& ignore_when_disabled) const
-{
-    herr_t ret_value = H5Pget_file_locking(id, &use_file_locking, &ignore_when_disabled);
-
-    if (ret_value < 0)
-    {
-        throw PropListIException("FileAccPropList::getFileLocking", "H5Pget_file_locking failed");
-    }
-}
-
-
-//--------------------------------------------------------------------------
 // Function:    FileAccPropList::setLibverBounds
 ///\brief       Sets bounds on versions of library format to be used when creating
 ///             or writing objects.
@@ -743,10 +696,14 @@ void FileAccPropList::getFileLocking(hbool_t& use_file_locking, hbool_t& ignore_
 ///             Valid values of \a libver_low are as follows:
 ///             \li \c H5F_LIBVER_EARLIEST   (Default)
 ///             \li \c H5F_LIBVER_18
+///             \li \c H5F_LIBVER_110
+///             \li \c H5F_LIBVER_112
 ///             \li \c H5F_LIBVER_LATEST
 ///
 ///             Valid values of \a libver_high are as follows:
 ///             \li \c H5F_LIBVER_18
+///             \li \c H5F_LIBVER_110
+///             \li \c H5F_LIBVER_112
 ///             \li \c H5F_LIBVER_LATEST   (Default)
 ///
 ///             For more detail, please refer to the H5Pset_libver_bounds API in
@@ -776,10 +733,14 @@ void FileAccPropList::setLibverBounds(H5F_libver_t libver_low, H5F_libver_t libv
 ///             values:
 ///             \li \c H5F_LIBVER_EARLIEST
 ///             \li \c H5F_LIBVER_18
+///             \li \c H5F_LIBVER_110
+///             \li \c H5F_LIBVER_112
 ///             \li \c H5F_LIBVER_LATEST
 ///
 ///             and \a libver_high:
 ///             \li \c H5F_LIBVER_18
+///             \li \c H5F_LIBVER_110
+///             \li \c H5F_LIBVER_112
 ///             \li \c H5F_LIBVER_LATEST
 // Programmer   Binh-Minh Ribler - March, 2015
 //--------------------------------------------------------------------------

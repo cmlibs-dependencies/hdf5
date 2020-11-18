@@ -15,7 +15,7 @@
  *
  * Created:		H5Ochunk.c
  *			Jul 13 2008
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		Object header chunk routines.
  *
@@ -84,6 +84,7 @@ H5FL_DEFINE(H5O_chunk_proxy_t);
  * Return:      SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Jul 13 2008
  *
  *-------------------------------------------------------------------------
@@ -145,13 +146,14 @@ done:
 
 
 /*-------------------------------------------------------------------------
- * Function:    H5O__chunk_protect
+ * Function:    H5O_chunk_protect
  *
  * Purpose:     Protect an object header chunk for modifications
  *
  * Return:      SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Jul 17 2008
  *
  *-------------------------------------------------------------------------
@@ -225,6 +227,7 @@ done:
  * Return:      SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Jul 17 2008
  *
  *-------------------------------------------------------------------------
@@ -275,6 +278,7 @@ done:
  * Return:      SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		May  6 2010
  *
  *-------------------------------------------------------------------------
@@ -315,6 +319,7 @@ done:
  * Return:      SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Jul 13 2008
  *
  *-------------------------------------------------------------------------
@@ -353,7 +358,7 @@ H5O__chunk_update_idx(H5F_t *f, H5O_t *oh, unsigned idx)
         HGOTO_ERROR(H5E_OHDR, H5E_CANTUNPROTECT, FAIL, "unable to release object header chunk")
 
 done:
-    FUNC_LEAVE_NOAPI_TAG(ret_value)
+    FUNC_LEAVE_NOAPI(ret_value)
 } /* end H5O__chunk_update_idx() */
 
 
@@ -365,6 +370,7 @@ done:
  * Return:      SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Jul 13 2008
  *
  *-------------------------------------------------------------------------
@@ -409,6 +415,7 @@ done:
  * Return:      SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *              koziol@hdfgroup.org
  *              July 13, 2008
  *
  *-------------------------------------------------------------------------

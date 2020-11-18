@@ -25,8 +25,8 @@ LIB = $(lib_LIBRARIES) $(lib_LTLIBRARIES) $(noinst_LIBRARIES)                 \
       $(noinst_LTLIBRARIES) $(check_LIBRARIES) $(check_LTLIBRARIES) $(EXTRA_LIB)
 PROGS = $(bin_PROGRAMS) $(bin_SCRIPTS) $(noinst_PROGRAMS) $(noinst_SCRIPTS)   \
         $(EXTRA_PROG)
-chk_TESTS = $(check_PROGRAMS) $(check_SCRIPTS) $(EXTRA_TEST)
-TESTS = $(TEST_PROG) $(TEST_SCRIPT) $(EXTRA_TEST)
+chk_TESTS = $(check_PROGRAMS) $(check_SCRIPTS) $(EXTRA_TEST) 
+TESTS = $(TEST_PROG) $(TEST_SCRIPT) $(EXTRA_TEST) 
 
 TEST_EXTENSIONS = .sh
 SH_LOG_COMPILER = $(SHELL)
@@ -153,10 +153,16 @@ $(TEST_PROG_CHKEXE) $(TEST_PROG_PARA_CHKEXE) dummy.chkexe_:
                  fi; \
               fi; \
               if test -n "$(REALTIMEOUTPUT)"; then \
+                if test -n "$(HDF5_VOL_CONNECTOR)"; then \
+                  echo "VOL connector: $(HDF5_VOL_CONNECTOR)" | tee -a $${log}; \
+                fi; \
                 if test -n "$(HDF5_DRIVER)"; then \
                   echo "Virtual file driver (VFD): $(HDF5_DRIVER)" | tee -a $${log}; \
                 fi; \
               else \
+                if test -n "$(HDF5_VOL_CONNECTOR)"; then \
+                  echo "VOL connector: $(HDF5_VOL_CONNECTOR)" >> $${log}; \
+                fi; \
                 if test -n "$(HDF5_DRIVER)"; then \
                   echo "Virtual file driver (VFD): $(HDF5_DRIVER)" >> $${log}; \
                 fi; \
@@ -192,7 +198,7 @@ $(TEST_PROG_CHKEXE) $(TEST_PROG_PARA_CHKEXE) dummy.chkexe_:
               fi; \
 	   fi; \
 	fi
-
+ 
 # The dummysh.chkexe here prevents the target from being
 # empty if there are no tests in the current directory.
 # $${log} is the log file.
@@ -273,5 +279,19 @@ check-vfd: $(LIB) $(PROGS) $(chk_TESTS)
 	        echo "============================";                          \
 	        $(MAKE) $(AM_MAKEFLAGS) check-clean || exit 1;                \
 	        HDF5_DRIVER=$$vfd $(MAKE) $(AM_MAKEFLAGS) check || exit 1;    \
+	    fi;                                                               \
+	done
+
+# Run test with different passthrough Virtual Object Layer Connector
+# NOTE: Will only succeed with passthrough VOL connectors that use
+#       the native VOL connector as the terminal connector.
+check-passthrough-vol: $(LIB) $(PROGS) $(chk_TESTS)
+	@for vol in $(VOL_LIST) dummy; do                                     \
+	    if test "$$vol" != dummy; then                                    \
+	        echo "============================";                          \
+	        echo "Testing VOL Connector: \"$$vol\"";                      \
+	        echo "============================";                          \
+	        $(MAKE) $(AM_MAKEFLAGS) check-clean || exit 1;                \
+	        HDF5_VOL_CONNECTOR="$$vol" $(MAKE) $(AM_MAKEFLAGS) check || exit 1;    \
 	    fi;                                                               \
 	done

@@ -23,13 +23,14 @@ set (examples
     h5_select
     h5_attribute
     h5_mount
-    h5_reference
+    h5_ref_extern
+    h5_ref_compat
+    h5_reference_deprec
     h5_drivers
-    h5_ref2reg
+    h5_ref2reg_deprec
     h5_extlink
     h5_elink_unix2win
     h5_shared_mesg
-    h5_debug_trace
     h5_vds
     h5_vds-exc
     h5_vds-exclim

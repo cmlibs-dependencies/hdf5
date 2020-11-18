@@ -22,7 +22,6 @@ set (testphdf5_SOURCES
 
 #-- Adding test for testhdf5
 add_executable (testphdf5 ${testphdf5_SOURCES})
-target_compile_options(testphdf5 PRIVATE "${HDF5_CMAKE_C_FLAGS}")
 target_include_directories (testphdf5
     PRIVATE "${HDF5_SRC_DIR};${HDF5_BINARY_DIR};$<$<BOOL:${HDF5_ENABLE_PARALLEL}>:${MPI_C_INCLUDE_DIRS}>"
 )
@@ -41,7 +40,6 @@ set_target_properties (testphdf5 PROPERTIES FOLDER test/par)
 
 MACRO (ADD_H5P_EXE file)
   add_executable (${file} ${HDF5_TEST_PAR_SOURCE_DIR}/${file}.c)
-  target_compile_options(${file} PRIVATE "${HDF5_CMAKE_C_FLAGS}")
   target_include_directories (${file}
       PRIVATE "${HDF5_SRC_DIR};${HDF5_BINARY_DIR};$<$<BOOL:${HDF5_ENABLE_PARALLEL}>:${MPI_C_INCLUDE_DIRS}>"
   )
@@ -74,6 +72,7 @@ set (H5P_TESTS
     t_init_term
     t_shapesame
     t_filters_parallel
+    t_2Gio
 )
 
 foreach (h5_testp ${H5P_TESTS})

@@ -15,7 +15,7 @@
  *
  * Created:		H5Abtree2.c
  *			Dec  4 2006
- *			Quincey Koziol
+ *			Quincey Koziol <koziol@hdfgroup.org>
  *
  * Purpose:		v2 B-tree callbacks for indexing attributes on objects
  *
@@ -152,6 +152,7 @@ const H5B2_class_t H5A_BT2_CORDER[1]={{ /* B-tree class information */
  * Return:	SUCCEED/FAIL
  *
  * Programmer:	Quincey Koziol
+ *		koziol@hdfgroup.org
  *		Dec  4 2006
  *
  *-------------------------------------------------------------------------

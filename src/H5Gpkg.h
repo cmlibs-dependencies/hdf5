@@ -12,7 +12,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*
- * Programmer: Robb Matzke
+ * Programmer: Robb Matzke <matzke@llnl.gov>
  *             Thursday, September 18, 1997
  *
  * Purpose:     This file contains declarations which are visible
@@ -336,7 +336,6 @@ H5_DLL herr_t H5G__get_info_by_name(const H5G_loc_t *loc, const char *name,
     H5G_info_t *grp_info);
 H5_DLL herr_t H5G__get_info_by_idx(const H5G_loc_t *loc, const char *group_name,
     H5_index_t idx_type, H5_iter_order_t order, hsize_t n, H5G_info_t *grp_info);
-H5_DLL herr_t H5G__close_cb(H5G_t *grp);
 
 /*
  * Group hierarchy traversal routines
@@ -373,7 +372,7 @@ H5_DLL ssize_t H5G__stab_get_name_by_idx(const H5O_loc_t *oloc, H5_iter_order_t 
     hsize_t n, char* name, size_t size);
 H5_DLL herr_t H5G__stab_remove(const H5O_loc_t *oloc, H5RS_str_t *grp_full_path_r,
     const char *name);
-H5_DLL herr_t H5G__stab_remove_by_idx(const H5O_loc_t *oloc,
+H5_DLL herr_t H5G__stab_remove_by_idx(const H5O_loc_t *oloc, 
     H5RS_str_t *grp_full_path_r, H5_iter_order_t order, hsize_t n);
 H5_DLL herr_t H5G__stab_lookup(const H5O_loc_t *grp_oloc, const char *name,
     H5O_link_t *lnk);
@@ -382,9 +381,6 @@ H5_DLL herr_t H5G__stab_lookup_by_idx(const H5O_loc_t *grp_oloc, H5_iter_order_t
 #ifndef H5_STRICT_FORMAT_CHECKS
 H5_DLL herr_t H5G__stab_valid(H5O_loc_t *grp_oloc, H5O_stab_t *alt_stab);
 #endif /* H5_STRICT_FORMAT_CHECKS */
-#ifndef H5_NO_DEPRECATED_SYMBOLS
-H5_DLL H5G_obj_t H5G__stab_get_type_by_idx(H5O_loc_t *oloc, hsize_t idx);
-#endif /* H5_NO_DEPRECATED_SYMBOLS */
 
 
 /*
@@ -438,7 +434,7 @@ H5_DLL ssize_t H5G__compact_get_name_by_idx(const H5O_loc_t *oloc,
     hsize_t idx, char *name, size_t size);
 H5_DLL herr_t H5G__compact_remove(const H5O_loc_t *oloc, H5RS_str_t *grp_full_path_r,
     const char *name);
-H5_DLL herr_t H5G__compact_remove_by_idx(const H5O_loc_t *oloc,
+H5_DLL herr_t H5G__compact_remove_by_idx(const H5O_loc_t *oloc, 
     const H5O_linfo_t *linfo, H5RS_str_t *grp_full_path_r, H5_index_t idx_type,
     H5_iter_order_t order, hsize_t n);
 H5_DLL herr_t H5G__compact_iterate(const H5O_loc_t *oloc,
@@ -449,10 +445,6 @@ H5_DLL htri_t H5G__compact_lookup(const H5O_loc_t *grp_oloc, const char *name,
 H5_DLL herr_t H5G__compact_lookup_by_idx(const H5O_loc_t *oloc,
     const H5O_linfo_t *linfo, H5_index_t idx_type, H5_iter_order_t order,
     hsize_t n, H5O_link_t *lnk);
-#ifndef H5_NO_DEPRECATED_SYMBOLS
-H5_DLL H5G_obj_t H5G__compact_get_type_by_idx(H5O_loc_t *oloc,
-    const H5O_linfo_t *linfo, hsize_t idx);
-#endif /* H5_NO_DEPRECATED_SYMBOLS */
 
 /* Functions that understand "dense" link storage */
 H5_DLL herr_t H5G__dense_build_table(H5F_t *f, const H5O_linfo_t *linfo,
@@ -477,10 +469,6 @@ H5_DLL herr_t H5G__dense_remove_by_idx(H5F_t *f, const H5O_linfo_t *linfo,
     H5RS_str_t *grp_full_path_r, H5_index_t idx_type, H5_iter_order_t order,
     hsize_t n);
 H5_DLL herr_t H5G__dense_delete(H5F_t *f, H5O_linfo_t *linfo, hbool_t adj_link);
-#ifndef H5_NO_DEPRECATED_SYMBOLS
-H5_DLL H5G_obj_t H5G__dense_get_type_by_idx(H5F_t  *f, H5O_linfo_t *linfo,
-    hsize_t idx);
-#endif /* H5_NO_DEPRECATED_SYMBOLS */
 
 /* Functions that understand group objects */
 H5_DLL herr_t H5G__obj_create(H5F_t *f, H5G_obj_create_t *gcrt_info,
@@ -495,6 +483,10 @@ H5_DLL herr_t H5G__obj_iterate(const H5O_loc_t *grp_oloc,
 H5_DLL herr_t H5G__obj_info(const H5O_loc_t *oloc, H5G_info_t *grp_info);
 H5_DLL htri_t H5G__obj_lookup(const H5O_loc_t *grp_oloc, const char *name,
     H5O_link_t *lnk);
+#ifndef H5_NO_DEPRECATED_SYMBOLS
+H5_DLL herr_t H5G__get_objinfo(const H5G_loc_t *loc, const char *name,
+    hbool_t follow_link, H5G_stat_t *statbuf/*out*/);
+#endif /* H5_NO_DEPRECATED_SYMBOLS */
 
 /*
  * These functions operate on group hierarchy names.
@@ -506,6 +498,8 @@ H5_DLL herr_t H5G__name_init(H5G_name_t *name, const char *path);
  */
 H5_DLL herr_t H5G__loc_insert(H5G_loc_t *grp_loc, const char *name,
     H5G_loc_t *obj_loc, H5O_type_t obj_type, const void *crt_info);
+H5_DLL herr_t H5G__loc_addr(const H5G_loc_t *loc, const char *name,
+    haddr_t *addr/*out*/);
 
 /* Testing functions */
 #ifdef H5G_TESTING

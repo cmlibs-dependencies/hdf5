@@ -15,7 +15,7 @@
  *
  * Created:         H5HL.c
  *                  Jul 16 1997
- *                  Robb Matzke
+ *                  Robb Matzke <matzke@llnl.gov>
  *
  * Purpose:         Heap functions for the local heaps used by symbol
  *                  tables to store names (among other things).
