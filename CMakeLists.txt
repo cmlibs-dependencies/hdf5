@@ -5,6 +5,10 @@ if (POLICY CMP0074)
   cmake_policy (SET CMP0074 NEW)
 endif ()
 
+if (POLICY CMP0077)
+  cmake_policy (SET CMP0077 NEW)
+endif ()
+
 if (POLICY CMP0083)
   cmake_policy (SET CMP0083 NEW)
 endif ()

@@ -1150,6 +1150,13 @@ if (NOT ONLY_SHARED_LIBS)
       PRIVATE ${LINK_LIBS} ${LINK_COMP_LIBS} "$<$<BOOL:${HDF5_ENABLE_PARALLEL}>:${MPI_C_LIBRARIES}>"
       PUBLIC $<$<NOT:$<PLATFORM_ID:Windows>>:${CMAKE_DL_LIBS}>
   )
+  if(TARGET szip)
+    target_link_libraries(${HDF5_LIB_TARGET} PUBLIC szip)
+  endif()
+  if(TARGET zlib)
+    target_link_libraries(${HDF5_LIB_TARGET} PUBLIC zlib)
+  endif()
+
   if (NOT WIN32)
     target_link_libraries (${HDF5_LIB_TARGET}
       PRIVATE $<$<BOOL:${HDF5_ENABLE_THREADSAFE}>:Threads::Threads>
