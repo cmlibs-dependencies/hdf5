@@ -9,6 +9,9 @@ if (POLICY CMP0083)
   cmake_policy (SET CMP0083 NEW)
 endif ()
 
+if (OCMS_BUILD)
+  include(OCMS-pre)
+endif()
 #-----------------------------------------------------------------------------
 # Instructions for use : Normal Build
 #
@@ -1047,3 +1050,8 @@ option (HDF5_USE_PREGEN "Use pre-generated Files" OFF)
 option (HDF5_BATCH_H5DETECT "Use a batch command for running h5detect" OFF)
 
 include (CMakeInstallation.cmake)
+
+if (OCMS_BUILD)
+  include(OCMS-post)
+endif()
+
