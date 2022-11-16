@@ -13,8 +13,8 @@ if (POLICY CMP0083)
   cmake_policy (SET CMP0083 NEW)
 endif ()
 
-if (OCMS_BUILD)
-  include(OCMS-pre.cmake)
+if (CMLIBS_BUILD)
+  include(CMLIBS-pre.cmake)
 endif()
 
 #-----------------------------------------------------------------------------
@@ -1049,7 +1049,7 @@ option (HDF5_BATCH_H5DETECT "Use a batch command for running h5detect" OFF)
 
 include (CMakeInstallation.cmake)
 
-if (OCMS_BUILD)
-  include(OCMS-post.cmake)
+if (CMLIBS_BUILD)
+  include(CMLIBS-post.cmake)
 endif()
 
